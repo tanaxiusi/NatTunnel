@@ -1,22 +1,63 @@
-﻿NAT类型检测:
+﻿:Tcp表示Tcp连接
+:1 和 :2表示Udp
+:Kcp表示Kcp连接
+
+NAT类型检测:
 	Step1:
 		Client已知Server:1和Server:2
-		Client:1->Server:2	.....[CheckNatStep1]
-		Server:1收到Client:1后，开始Server:1->Client:1(一定通) 和 Server:2->Client:1	.......[CheckNatStep1]
-		Client:1收到Server:1或Server:2后停止发送
-		Client:1收到Server:1时开始计时，如果Client:1在规定时间内或提前收到了Server:2，就判定为PublicNetwork或FullOrRestrictedConeNat(partlyType1)，否则判定为PortRestrictedConeNat或SymmetricNat(partlyType2)
-		Client:Tcp把结果发给Server，如果是partlyType1，还要发送Client:2的本地端口过去	......[CheckNatStep1]
-		Server停止发送
+		Client:1->Server:1[checkNatStep1](参数:userName)
+		Server:1收到Client:1[checkNatStep1]后，开始Server:1->Client:1[checkNatStep1](参数：userName)(一定通) 和 Server:2->Client:1[checkNatStep1](参数：userName)
+		Client:1收到Server:1或Server:2[checkNatStep1]后停止发送
+		Client:1收到Server:1[checkNatStep1]后开始计时，如果Client:1在规定时间内或提前收到了Server:2[checkNatStep1]，就判定为PublicNetwork或FullOrRestrictedConeNat(partlyType1)，否则判定为PortRestrictedConeNat或SymmetricNat(partlyType2)
+		Client:Tcp->Server:Tcp[checkNatStep1](参数：partlyType、Client:2本地端口(可选))，如果是partlyType1，要添加参数：Client:2本地端口
+		Server:Tcp收到Client:Tcp[checkNatStep1]后停止发送，并记录partlyType
 
 	Step2:
-		PublicNetwork或FullOrRestrictedConeNat:
-			Server:Tcp收到结果后开始Server:1/2->Client:1(一定通) 和 Server:1/2->Client:2	.....[CheckNatStep2Type1]
-			Client:1收到Server:1/2时开始计时，如果Client:2在规定时间内或提前收到了Server:1/2，就判定为PublicNetwork，否则判定为FullOrRestrictedConeNat
-			Client:Tcp把结果发给Server	.......[CheckNatStep2Type1]
-			Server停止发送
+		PublicNetwork或FullOrRestrictedConeNat(partlyType1):
+			(接上一条)Server:Tcp收到Client:Tcp[checkNatStep1]后，Server:1/2->Client:1[checkNatStep2Type1](参数：userName)(一定通) 和 Server:1/2->Client:2[checkNatStep2Type1](参数：userName)
+			Client:1收到Server:1/2[checkNatStep2Type1]后开始计时，如果Client:2在规定时间内或提前收到了Server:1/2[checkNatStep2Type1]，就判定为PublicNetwork，否则判定为FullOrRestrictedConeNat
+			Client:Tcp->Server:Tcp[checkNatStep2Type1](参数：natType)
+			Server:Tcp收到Client:Tcp[checkNatStep2Type1]后停止发送
 
-		PortRestrictedConeNat或SymmetricNat:
-			Client:1->Server:2	.......[CheckNatStep2Type2]
-			Server:2收到Client:1，如果与Server:1收到的端口号不同，判定为SymmetricNat，否则判定为PortRestrictedConeNat
-			Server:Tcp把结果发给Client	.....[CheckNatStep2Type2]
-			Client停止发送
+		PortRestrictedConeNat或SymmetricNat(partlyType2):
+			Client:1->Server:2[checkNatStep2Type2](参数：userName)
+			Server:2收到Client:1[checkNatStep2Type2]，如果与Server:1收到的端口号不同，判定为SymmetricNat，否则判定为PortRestrictedConeNat
+			Server:Tcp->Client:Tcp[checkNatStep2Type2](参数：natType)
+			Client:Tcp收到Server:Tcp[checkNatStep2Type2]后停止发送
+			
+上面有些步骤写着“Server:1/2”，表示理论上用1或2都可以，实际上用1。
+			
+会话发起：
+	ClientA:Tcp->Server:Tcp[TryTunneling](参数：对方用户名)
+	Server:Tcp收到ClientA:Tcp后，检查对方是否在线，然后Server:Tcp->ClientA:Tcp[TryTunneling](参数：对方是否在线)
+	如果对方在线，ClientA弹框输入密码，完了后ClientA:Tcp->Server:Tcp[ReadyTunneling](参数：对方用户名、对方本地密码，RequestId)
+	Server:Tcp收到ClientA:Tcp后，生成TunnelId，记录<TunnelId,ClientAUSerName,ClientBUSerName>，然后Server:Tcp->ClientA:Tcp[ReadyTunneling](参数：TunnelId、RequestId)
+	ClientA:Tcp收到Server:Tcp后，记录<TunnelId,ClientAUSerName,ClientBUSerName>
+	Server判断双方NAT类型，如果
+	Server:Tcp->ClientB:Tcp[StartTunneling](参数：TunnelId、本地密码、A的IP和端口)
+	ClientB判断本地密码是否正确，如果正确，记录<TunnelId-对方IP和端口>表，并创建Kcp连接，如果对方端口为0，则启用“等待模式”，在该模式下，把第一个从对方IP传来的Udp数据包的端口记录下来
+	ClientB:Tcp->Server:Tcp[StartTunneling](参数：TunnelId、本地密码是否正确)
+	Server:Tcp收到ClientB:Tcp后：
+		如果密码正确，Server:Tcp->ClientA:Tcp[Tunneling](参数：TunnelId、B的IP和端口)
+		ClientA:Tcp收到Server:Tcp[Tunneling]后，也创建Kcp连接，同上
+		
+		如果密码错误，删除TunnelId，然后Server:Tcp->ClientA:Tcp[CloseTunneling](参数：TunnelId)
+		ClientA:Tcp收到Server:Tcp[CloseTunneling]后，删除TunnelId。
+		
+会话结束：
+	ClientA:Kcp->ClientB:Kcp[TerminateTunneling]
+	同时ClientA:Tcp->Server:Tcp[TerminateTunneling](参数：TunnelId)
+	Server:Tcp收到ClientA:Tcp[TerminateTunneling]后，删除TunnelId，Server:Tcp->ClientB:Tcp
+	ClientB:Tcp收到Server:Tcp[TerminateTunneling]后，删除TunnelId，ClientB:Kcp->ClientA:Kcp
+	
+	同时ClientA和ClientB的Kcp连接有心跳包，Server和ClientA/B的Tcp连接也有心跳包，如果某个连接断线了，就中断其他连接。
+		
+Kcp流内容：
+	Client:Kcp->ClientOther:Kcp[HandShake]
+	收到对面[HandShake]后，发送[HandShakeFinished]
+	收到对面[HandShakeFinished]后，转换为“已连接”状态
+	...
+	主动结束会话时：
+		Client:Kcp->ClientOther:Kcp[TerminateTunneling]
+		对面收到[TerminateTunneling]后，设置定时器删除对象，然后ClientOther:Kcp->Client:Kcp[ReplyTerminate]
+		收到对面[ReplyTerminate]后，删除对象

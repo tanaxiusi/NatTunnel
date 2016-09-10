@@ -44,6 +44,8 @@ bool ClientManager::start(quint16 tcpPort, quint16 udpPort1, quint16 udpPort2)
 		return false;
 	}
 
+	m_magicNumber = rand_u32();
+
 	m_running = true;
 	return true;
 }
@@ -319,6 +321,7 @@ void ClientManager::tcpResponseLogin(QTcpSocket & tcpSocket, bool loginOk, QStri
 	{
 		argument["serverUdpPort1"] = QByteArray::number(serverUdpPort1);
 		argument["serverUdpPort2"] = QByteArray::number(serverUdpPort2);
+		argument["magicNumber"] = QByteArray::number(m_magicNumber);
 	}
 	tcpSocket.write(serializeResponse("login", argument));
 	tcpSocket.write("\n");

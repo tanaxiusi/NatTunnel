@@ -95,6 +95,7 @@ private:
 	QTcpServer m_tcpServer;
 	QUdpSocket m_udpServer1;
 	QUdpSocket m_udpServer2;
+	quint32 m_magicNumber = 0;
 	QMap<QString, QString> m_mapUserPassword;
 	QMap<QTcpSocket*, ClientInfo> m_mapClientInfo;
 	QMap<QString, QTcpSocket*> m_mapUserTcpSocket;

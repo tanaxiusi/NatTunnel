@@ -7,3 +7,5 @@
 #elif defined(Q_OS_LINUX)
 #define U16(str)	QString::fromUtf8(str)
 #endif
+
+quint32 rand_u32();
