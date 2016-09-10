@@ -1,8 +1,8 @@
-#ifndef MAINDLG_H
-#define MAINDLG_H
+#pragma once
 
-#include <QtWidgets/QWidget>
+#include <QWidget>
 #include "ui_MainDlg.h"
+#include "Client.h"
 
 class MainDlg : public QWidget
 {
@@ -14,6 +14,5 @@ public:
 
 private:
 	Ui::MainDlgClass ui;
+	Client m_client;
 };
-
-#endif // MAINDLG_H

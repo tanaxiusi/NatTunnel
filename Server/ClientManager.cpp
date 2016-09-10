@@ -63,61 +63,6 @@ bool ClientManager::stop()
 	return true;
 }
 
-QByteArray ClientManager::parseRequest(QByteArray line, QByteArrayMap * outArgument)
-{
-	const QByteArray type = line.left(line.indexOf(' '));
-	if (type.isEmpty())
-		return QByteArray();
-	if (outArgument)
-	{
-		QList<QByteArray> argumentList = line.mid(type.length() + 1).split(' ');
-		for (QByteArray argumentText : argumentList)
-		{
-			const int equalPos = argumentText.indexOf('=');
-			if (equalPos < 0)
-				return QByteArray();
-			QByteArray argumentName = argumentText.left(equalPos);
-			QByteArray argumentValue = QByteArray::fromHex(argumentText.mid(equalPos + 1));
-			(*outArgument)[argumentName] = argumentValue;
-		}
-	}
-	return type;
-}
-
-QByteArray ClientManager::serializeResponse(QByteArray type, QByteArrayMap argument)
-{
-	if (type.contains(" "))
-		return QByteArray();
-	QByteArray line = type;
-
-	for (auto iter = argument.constBegin(); iter != argument.constEnd(); ++iter)
-	{
-		const QByteArray & argumentName = iter.key();
-		const QByteArray & argumentValue = iter.value();
-
-		if (argumentName.contains("=") || argumentName.contains(" "))
-			return QByteArray();
-
-		line.append(" ");
-		line.append(argumentName);
-		line.append("=");
-		line.append(argumentName.toHex());
-	}
-	return line;
-}
-
-QByteArray ClientManager::checksumThenUnpackUdpPackage(QByteArray package)
-{
-	if (package.size() < 4)
-		return QByteArray();
-	const QByteArray content = QByteArray::fromRawData(package.constData() + 4, package.size() - 4);
-	const uint32_t receivedCrc = *(uint32_t*)package.constData();
-	const uint32_t actualCrc = crc32(content.constData(), content.size());
-	if (receivedCrc != actualCrc)
-		return QByteArray();
-	return content;
-}
-
 void ClientManager::onTcpNewConnection()
 {
 	while (m_tcpServer.hasPendingConnections())
@@ -171,40 +116,18 @@ void ClientManager::onTcpReadyRead()
 		if (line.endsWith('\n'))
 			line.chop(1);
 
-		dealTcpRequest(line, *tcpSocket, client);
+		dealTcpIn(line, *tcpSocket, client);
 	}
 }
 
 void ClientManager::onUdp1ReadyRead()
 {
-	while (m_udpServer1.hasPendingDatagrams())
-	{
-		char buffer[2000];
-		QHostAddress hostAddress;
-		quint16 port = 0;
-		const int bufferSize = m_udpServer1.readDatagram(buffer, sizeof(buffer), &hostAddress, &port);
-		const QByteArray package = checksumThenUnpackUdpPackage(QByteArray::fromRawData(buffer, bufferSize));
-		if(package.isEmpty())
-			continue;
-		if (!package.contains('\n'))
-			dealUdpRequest(1, package, hostAddress, port);
-	}
+	onUdpReadyRead(1);
 }
 
 void ClientManager::onUdp2ReadyRead()
 {
-	while (m_udpServer2.hasPendingDatagrams())
-	{
-		char buffer[2000];
-		QHostAddress hostAddress;
-		quint16 port = 0;
-		const int bufferSize = m_udpServer2.readDatagram(buffer, sizeof(buffer), &hostAddress, &port);
-		const QByteArray package = checksumThenUnpackUdpPackage(QByteArray::fromRawData(buffer, bufferSize));
-		if (package.isEmpty())
-			continue;
-		if (!package.contains('\n'))
-			dealUdpRequest(2, package, hostAddress, port);
-	}
+	onUdpReadyRead(2);
 }
 
 void ClientManager::timerFunction300ms()
@@ -232,6 +155,16 @@ void ClientManager::timerFunction300ms()
 	}
 }
 
+QUdpSocket * ClientManager::getUdpServer(int index)
+{
+	if (index == 1)
+		return &m_udpServer1;
+	else if (index == 2)
+		return &m_udpServer2;
+	else
+		return nullptr;
+}
+
 void ClientManager::disconnectClient(QTcpSocket & tcpSocket)
 {
 	tcpSocket.disconnectFromHost();
@@ -256,7 +189,26 @@ void ClientManager::sendUdp(int index, QByteArray package, QHostAddress hostAddr
 	udpSocket->writeDatagram(package, hostAddress, port);
 }
 
-void ClientManager::dealTcpRequest(QByteArray line, QTcpSocket & tcpSocket, ClientInfo & client)
+void ClientManager::onUdpReadyRead(int localIndex)
+{
+	QUdpSocket * udpServer = getUdpServer(localIndex);
+	while (udpServer->hasPendingDatagrams())
+	{
+		char buffer[2000];
+		QHostAddress hostAddress;
+		quint16 port = 0;
+		const int bufferSize = udpServer->readDatagram(buffer, sizeof(buffer), &hostAddress, &port);
+		QByteArray package = checksumThenUnpackUdpPackage(QByteArray::fromRawData(buffer, bufferSize));
+		if (package.isEmpty())
+			continue;
+		if (package.endsWith('\n'))
+			package.chop(1);
+		if (!package.contains('\n'))
+			dealUdpIn(1, package, hostAddress, port);
+	}
+}
+
+void ClientManager::dealTcpIn(QByteArray line, QTcpSocket & tcpSocket, ClientInfo & client)
 {
 	QByteArrayMap argument;
 	QByteArray type = parseRequest(line, &argument);
@@ -265,19 +217,19 @@ void ClientManager::dealTcpRequest(QByteArray line, QTcpSocket & tcpSocket, Clie
 
 	if (type == "login")
 	{
-		tcpRequestLogin(tcpSocket, client, argument.value("userUame"), argument.value("password"));
+		tcpIn_login(tcpSocket, client, argument.value("userName"), argument.value("password"));
 	}
 	else if (type == "checkNatStep1")
 	{
-		tcpRequestCheckNatStep1(tcpSocket, client, argument.value("partlyType").toInt(), argument.value("clientUdp2LocalPort").toInt());
+		tcpIn_checkNatStep1(tcpSocket, client, argument.value("partlyType").toInt(), argument.value("clientUdp2LocalPort").toInt());
 	}
 	else if (type == "checkNatStep2Type1")
 	{
-		tcpRequestCheckNatStep2Type1(tcpSocket, client, (NatType)argument.value("natType").toInt());
+		tcpIn_checkNatStep2Type1(tcpSocket, client, (NatType)argument.value("natType").toInt());
 	}
 }
 
-void ClientManager::dealUdpRequest(int index, const QByteArray & line, QHostAddress hostAddress, quint16 port)
+void ClientManager::dealUdpIn(int index, const QByteArray & line, QHostAddress hostAddress, quint16 port)
 {
 	QByteArrayMap argument;
 	QByteArray type = parseRequest(line, &argument);
@@ -295,24 +247,30 @@ void ClientManager::dealUdpRequest(int index, const QByteArray & line, QHostAddr
 
 	if (type == "checkNatStep1")
 	{
-		udpRequestCheckNatStep1(index, *tcpSocket, client, hostAddress, port);
+		udpIn_checkNatStep1(index, *tcpSocket, client, hostAddress, port);
 	}
 	else if (type == "checkNatStep2Type2")
 	{
-		udpRequestCheckNatStep2Type2(index, *tcpSocket, client, port);
+		udpIn_checkNatStep2Type2(index, *tcpSocket, client, port);
 	}
 }
 
-void ClientManager::tcpRequestLogin(QTcpSocket & tcpSocket, ClientInfo & client, QString userName, QString password)
+void ClientManager::tcpIn_login(QTcpSocket & tcpSocket, ClientInfo & client, QString userName, QString password)
 {
 	QString msg;
 	if (login(tcpSocket, client, userName, password, &msg))
-		tcpResponseLogin(tcpSocket, true, msg, m_udpServer1.localPort(), m_udpServer2.localPort());
+	{
+		tcpOut_login(tcpSocket, true, msg, m_udpServer1.localPort(), m_udpServer2.localPort());
+		client.natStatus = Step1_1WaitingForClient1;
+		client.beginWaitTime = QTime::currentTime();
+	}
 	else
-		tcpResponseLogin(tcpSocket, false, msg);
+	{
+		tcpOut_login(tcpSocket, false, msg);
+	}
 }
 
-void ClientManager::tcpResponseLogin(QTcpSocket & tcpSocket, bool loginOk, QString msg, quint16 serverUdpPort1, quint16 serverUdpPort2)
+void ClientManager::tcpOut_login(QTcpSocket & tcpSocket, bool loginOk, QString msg, quint16 serverUdpPort1, quint16 serverUdpPort2)
 {
 	QByteArrayMap argument;
 	argument["loginOk"] = loginOk ? "1" : "0";
@@ -324,7 +282,6 @@ void ClientManager::tcpResponseLogin(QTcpSocket & tcpSocket, bool loginOk, QStri
 		argument["magicNumber"] = QByteArray::number(m_magicNumber);
 	}
 	tcpSocket.write(serializeResponse("login", argument));
-	tcpSocket.write("\n");
 }
 
 bool ClientManager::login(QTcpSocket & tcpSocket, ClientInfo & client, QString userName, QString password, QString * outMsg)
@@ -354,7 +311,7 @@ bool ClientManager::login(QTcpSocket & tcpSocket, ClientInfo & client, QString u
 	}
 }
 
-void ClientManager::udpRequestCheckNatStep1(int index, QTcpSocket & tcpSocket, ClientInfo & client, QHostAddress clientUdp1HostAddress, quint16 clientUdp1Port1)
+void ClientManager::udpIn_checkNatStep1(int index, QTcpSocket & tcpSocket, ClientInfo & client, QHostAddress clientUdp1HostAddress, quint16 clientUdp1Port1)
 {
 	if (index != 1)
 		return;
@@ -369,7 +326,7 @@ void ClientManager::udpRequestCheckNatStep1(int index, QTcpSocket & tcpSocket, C
 	m_lstNeedSendUdp.insert(&tcpSocket);
 }
 
-void ClientManager::tcpRequestCheckNatStep1(QTcpSocket & tcpSocket, ClientInfo & client, int partlyType, quint16 clientUdp2LocalPort )
+void ClientManager::tcpIn_checkNatStep1(QTcpSocket & tcpSocket, ClientInfo & client, int partlyType, quint16 clientUdp2LocalPort )
 {
 	if (client.status != LoginedStatus || client.natStatus != Step1_12SendingToClient1)
 	{
@@ -387,6 +344,7 @@ void ClientManager::tcpRequestCheckNatStep1(QTcpSocket & tcpSocket, ClientInfo &
 	else if (partlyType == 2)
 	{
 		client.natStatus = Step2_Type2_2WaitingForClient1;
+		client.beginWaitTime = QTime::currentTime();
 	}
 	else
 	{
@@ -394,7 +352,7 @@ void ClientManager::tcpRequestCheckNatStep1(QTcpSocket & tcpSocket, ClientInfo &
 	}
 }
 
-void ClientManager::tcpRequestCheckNatStep2Type1(QTcpSocket & tcpSocket, ClientInfo & client, NatType natType)
+void ClientManager::tcpIn_checkNatStep2Type1(QTcpSocket & tcpSocket, ClientInfo & client, NatType natType)
 {
 	if (client.status != LoginedStatus || client.natStatus != Step2_Type1_1SendingToClient12)
 	{
@@ -414,7 +372,7 @@ void ClientManager::tcpRequestCheckNatStep2Type1(QTcpSocket & tcpSocket, ClientI
 	}
 }
 
-void ClientManager::udpRequestCheckNatStep2Type2(int index, QTcpSocket & tcpSocket, ClientInfo & client, quint16 clientUdp1Port2)
+void ClientManager::udpIn_checkNatStep2Type2(int index, QTcpSocket & tcpSocket, ClientInfo & client, quint16 clientUdp1Port2)
 {
 	if (index != 2)
 		return;
@@ -425,13 +383,12 @@ void ClientManager::udpRequestCheckNatStep2Type2(int index, QTcpSocket & tcpSock
 	else
 		client.natType = PortRestrictedConeNat;
 	client.natStatus = NatCheckFinished;
-	tcpResponseCheckNatStep2Type2(tcpSocket, client.natType);
+	tcpOut_checkNatStep2Type2(tcpSocket, client.natType);
 }
 
-void ClientManager::tcpResponseCheckNatStep2Type2(QTcpSocket & tcpSocket, NatType natType)
+void ClientManager::tcpOut_checkNatStep2Type2(QTcpSocket & tcpSocket, NatType natType)
 {
 	QByteArrayMap argument;
 	argument["natType"] = QByteArray::number((int)natType);
 	tcpSocket.write(serializeResponse("checkNatStep2Type2", argument));
-	tcpSocket.write("\n");
 }

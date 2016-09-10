@@ -8,14 +8,14 @@ NAT类型检测:
 		Client:1->Server:1[checkNatStep1](参数:userName)
 		Server:1收到Client:1[checkNatStep1]后，开始Server:1->Client:1[checkNatStep1](参数：userName)(一定通) 和 Server:2->Client:1[checkNatStep1](参数：userName)
 		Client:1收到Server:1或Server:2[checkNatStep1]后停止发送
-		Client:1收到Server:1[checkNatStep1]后开始计时，如果Client:1在规定时间内或提前收到了Server:2[checkNatStep1]，就判定为PublicNetwork或FullOrRestrictedConeNat(partlyType1)，否则判定为PortRestrictedConeNat或SymmetricNat(partlyType2)
+		Client:1收到Server:1[checkNatStep1]后开始计时[checkNatStep1]，如果Client:1在规定时间内或提前收到了Server:2[checkNatStep1]，就判定为PublicNetwork或FullOrRestrictedConeNat(partlyType1)，否则判定为PortRestrictedConeNat或SymmetricNat(partlyType2)
 		Client:Tcp->Server:Tcp[checkNatStep1](参数：partlyType、Client:2本地端口(可选))，如果是partlyType1，要添加参数：Client:2本地端口
 		Server:Tcp收到Client:Tcp[checkNatStep1]后停止发送，并记录partlyType
 
 	Step2:
 		PublicNetwork或FullOrRestrictedConeNat(partlyType1):
 			(接上一条)Server:Tcp收到Client:Tcp[checkNatStep1]后，Server:1/2->Client:1[checkNatStep2Type1](参数：userName)(一定通) 和 Server:1/2->Client:2[checkNatStep2Type1](参数：userName)
-			Client:1收到Server:1/2[checkNatStep2Type1]后开始计时，如果Client:2在规定时间内或提前收到了Server:1/2[checkNatStep2Type1]，就判定为PublicNetwork，否则判定为FullOrRestrictedConeNat
+			Client:1收到Server:1/2[checkNatStep2Type1]后开始计时[checkNatStep2Type1]，如果Client:2在规定时间内或提前收到了Server:1/2[checkNatStep2Type1]，就判定为PublicNetwork，否则判定为FullOrRestrictedConeNat
 			Client:Tcp->Server:Tcp[checkNatStep2Type1](参数：natType)
 			Server:Tcp收到Client:Tcp[checkNatStep2Type1]后停止发送
 

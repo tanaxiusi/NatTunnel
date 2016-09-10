@@ -11,8 +11,6 @@ class ClientManager : public QObject
 {
 	Q_OBJECT
 
-	typedef QMap<QByteArray, QByteArray> QByteArrayMap;
-
 	enum ClientStatus
 	{
 		UnknownClientStatus = 0,
@@ -50,18 +48,13 @@ class ClientManager : public QObject
 	};
 
 public:
-	ClientManager(QObject *parent);
+	ClientManager(QObject *parent = 0);
 	~ClientManager();
 
 	void setUserList(QMap<QString, QString> mapUserPassword);
 
 	bool start(quint16 tcpPort, quint16 udpPort1, quint16 udpPort2);
 	bool stop();
-
-private:
-	static QByteArray parseRequest(QByteArray line, QByteArrayMap * outArgument);
-	static QByteArray serializeResponse(QByteArray type, QByteArrayMap argument);
-	static QByteArray checksumThenUnpackUdpPackage(QByteArray package);
 
 private slots:
 	void onTcpNewConnection();
@@ -72,22 +65,24 @@ private slots:
 	void timerFunction300ms();
 
 private:
+	QUdpSocket * getUdpServer(int index);
 	void disconnectClient(QTcpSocket & tcpSocket);
 	void sendUdp(int index, QByteArray package, QHostAddress hostAddress, quint16 port);
+	void onUdpReadyRead(int localIndex);
 
-	void dealTcpRequest(QByteArray line, QTcpSocket & tcpSocket, ClientInfo & client);
-	void dealUdpRequest(int index, const QByteArray & line, QHostAddress hostAddress, quint16 port);
+	void dealTcpIn(QByteArray line, QTcpSocket & tcpSocket, ClientInfo & client);
+	void dealUdpIn(int index, const QByteArray & line, QHostAddress hostAddress, quint16 port);
 
-	void tcpRequestLogin(QTcpSocket & tcpSocket, ClientInfo & client, QString userName, QString password);
-	void tcpResponseLogin(QTcpSocket & tcpSocket, bool loginOk, QString msg, quint16 serverUdpPort1 = 0, quint16 serverUdpPort2 = 0);
+	void tcpIn_login(QTcpSocket & tcpSocket, ClientInfo & client, QString userName, QString password);
+	void tcpOut_login(QTcpSocket & tcpSocket, bool loginOk, QString msg, quint16 serverUdpPort1 = 0, quint16 serverUdpPort2 = 0);
 	bool login(QTcpSocket & tcpSocket, ClientInfo & client, QString userName, QString password, QString * outMsg);
 
-	void udpRequestCheckNatStep1(int index, QTcpSocket & tcpSocket, ClientInfo & client, QHostAddress clientUdp1HostAddress, quint16 clientUdp1Port1);
-	void tcpRequestCheckNatStep1(QTcpSocket & tcpSocket, ClientInfo & client, int partlyType, quint16 clientUdp2LocalPort);
+	void udpIn_checkNatStep1(int index, QTcpSocket & tcpSocket, ClientInfo & client, QHostAddress clientUdp1HostAddress, quint16 clientUdp1Port1);
+	void tcpIn_checkNatStep1(QTcpSocket & tcpSocket, ClientInfo & client, int partlyType, quint16 clientUdp2LocalPort);
 
-	void tcpRequestCheckNatStep2Type1(QTcpSocket & tcpSocket, ClientInfo & client, NatType natType);
-	void udpRequestCheckNatStep2Type2(int index, QTcpSocket & tcpSocket, ClientInfo & client, quint16 clientUdp1Port2);
-	void tcpResponseCheckNatStep2Type2(QTcpSocket & tcpSocket, NatType natType);
+	void tcpIn_checkNatStep2Type1(QTcpSocket & tcpSocket, ClientInfo & client, NatType natType);
+	void udpIn_checkNatStep2Type2(int index, QTcpSocket & tcpSocket, ClientInfo & client, quint16 clientUdp1Port2);
+	void tcpOut_checkNatStep2Type2(QTcpSocket & tcpSocket, NatType natType);
 
 
 private:

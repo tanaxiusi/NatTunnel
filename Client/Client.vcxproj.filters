@@ -50,6 +50,21 @@
     <ClCompile Include="GeneratedFiles\qrc_MainDlg.cpp">
       <Filter>Generated Files</Filter>
     </ClCompile>
+    <ClCompile Include="Client.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_Client.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_Client.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="Other.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="crc32.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="MainDlg.h">
@@ -61,10 +76,19 @@
     <CustomBuild Include="MainDlg.qrc">
       <Filter>Resource Files</Filter>
     </CustomBuild>
+    <CustomBuild Include="Client.h">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GeneratedFiles\ui_MainDlg.h">
       <Filter>Generated Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Other.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="crc32.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
