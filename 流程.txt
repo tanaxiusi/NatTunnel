@@ -1,0 +1,22 @@
+﻿NAT类型检测:
+	Step1:
+		Client已知Server:1和Server:2
+		Client:1->Server:2	.....[CheckNatStep1]
+		Server:1收到Client:1后，开始Server:1->Client:1(一定通) 和 Server:2->Client:1	.......[CheckNatStep1]
+		Client:1收到Server:1或Server:2后停止发送
+		Client:1收到Server:1时开始计时，如果Client:1在规定时间内或提前收到了Server:2，就判定为PublicNetwork或FullOrRestrictedConeNat(partlyType1)，否则判定为PortRestrictedConeNat或SymmetricNat(partlyType2)
+		Client:Tcp把结果发给Server，如果是partlyType1，还要发送Client:2的本地端口过去	......[CheckNatStep1]
+		Server停止发送
+
+	Step2:
+		PublicNetwork或FullOrRestrictedConeNat:
+			Server:Tcp收到结果后开始Server:1/2->Client:1(一定通) 和 Server:1/2->Client:2	.....[CheckNatStep2Type1]
+			Client:1收到Server:1/2时开始计时，如果Client:2在规定时间内或提前收到了Server:1/2，就判定为PublicNetwork，否则判定为FullOrRestrictedConeNat
+			Client:Tcp把结果发给Server	.......[CheckNatStep2Type1]
+			Server停止发送
+
+		PortRestrictedConeNat或SymmetricNat:
+			Client:1->Server:2	.......[CheckNatStep2Type2]
+			Server:2收到Client:1，如果与Server:1收到的端口号不同，判定为SymmetricNat，否则判定为PortRestrictedConeNat
+			Server:Tcp把结果发给Client	.....[CheckNatStep2Type2]
+			Client停止发送

@@ -331,6 +331,11 @@ bool ClientManager::login(QTcpSocket & tcpSocket, ClientInfo & client, QString u
 		*outMsg = U16("用户已经登录");
 		return false;
 	}
+	if (m_mapUserTcpSocket.contains(userName))
+	{
+		*outMsg = U16("用户已经登录");
+		return false;
+	}
 	if (m_mapUserPassword.value(userName) == password)
 	{
 		client.status = LoginedStatus;
