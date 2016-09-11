@@ -12,6 +12,7 @@ Client::Client(QObject *parent)
 {
 	connect(&m_tcpSocket, SIGNAL(newConnection()), this, SLOT(onTcpNewConnection()));
 	connect(&m_tcpSocket, SIGNAL(connected()), this, SLOT(onTcpConnected()));
+	connect(&m_tcpSocket, SIGNAL(disconnected()), this, SLOT(onTcpDisconnected()));
 	connect(&m_tcpSocket, SIGNAL(readyRead()), this, SLOT(onTcpReadyRead()));
 	connect(&m_udpSocket1, SIGNAL(readyRead()), this, SLOT(onUdp1ReadyRead()));
 	connect(&m_udpSocket2, SIGNAL(readyRead()), this, SLOT(onUdp2ReadyRead()));
@@ -19,6 +20,10 @@ Client::Client(QObject *parent)
 	m_timer300ms.setParent(this);
 	connect(&m_timer300ms, SIGNAL(timeout()), this, SLOT(timerFunction300ms()));
 	m_timer300ms.start(300);
+
+	m_timer15s.setParent(this);
+	connect(&m_timer15s, SIGNAL(timeout()), this, SLOT(timerFunction15s()));
+	m_timer15s.start(15 * 1000);
 }
 
 Client::~Client()
@@ -43,17 +48,10 @@ bool Client::start()
 	if (m_running)
 		return false;
 
-	m_status = UnknownClientStatus;
-	m_natStatus = UnknownNatCheckStatus;
-	m_beginWaitTime = QTime();
-	m_natType = UnknownNatType;
-
-	m_tcpSocket.connectToHost(m_serverHostAddress, m_serverTcpPort);
-	m_udpSocket1.bind(0);
-	m_udpSocket2.bind(0);
-	m_status = ConnectingStatus;
-
 	m_running = true;
+
+	startConnect();
+
 	return true;
 }
 
@@ -62,12 +60,7 @@ bool Client::stop()
 	if (!m_running)
 		return false;
 
-	m_tcpSocket.close();
-	m_udpSocket1.close();
-	m_udpSocket2.close();
-
-	m_serverUdpPort1 = 0;
-	m_serverUdpPort2 = 0;
+	clear();
 
 	m_running = false;
 	return true;
@@ -77,7 +70,14 @@ bool Client::stop()
 void Client::onTcpConnected()
 {
 	m_status = ConnectedStatus;
+	m_lastInTime = QTime::currentTime();
 	emit connected();
+}
+
+void Client::onTcpDisconnected()
+{
+	clear();
+	emit disconnected();
 }
 
 void Client::onTcpReadyRead()
@@ -105,6 +105,8 @@ void Client::onUdp2ReadyRead()
 
 void Client::timerFunction300ms()
 {
+	if (!m_running)
+		return;
 	if (m_natStatus == Step1_1SendingToServer1)
 	{
 		QByteArrayMap argument;
@@ -128,6 +130,21 @@ void Client::timerFunction300ms()
 		if (m_beginWaitTime.isValid() && m_beginWaitTime.elapsed() > 3000)
 			timeout_checkNatStep2Type1();
 	}
+}
+
+void Client::timerFunction15s()
+{
+	if (!m_running)
+		return;
+
+	if (m_tcpSocket.state() == QAbstractSocket::UnconnectedState)
+		startConnect();
+
+	const int inTimeout = (m_status == LoginedStatus && m_natStatus == NatCheckFinished) ? (120 * 1000) : (20 * 1000);
+	if (m_lastInTime.elapsed() > inTimeout)
+		m_tcpSocket.disconnectFromHost();
+	else if (m_lastOutTime.elapsed() > 70 * 1000)
+		tcpOut_heartbeat();
 }
 
 QUdpSocket * Client::getUdpSocket(int index)
@@ -158,6 +175,44 @@ int Client::getServerIndexFromUdpPort(quint16 serverUdpPort)
 		return 2;
 	else
 		return 0;
+}
+
+void Client::clear()
+{
+	m_tcpSocket.close();
+	m_udpSocket1.close();
+	m_udpSocket2.close();
+
+	m_serverUdpPort1 = 0;
+	m_serverUdpPort2 = 0;
+
+	m_status = UnknownClientStatus;
+	m_natStatus = UnknownNatCheckStatus;
+	m_beginWaitTime = QTime();
+	m_natType = UnknownNatType;
+
+	m_lastInTime = QTime();
+	m_lastOutTime = QTime();
+}
+
+void Client::startConnect()
+{
+	clear();
+
+	m_tcpSocket.connectToHost(m_serverHostAddress, m_serverTcpPort);
+	m_udpSocket1.bind(0);
+	m_udpSocket2.bind(0);
+	m_status = ConnectingStatus;
+
+	m_lastInTime = QTime::currentTime();
+	m_lastOutTime = QTime::currentTime();
+}
+
+void Client::disconnectServer(QString reason)
+{
+	m_tcpSocket.disconnectFromHost();
+
+	qDebug() << QString("force disconnect, reason=%1").arg(reason);
 }
 
 void Client::sendUdp(int localIndex, int serverIndex, QByteArray package)
@@ -234,15 +289,27 @@ void Client::dealUdpIn(int localIndex, int serverIndex, const QByteArray & line)
 	}
 }
 
+void Client::tcpOut_heartbeat()
+{
+	m_lastOutTime = QTime::currentTime();
+	m_tcpSocket.write(serializeResponse("heartbeat", {}));
+}
+
 void Client::tcpIn_hello()
 {
 	if (m_status != ConnectedStatus)
+	{
+		disconnectServer("tcpIn_hello status error");
 		return;
+	}
+	m_lastInTime = QTime::currentTime();
 	tcpOut_login();
 }
 
 void Client::tcpOut_login()
 {
+	m_lastOutTime = QTime::currentTime();
+
 	QByteArrayMap argument;
 	argument["userName"] = m_userName.toUtf8();
 	argument["password"] = m_password.toUtf8();
@@ -254,7 +321,11 @@ void Client::tcpOut_login()
 void Client::tcpIn_login(bool loginOk, QString msg, quint16 serverUdpPort1, quint16 serverUdpPort2)
 {
 	if (m_status != LoginingStatus)
+	{
+		disconnectServer("tcpIn_login status error");
 		return;
+	}
+	m_lastInTime = QTime::currentTime();
 	if (loginOk)
 	{
 		m_status = LoginedStatus;
@@ -278,6 +349,7 @@ void Client::udpIn_checkNatStep1(int localIndex, int serverIndex)
 		return;
 	if (m_natStatus != Step1_1SendingToServer1 && m_natStatus != Step1_1WaitingForServer2)
 		return;
+	m_lastInTime = QTime::currentTime();
 
 	if (serverIndex == 1)
 	{
@@ -304,6 +376,8 @@ void Client::timeout_checkNatStep1()
 
 void Client::tcpOut_checkNatStep1(int partlyType, quint16 clientUdp2LocalPort)
 {
+	m_lastOutTime = QTime::currentTime();
+
 	QByteArrayMap argument;
 	argument["partlyType"] = QByteArray::number(partlyType);
 	argument["clientUdp2LocalPort"] = QByteArray::number(clientUdp2LocalPort);
@@ -318,6 +392,7 @@ void Client::udpIn_checkNatStep2Type1(int localIndex, int serverIndex)
 		return;
 	if (m_natStatus != Step2_Type1_12WaitingForServer1 && m_natStatus != Step2_Type1_2WaitingForServer1)
 		return;
+	m_lastInTime = QTime::currentTime();
 
 	if(localIndex == 1)
 	{ 
@@ -333,6 +408,8 @@ void Client::udpIn_checkNatStep2Type1(int localIndex, int serverIndex)
 		m_natType = PublicNetwork;
 		m_natStatus = NatCheckFinished;
 		tcpOut_checkNatStep2Type1(m_natType);
+
+		emit natTypeConfirmed(m_natType);
 	}
 }
 
@@ -341,10 +418,14 @@ void Client::timeout_checkNatStep2Type1()
 	m_natType = FullOrRestrictedConeNat;
 	m_natStatus = NatCheckFinished;
 	tcpOut_checkNatStep2Type1(m_natType);
+
+	emit natTypeConfirmed(m_natType);
 }
 
 void Client::tcpOut_checkNatStep2Type1(NatType natType)
 {
+	m_lastOutTime = QTime::currentTime();
+
 	QByteArrayMap argument;
 	argument["natType"] = QByteArray::number((int)natType);
 	m_tcpSocket.write(serializeResponse("checkNatStep2Type1", argument));
@@ -352,11 +433,20 @@ void Client::tcpOut_checkNatStep2Type1(NatType natType)
 
 void Client::tcpIn_checkNatStep2Type2(NatType natType)
 {
-	if (m_status != LoginedStatus)
+	if (m_status != LoginedStatus || m_natStatus != Step2_Type2_1SendingToServer2)
+	{
+		disconnectServer("tcpIn_checkNatStep2Type2 status error");
 		return;
-	if (m_natStatus != Step2_Type2_1SendingToServer2)
+	}
+	if (natType != PortRestrictedConeNat && natType != SymmetricNat)
+	{
+		disconnectServer("tcpIn_checkNatStep2Type2 argument error");
 		return;
-	if (natType == PortRestrictedConeNat || natType == SymmetricNat)
-		m_natType = natType;
+	}
+	m_lastInTime = QTime::currentTime();
+
+	m_natType = natType;
 	m_natStatus = NatCheckFinished;
+
+	emit natTypeConfirmed(m_natType);
 }

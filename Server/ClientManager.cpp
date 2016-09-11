@@ -13,6 +13,11 @@ ClientManager::ClientManager(QObject *parent)
 	m_timer300ms.setParent(this);
 	connect(&m_timer300ms, SIGNAL(timeout()), this, SLOT(timerFunction300ms()));
 	m_timer300ms.start(300);
+
+	m_timer15s.setParent(this);
+	connect(&m_timer15s, SIGNAL(timeout()), this, SLOT(timerFunction15s()));
+	m_timer15s.start(15 * 1000);
+
 }
 
 ClientManager::~ClientManager()
@@ -43,8 +48,6 @@ bool ClientManager::start(quint16 tcpPort, quint16 udpPort1, quint16 udpPort2)
 		m_udpServer2.close();
 		return false;
 	}
-
-	m_magicNumber = rand_u32();
 
 	m_running = true;
 	return true;
@@ -80,6 +83,11 @@ void ClientManager::onTcpNewConnection()
 
 		ClientInfo & clientInfo = m_mapClientInfo[tcpSocket];
 		clientInfo.status = ConnectedStatus;
+		clientInfo.lastInTime = QTime::currentTime();
+		clientInfo.lastOutTime = QTime::currentTime();
+
+		qDebug() << QString("new connection : %1:%2")
+			.arg(tryConvertToIpv4(tcpSocket->peerAddress()).toString()).arg(tcpSocket->peerPort());
 	}
 }
 
@@ -89,12 +97,16 @@ void ClientManager::onTcpDisconnected()
 	QTcpSocket * tcpSocket = (QTcpSocket*)sender();
 	if (!tcpSocket)
 		return;
+	
 	const QString userName = m_mapClientInfo.value(tcpSocket).userName;
 	if (userName.length() > 0)
 		m_mapUserTcpSocket.remove(userName);
 	m_mapClientInfo.remove(tcpSocket);
-}
+	m_lstNeedSendUdp.remove(tcpSocket);
 
+	qDebug() << QString("disconnected : %1, logined userName = %2")
+		.arg(getSocketPeerDescription(tcpSocket)).arg(userName);
+}
 
 void ClientManager::onTcpReadyRead()
 {
@@ -132,6 +144,8 @@ void ClientManager::onUdp2ReadyRead()
 
 void ClientManager::timerFunction300ms()
 {
+	if (!m_running)
+		return;
 	for (QTcpSocket * tcpSocket : m_lstNeedSendUdp)
 	{
 		auto iter = m_mapClientInfo.find(tcpSocket);
@@ -155,6 +169,26 @@ void ClientManager::timerFunction300ms()
 	}
 }
 
+void ClientManager::timerFunction15s()
+{
+	if (!m_running)
+		return;
+	QList<QTcpSocket*> timeoutSockets;
+	for(auto iter = m_mapClientInfo.begin(); iter != m_mapClientInfo.end(); ++iter)
+	{
+		QTcpSocket * tcpSocket = iter.key();
+		ClientInfo & client = iter.value();
+		const int inTimeout = (client.status == LoginedStatus && client.natStatus == NatCheckFinished) ? (120 * 1000) : (20 * 1000);
+		if (client.lastInTime.elapsed() > inTimeout)
+			timeoutSockets << tcpSocket;
+		else if (client.lastOutTime.elapsed() > 70 * 1000)
+			tcpOut_heartbeat(*tcpSocket, client);
+	}
+
+	for (QTcpSocket * tcpSocket : timeoutSockets)
+		disconnectClient(*tcpSocket, "timeout");
+}
+
 QUdpSocket * ClientManager::getUdpServer(int index)
 {
 	if (index == 1)
@@ -165,33 +199,27 @@ QUdpSocket * ClientManager::getUdpServer(int index)
 		return nullptr;
 }
 
-void ClientManager::disconnectClient(QTcpSocket & tcpSocket)
+void ClientManager::disconnectClient(QTcpSocket & tcpSocket, QString reason)
 {
 	tcpSocket.disconnectFromHost();
-	const QString userName = m_mapClientInfo.value(&tcpSocket).userName;
-	if (userName.length() > 0)
-		m_mapUserTcpSocket.remove(userName);
-	m_mapClientInfo.remove(&tcpSocket);
+
+	qDebug() << QString("force disconnect %1, reason=%2").arg(getSocketPeerDescription(&tcpSocket)).arg(reason);
 }
 
 void ClientManager::sendUdp(int index, QByteArray package, QHostAddress hostAddress, quint16 port)
 {
-	QUdpSocket * udpSocket = nullptr;
-	if (index == 1)
-		udpSocket = &m_udpServer1;
-	else if (index == 2)
-		udpSocket = &m_udpServer2;
-	else
+	QUdpSocket * udpServer = getUdpServer(index);
+	if (!udpServer)
 		return;
 
 	uint32_t crc = crc32(package.constData(), package.size());
 	package.insert(0, (const char*)&crc, 4);
-	udpSocket->writeDatagram(package, hostAddress, port);
+	udpServer->writeDatagram(package, hostAddress, port);
 }
 
-void ClientManager::onUdpReadyRead(int localIndex)
+void ClientManager::onUdpReadyRead(int index)
 {
-	QUdpSocket * udpServer = getUdpServer(localIndex);
+	QUdpSocket * udpServer = getUdpServer(index);
 	while (udpServer->hasPendingDatagrams())
 	{
 		char buffer[2000];
@@ -204,7 +232,7 @@ void ClientManager::onUdpReadyRead(int localIndex)
 		if (package.endsWith('\n'))
 			package.chop(1);
 		if (!package.contains('\n'))
-			dealUdpIn(1, package, hostAddress, port);
+			dealUdpIn(index, package, hostAddress, port);
 	}
 }
 
@@ -255,23 +283,36 @@ void ClientManager::dealUdpIn(int index, const QByteArray & line, QHostAddress h
 	}
 }
 
+void ClientManager::tcpOut_heartbeat(QTcpSocket & tcpSocket, ClientInfo & client)
+{
+	client.lastOutTime = QTime::currentTime();
+	tcpSocket.write(serializeResponse("heartbeat", {}));
+}
+
+
 void ClientManager::tcpIn_login(QTcpSocket & tcpSocket, ClientInfo & client, QString userName, QString password)
 {
+	client.lastInTime = QTime::currentTime();
+
 	QString msg;
 	if (login(tcpSocket, client, userName, password, &msg))
 	{
-		tcpOut_login(tcpSocket, true, msg, m_udpServer1.localPort(), m_udpServer2.localPort());
+		tcpOut_login(tcpSocket, client, true, msg, m_udpServer1.localPort(), m_udpServer2.localPort());
 		client.natStatus = Step1_1WaitingForClient1;
-		client.beginWaitTime = QTime::currentTime();
+		qDebug() << QString("login ok, userName=%1, from %2").arg(userName).arg(getSocketPeerDescription(&tcpSocket));
 	}
 	else
 	{
-		tcpOut_login(tcpSocket, false, msg);
+		tcpOut_login(tcpSocket, client, false, msg);
+		qDebug() << QString("login failed, userName=%1, from %2, reason=%3")
+			.arg(userName).arg(getSocketPeerDescription(&tcpSocket)).arg(msg);
 	}
 }
 
-void ClientManager::tcpOut_login(QTcpSocket & tcpSocket, bool loginOk, QString msg, quint16 serverUdpPort1, quint16 serverUdpPort2)
+void ClientManager::tcpOut_login(QTcpSocket & tcpSocket, ClientInfo & client, bool loginOk, QString msg, quint16 serverUdpPort1, quint16 serverUdpPort2)
 {
+	client.lastOutTime = QTime::currentTime();
+
 	QByteArrayMap argument;
 	argument["loginOk"] = loginOk ? "1" : "0";
 	argument["msg"] = msg.toUtf8();
@@ -279,7 +320,6 @@ void ClientManager::tcpOut_login(QTcpSocket & tcpSocket, bool loginOk, QString m
 	{
 		argument["serverUdpPort1"] = QByteArray::number(serverUdpPort1);
 		argument["serverUdpPort2"] = QByteArray::number(serverUdpPort2);
-		argument["magicNumber"] = QByteArray::number(m_magicNumber);
 	}
 	tcpSocket.write(serializeResponse("login", argument));
 }
@@ -319,20 +359,33 @@ void ClientManager::udpIn_checkNatStep1(int index, QTcpSocket & tcpSocket, Clien
 		return;
 	if (client.natStatus != Step1_1WaitingForClient1)
 		return;
+
+	client.lastInTime = QTime::currentTime();
+
 	client.udpHostAddress = clientUdp1HostAddress;
 	client.udp1Port1 = clientUdp1Port1;
 	client.natStatus = Step1_12SendingToClient1;
 
 	m_lstNeedSendUdp.insert(&tcpSocket);
+
+	qDebug() << QString("%1 checkNatStep1 udp1Port1=%2, confirming Nat partlyType")
+		.arg(client.userName).arg(client.udp1Port1);
 }
 
 void ClientManager::tcpIn_checkNatStep1(QTcpSocket & tcpSocket, ClientInfo & client, int partlyType, quint16 clientUdp2LocalPort )
 {
 	if (client.status != LoginedStatus || client.natStatus != Step1_12SendingToClient1)
 	{
-		disconnectClient(tcpSocket);
+		disconnectClient(tcpSocket, "tcpIn_checkNatStep1 status error");
 		return;
 	}
+	if (partlyType != 1 && partlyType != 2)
+	{
+		disconnectClient(tcpSocket, "tcpIn_checkNatStep1 argument error");
+		return;
+	}
+
+	client.lastInTime = QTime::currentTime();
 
 	m_lstNeedSendUdp.remove(&tcpSocket);
 	if (partlyType == 1)
@@ -340,15 +393,14 @@ void ClientManager::tcpIn_checkNatStep1(QTcpSocket & tcpSocket, ClientInfo & cli
 		client.natStatus = Step2_Type1_1SendingToClient12;
 		client.udp2LocalPort = clientUdp2LocalPort;
 		m_lstNeedSendUdp.insert(&tcpSocket);
+		qDebug() << QString("%1 Nat partlyType=1(PublicNetwork or FullOrRestrictedConeNat)")
+			.arg(client.userName);
 	}
 	else if (partlyType == 2)
 	{
 		client.natStatus = Step2_Type2_2WaitingForClient1;
-		client.beginWaitTime = QTime::currentTime();
-	}
-	else
-	{
-		disconnectClient(tcpSocket);
+		qDebug() << QString("%1 Nat partlyType=2(PortRestrictedConeNat or SymmetricNat)")
+			.arg(client.userName);
 	}
 }
 
@@ -356,20 +408,23 @@ void ClientManager::tcpIn_checkNatStep2Type1(QTcpSocket & tcpSocket, ClientInfo 
 {
 	if (client.status != LoginedStatus || client.natStatus != Step2_Type1_1SendingToClient12)
 	{
-		disconnectClient(tcpSocket);
+		disconnectClient(tcpSocket, "tcpIn_checkNatStep2Type1 status error");
+		return;
+	}
+	if (natType != PublicNetwork && natType != FullOrRestrictedConeNat)
+	{
+		disconnectClient(tcpSocket, "tcpIn_checkNatStep2Type1 argument error");
 		return;
 	}
 
+	client.lastInTime = QTime::currentTime();
+
 	m_lstNeedSendUdp.remove(&tcpSocket);
-	if (natType == PublicNetwork || natType == FullOrRestrictedConeNat)
-	{
-		client.natType = natType;
-		client.natStatus = NatCheckFinished;
-	}
-	else
-	{
-		disconnectClient(tcpSocket);
-	}
+	
+	client.natType = natType;
+	client.natStatus = NatCheckFinished;
+	qDebug() << QString("%1 NatType=%2").arg(client.userName)
+		.arg(getNatDescription(client.natType));
 }
 
 void ClientManager::udpIn_checkNatStep2Type2(int index, QTcpSocket & tcpSocket, ClientInfo & client, quint16 clientUdp1Port2)
@@ -378,16 +433,23 @@ void ClientManager::udpIn_checkNatStep2Type2(int index, QTcpSocket & tcpSocket, 
 		return;
 	if (client.natStatus != Step2_Type2_2WaitingForClient1)
 		return;
+
+	client.lastInTime = QTime::currentTime();
+
 	if (clientUdp1Port2 != client.udp1Port1)
 		client.natType = SymmetricNat;
 	else
 		client.natType = PortRestrictedConeNat;
 	client.natStatus = NatCheckFinished;
-	tcpOut_checkNatStep2Type2(tcpSocket, client.natType);
+	tcpOut_checkNatStep2Type2(tcpSocket, client, client.natType);
+	qDebug() << QString("%1 NatType=%2").arg(client.userName)
+		.arg(getNatDescription(client.natType));
 }
 
-void ClientManager::tcpOut_checkNatStep2Type2(QTcpSocket & tcpSocket, NatType natType)
+void ClientManager::tcpOut_checkNatStep2Type2(QTcpSocket & tcpSocket, ClientInfo & client, NatType natType)
 {
+	client.lastOutTime = QTime::currentTime();
+
 	QByteArrayMap argument;
 	argument["natType"] = QByteArray::number((int)natType);
 	tcpSocket.write(serializeResponse("checkNatStep2Type2", argument));

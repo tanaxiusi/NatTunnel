@@ -6,6 +6,7 @@
 #include <QUdpSocket>
 #include <QTimer>
 #include <QTime>
+#include "Other.h"
 
 class ClientManager : public QObject
 {
@@ -26,14 +27,6 @@ class ClientManager : public QObject
 		Step2_Type2_2WaitingForClient1,
 		NatCheckFinished
 	};
-	enum NatType
-	{
-		UnknownNatType = 0,
-		PublicNetwork,
-		FullOrRestrictedConeNat,
-		PortRestrictedConeNat,
-		SymmetricNat
-	};
 
 	struct ClientInfo
 	{
@@ -44,7 +37,8 @@ class ClientManager : public QObject
 		QHostAddress udpHostAddress;
 		quint16 udp1Port1 = 0;
 		quint16 udp2LocalPort = 0;
-		QTime beginWaitTime;
+		QTime lastInTime;
+		QTime lastOutTime;
 	};
 
 public:
@@ -63,18 +57,21 @@ private slots:
 	void onUdp1ReadyRead();
 	void onUdp2ReadyRead();
 	void timerFunction300ms();
+	void timerFunction15s();
 
 private:
 	QUdpSocket * getUdpServer(int index);
-	void disconnectClient(QTcpSocket & tcpSocket);
+	void disconnectClient(QTcpSocket & tcpSocket, QString reason);
 	void sendUdp(int index, QByteArray package, QHostAddress hostAddress, quint16 port);
-	void onUdpReadyRead(int localIndex);
+	void onUdpReadyRead(int index);
 
 	void dealTcpIn(QByteArray line, QTcpSocket & tcpSocket, ClientInfo & client);
 	void dealUdpIn(int index, const QByteArray & line, QHostAddress hostAddress, quint16 port);
 
+	void tcpOut_heartbeat(QTcpSocket & tcpSocket, ClientInfo & client);
+
 	void tcpIn_login(QTcpSocket & tcpSocket, ClientInfo & client, QString userName, QString password);
-	void tcpOut_login(QTcpSocket & tcpSocket, bool loginOk, QString msg, quint16 serverUdpPort1 = 0, quint16 serverUdpPort2 = 0);
+	void tcpOut_login(QTcpSocket & tcpSocket, ClientInfo & client, bool loginOk, QString msg, quint16 serverUdpPort1 = 0, quint16 serverUdpPort2 = 0);
 	bool login(QTcpSocket & tcpSocket, ClientInfo & client, QString userName, QString password, QString * outMsg);
 
 	void udpIn_checkNatStep1(int index, QTcpSocket & tcpSocket, ClientInfo & client, QHostAddress clientUdp1HostAddress, quint16 clientUdp1Port1);
@@ -82,7 +79,7 @@ private:
 
 	void tcpIn_checkNatStep2Type1(QTcpSocket & tcpSocket, ClientInfo & client, NatType natType);
 	void udpIn_checkNatStep2Type2(int index, QTcpSocket & tcpSocket, ClientInfo & client, quint16 clientUdp1Port2);
-	void tcpOut_checkNatStep2Type2(QTcpSocket & tcpSocket, NatType natType);
+	void tcpOut_checkNatStep2Type2(QTcpSocket & tcpSocket, ClientInfo & client, NatType natType);
 
 
 private:
@@ -90,10 +87,10 @@ private:
 	QTcpServer m_tcpServer;
 	QUdpSocket m_udpServer1;
 	QUdpSocket m_udpServer2;
-	quint32 m_magicNumber = 0;
 	QMap<QString, QString> m_mapUserPassword;
 	QMap<QTcpSocket*, ClientInfo> m_mapClientInfo;
 	QMap<QString, QTcpSocket*> m_mapUserTcpSocket;
 	QTimer m_timer300ms;
+	QTimer m_timer15s;
 	QSet<QTcpSocket*> m_lstNeedSendUdp;
 };

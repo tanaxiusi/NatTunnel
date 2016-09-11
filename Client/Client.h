@@ -5,6 +5,7 @@
 #include <QUdpSocket>
 #include <QTimer>
 #include <QTime>
+#include "Other.h"
 
 class Client : public QObject
 {
@@ -12,8 +13,10 @@ class Client : public QObject
 
 signals:
 	void connected();
+	void disconnected();
 	void logined();
 	void loginFailed(QString msg);
+	void natTypeConfirmed(NatType natType);
 
 private:
 	enum ClientStatus
@@ -34,17 +37,7 @@ private:
 		Step2_Type1_12WaitingForServer1,
 		Step2_Type1_2WaitingForServer1,
 		Step2_Type2_1SendingToServer2,
-		
 		NatCheckFinished
-	};
-
-	enum NatType
-	{
-		UnknownNatType = 0,
-		PublicNetwork,
-		FullOrRestrictedConeNat,
-		PortRestrictedConeNat,
-		SymmetricNat
 	};
 
 public:
@@ -59,20 +52,29 @@ public:
 	
 private slots:
 	void onTcpConnected();
+	void onTcpDisconnected();
 	void onTcpReadyRead();
 	void onUdp1ReadyRead();
 	void onUdp2ReadyRead();
 	void timerFunction300ms();
+	void timerFunction15s();
 
 private:
 	QUdpSocket * getUdpSocket(int index);
 	quint16 getServerUdpPort(int index);
 	int getServerIndexFromUdpPort(quint16 serverUdpPort);
+
+	void clear();
+	void startConnect();
+
+	void disconnectServer(QString reason);
 	void sendUdp(int localIndex, int serverIndex, QByteArray package);
 	void onUdpReadyRead(int localIndex);
 
 	void dealTcpIn(QByteArray line);
 	void dealUdpIn(int localIndex, int serverIndex, const QByteArray & line);
+
+	void tcpOut_heartbeat();
 
 	void tcpIn_hello();
 
@@ -96,6 +98,7 @@ private:
 	QUdpSocket m_udpSocket1;
 	QUdpSocket m_udpSocket2;
 	QTimer m_timer300ms;
+	QTimer m_timer15s;
 
 	QString m_userName;
 	QString m_password;
@@ -109,4 +112,7 @@ private:
 	NatCheckStatus m_natStatus = UnknownNatCheckStatus;
 	QTime m_beginWaitTime;
 	NatType m_natType = UnknownNatType;
+
+	QTime m_lastInTime;
+	QTime m_lastOutTime;
 };

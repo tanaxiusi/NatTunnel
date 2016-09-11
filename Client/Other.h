@@ -3,6 +3,15 @@
 #include <QMap>
 #include <QHostAddress>
 
+enum NatType
+{
+	UnknownNatType = 0,
+	PublicNetwork,
+	FullOrRestrictedConeNat,
+	PortRestrictedConeNat,
+	SymmetricNat
+};
+
 typedef QMap<QByteArray, QByteArray> QByteArrayMap;
 
 QByteArray parseRequest(QByteArray line, QByteArrayMap * outArgument);

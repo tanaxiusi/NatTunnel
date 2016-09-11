@@ -68,3 +68,61 @@ QByteArray checksumThenUnpackUdpPackage(QByteArray package)
 		return QByteArray();
 	return content;
 }
+
+QHostAddress tryConvertToIpv4(const QHostAddress & hostAddress)
+{
+	if (hostAddress.protocol() == QAbstractSocket::IPv4Protocol)
+		return hostAddress;
+	if (hostAddress.protocol() == QAbstractSocket::IPv6Protocol)
+	{
+		bool ok = false;
+		auto ipv4Address = hostAddress.toIPv4Address(&ok);
+		if (ok)
+			return QHostAddress(ipv4Address);
+	}
+	return hostAddress;
+}
+
+QString getSocketPeerDescription(const QAbstractSocket * socket)
+{
+	return QString("%1:%2").arg(tryConvertToIpv4(socket->peerAddress()).toString()).arg(socket->peerPort());
+}
+
+QString serializeQByteArrayMap(const QByteArrayMap & theMap)
+{
+	QString result = "{";
+
+	for (auto iter = theMap.constBegin(); iter != theMap.constEnd(); ++iter)
+	{
+		const QByteArray & key = iter.key();
+		const QByteArray & value = iter.value();
+		result += key;
+		result += "='";
+		result += value;
+		result += "',";
+	}
+	if (result.at(result.length() - 1) == ',')
+		result[result.length() - 1] = '}';
+	else
+		result += "}";
+	return result;
+}
+
+QString getNatDescription(NatType natType)
+{
+	switch (natType)
+	{
+	case UnknownNatType:
+		return "UnknownNatType";
+	case PublicNetwork:
+		return "PublicNetwork";
+	case FullOrRestrictedConeNat:
+		return "FullOrRestrictedConeNat";
+	case PortRestrictedConeNat:
+		return "PortRestrictedConeNat";
+	case SymmetricNat:
+		return "SymmetricNat";
+	default:
+		return "Error";
+	}
+}
