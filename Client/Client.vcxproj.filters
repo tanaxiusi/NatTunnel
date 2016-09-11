@@ -65,6 +65,9 @@
     <ClCompile Include="crc32.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ikcp.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="MainDlg.h">
@@ -88,6 +91,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="crc32.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ikcp.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

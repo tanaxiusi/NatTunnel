@@ -243,7 +243,11 @@ void ClientManager::dealTcpIn(QByteArray line, QTcpSocket & tcpSocket, ClientInf
 	if (type.isEmpty())
 		return;
 
-	if (type == "login")
+	if (type == "heartbeat")
+	{
+		tcpIn_heartbeat(tcpSocket, client);
+	}
+	else if (type == "login")
 	{
 		tcpIn_login(tcpSocket, client, argument.value("userName"), argument.value("password"));
 	}
@@ -281,6 +285,11 @@ void ClientManager::dealUdpIn(int index, const QByteArray & line, QHostAddress h
 	{
 		udpIn_checkNatStep2Type2(index, *tcpSocket, client, port);
 	}
+}
+
+void ClientManager::tcpIn_heartbeat(QTcpSocket & tcpSocket, ClientInfo & client)
+{
+	client.lastInTime = QTime::currentTime();
 }
 
 void ClientManager::tcpOut_heartbeat(QTcpSocket & tcpSocket, ClientInfo & client)
@@ -442,8 +451,9 @@ void ClientManager::udpIn_checkNatStep2Type2(int index, QTcpSocket & tcpSocket, 
 		client.natType = PortRestrictedConeNat;
 	client.natStatus = NatCheckFinished;
 	tcpOut_checkNatStep2Type2(tcpSocket, client, client.natType);
-	qDebug() << QString("%1 NatType=%2").arg(client.userName)
-		.arg(getNatDescription(client.natType));
+	qDebug() << QString("%1 NatType=%2 port(%3,%4)")
+		.arg(client.userName).arg(getNatDescription(client.natType))
+		.arg(client.udp1Port1).arg(clientUdp1Port2);
 }
 
 void ClientManager::tcpOut_checkNatStep2Type2(QTcpSocket & tcpSocket, ClientInfo & client, NatType natType)

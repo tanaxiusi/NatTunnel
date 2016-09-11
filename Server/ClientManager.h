@@ -68,6 +68,7 @@ private:
 	void dealTcpIn(QByteArray line, QTcpSocket & tcpSocket, ClientInfo & client);
 	void dealUdpIn(int index, const QByteArray & line, QHostAddress hostAddress, quint16 port);
 
+	void tcpIn_heartbeat(QTcpSocket & tcpSocket, ClientInfo & client);
 	void tcpOut_heartbeat(QTcpSocket & tcpSocket, ClientInfo & client);
 
 	void tcpIn_login(QTcpSocket & tcpSocket, ClientInfo & client, QString userName, QString password);

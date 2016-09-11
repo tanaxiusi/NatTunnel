@@ -6,6 +6,7 @@
 #include <QTimer>
 #include <QTime>
 #include "Other.h"
+#include "ikcp.h"
 
 class Client : public QObject
 {
@@ -17,6 +18,9 @@ signals:
 	void logined();
 	void loginFailed(QString msg);
 	void natTypeConfirmed(NatType natType);
+
+	void onReplyTryTunneling(QString peerUserName, bool canTunnel, QString failReason);
+	void onReplyReadTunneling(int requestId, int tunnelId);
 
 private:
 	enum ClientStatus
@@ -40,15 +44,35 @@ private:
 		NatCheckFinished
 	};
 
+	enum TunnelStatus
+	{
+		UnknownTunnelStatus = 0,
+		ReadyTunnelingStatus,
+		TunnelingStatus
+	};
+
+	struct TunnelInfo
+	{
+		TunnelStatus status = UnknownTunnelStatus;
+		QString peerUserName;
+		QHostAddress peerHostAddress;
+		quint16 peerPort = 0;
+		ikcpcb * kcp = nullptr;
+	};
+
 public:
 	Client(QObject *parent = 0);
 	~Client();
 
 	void setUserInfo(QString userName, QString password);
+	void setLocalPassword(QString localPassword);
 	void setServerInfo(QHostAddress hostAddress, quint16 tcpPort);
 
 	bool start();
 	bool stop();
+
+	void tryTunneling(QString peerUserName);
+	void readyTunneling(QString peerUserName, QString peerLocalPassword, int requestId);
 	
 private slots:
 	void onTcpConnected();
@@ -67,6 +91,9 @@ private:
 	void clear();
 	void startConnect();
 
+	bool checkStatus(ClientStatus correctStatus, NatCheckStatus correctNatStatus);
+	bool checkStatusAndDisconnect(QString functionName, ClientStatus correctStatus, NatCheckStatus correctNatStatus);
+
 	void disconnectServer(QString reason);
 	void sendUdp(int localIndex, int serverIndex, QByteArray package);
 	void onUdpReadyRead(int localIndex);
@@ -74,7 +101,10 @@ private:
 	void dealTcpIn(QByteArray line);
 	void dealUdpIn(int localIndex, int serverIndex, const QByteArray & line);
 
+private:
+
 	void tcpOut_heartbeat();
+	void tcpIn_heartbeat();
 
 	void tcpIn_hello();
 
@@ -91,6 +121,15 @@ private:
 
 	void tcpIn_checkNatStep2Type2(NatType natType);
 
+	void tcpOut_tryTunneling(QString peerUserName);
+	void tcpIn_tryTunneling(QString peerUserName, bool canTunnel, QString failReason);
+
+	void tcpOut_readyTunneling(QString peerUserName, QString peerLocalPassword, int requestId);
+	void tcpIn_readyTunneling(QString peerUserName, int requestId, int tunnelId);
+
+	void tcpIn_startTunneling(int tunnelId, QString localPassword, QString peerUserName, QHostAddress peerHostAddress, quint16 peerPort);
+	void tcpOut_startTunneling(int tunnelId, bool localPasswordCorrect);
+
 private:
 	bool m_running = false;
 
@@ -102,6 +141,7 @@ private:
 
 	QString m_userName;
 	QString m_password;
+	QString m_localPassword;
 
 	QHostAddress m_serverHostAddress;
 	quint16 m_serverTcpPort = 0;
@@ -115,4 +155,7 @@ private:
 
 	QTime m_lastInTime;
 	QTime m_lastOutTime;
+
+	QMap<int, TunnelInfo> m_mapTunnelInfo;
+	QMap<QPair<QHostAddress, quint16>, int> m_mapHostTunnelId;
 };

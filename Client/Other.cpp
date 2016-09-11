@@ -82,3 +82,17 @@ bool isSameHostAddress(const QHostAddress & a, const QHostAddress & b)
 		return a == b;
 	}
 }
+
+QHostAddress tryConvertToIpv4(const QHostAddress & hostAddress)
+{
+	if (hostAddress.protocol() == QAbstractSocket::IPv4Protocol)
+		return hostAddress;
+	if (hostAddress.protocol() == QAbstractSocket::IPv6Protocol)
+	{
+		bool ok = false;
+		auto ipv4Address = hostAddress.toIPv4Address(&ok);
+		if (ok)
+			return QHostAddress(ipv4Address);
+	}
+	return hostAddress;
+}

@@ -33,12 +33,21 @@ Client::~Client()
 
 void Client::setUserInfo(QString userName, QString password)
 {
+	if (m_running)
+		return;
 	m_userName = userName;
 	m_password = password;
 }
 
+void Client::setLocalPassword(QString localPassword)
+{
+	m_localPassword = localPassword;
+}
+
 void Client::setServerInfo(QHostAddress hostAddress, quint16 tcpPort)
 {
+	if (m_running)
+		return;
 	m_serverHostAddress = hostAddress;
 	m_serverTcpPort = tcpPort;
 }
@@ -66,6 +75,19 @@ bool Client::stop()
 	return true;
 }
 
+void Client::tryTunneling(QString peerUserName)
+{
+	if (!m_running || !checkStatus(LoginedStatus, NatCheckFinished))
+		return;
+	tcpOut_tryTunneling(peerUserName);
+}
+
+void Client::readyTunneling(QString peerUserName, QString peerLocalPassword, int requestId)
+{
+	if (!m_running || !checkStatus(LoginedStatus, NatCheckFinished))
+		return;
+	tcpOut_readyTunneling(peerUserName, peerLocalPassword, requestId);
+}
 
 void Client::onTcpConnected()
 {
@@ -193,6 +215,8 @@ void Client::clear()
 
 	m_lastInTime = QTime();
 	m_lastOutTime = QTime();
+
+	m_mapTunnelInfo.clear();
 }
 
 void Client::startConnect()
@@ -206,6 +230,24 @@ void Client::startConnect()
 
 	m_lastInTime = QTime::currentTime();
 	m_lastOutTime = QTime::currentTime();
+}
+
+bool Client::checkStatus(ClientStatus correctStatus, NatCheckStatus correctNatStatus)
+{
+	return m_status == correctStatus && m_natStatus == correctNatStatus;
+}
+
+bool Client::checkStatusAndDisconnect(QString functionName, ClientStatus correctStatus, NatCheckStatus correctNatStatus)
+{
+	if (checkStatus(correctStatus, correctNatStatus))
+	{
+		return true;
+	}
+	else
+	{
+		disconnectServer(functionName + " status error");
+		return false;
+	}
 }
 
 void Client::disconnectServer(QString reason)
@@ -258,13 +300,28 @@ void Client::dealTcpIn(QByteArray line)
 	if (type.isEmpty())
 		return;
 
-	if (type == "NatTunnelv1")
+	if (type == "heartbeat")
+	{
+		tcpIn_heartbeat();
+	}
+	else if (type == "NatTunnelv1")
 	{
 		tcpIn_hello();
-	}else if(type == "login")
+	}
+	else if(type == "login")
 	{
 		tcpIn_login(argument.value("loginOk").toInt() == 1, argument.value("msg"),
 			argument.value("serverUdpPort1").toInt(), argument.value("serverUdpPort2").toInt());
+	}
+	else if (type == "tryTunneling")
+	{
+		tcpIn_tryTunneling(argument.value("peerUserName"), argument.value("canTunnel").toInt() == 1,
+			argument.value("failReason"));
+	}
+	else if (type == "readyTunneling")
+	{
+		tcpIn_readyTunneling(argument.value("peerUserName"), argument.value("requestId").toInt(),
+			argument.value("tunnelId").toInt());
 	}
 }
 
@@ -295,13 +352,15 @@ void Client::tcpOut_heartbeat()
 	m_tcpSocket.write(serializeResponse("heartbeat", {}));
 }
 
+void Client::tcpIn_heartbeat()
+{
+	m_lastInTime = QTime::currentTime();
+}
+
 void Client::tcpIn_hello()
 {
-	if (m_status != ConnectedStatus)
-	{
-		disconnectServer("tcpIn_hello status error");
+	if (!checkStatusAndDisconnect("tcpIn_hello", ConnectedStatus, UnknownNatCheckStatus))
 		return;
-	}
 	m_lastInTime = QTime::currentTime();
 	tcpOut_login();
 }
@@ -320,11 +379,8 @@ void Client::tcpOut_login()
 
 void Client::tcpIn_login(bool loginOk, QString msg, quint16 serverUdpPort1, quint16 serverUdpPort2)
 {
-	if (m_status != LoginingStatus)
-	{
-		disconnectServer("tcpIn_login status error");
+	if (!checkStatusAndDisconnect("tcpIn_login", LoginingStatus, UnknownNatCheckStatus))
 		return;
-	}
 	m_lastInTime = QTime::currentTime();
 	if (loginOk)
 	{
@@ -433,11 +489,8 @@ void Client::tcpOut_checkNatStep2Type1(NatType natType)
 
 void Client::tcpIn_checkNatStep2Type2(NatType natType)
 {
-	if (m_status != LoginedStatus || m_natStatus != Step2_Type2_1SendingToServer2)
-	{
-		disconnectServer("tcpIn_checkNatStep2Type2 status error");
+	if (!checkStatusAndDisconnect("tcpIn_checkNatStep2Type2", LoginedStatus, Step2_Type2_1SendingToServer2))
 		return;
-	}
 	if (natType != PortRestrictedConeNat && natType != SymmetricNat)
 	{
 		disconnectServer("tcpIn_checkNatStep2Type2 argument error");
@@ -449,4 +502,94 @@ void Client::tcpIn_checkNatStep2Type2(NatType natType)
 	m_natStatus = NatCheckFinished;
 
 	emit natTypeConfirmed(m_natType);
+}
+
+void Client::tcpOut_tryTunneling(QString peerUserName)
+{
+	m_lastOutTime = QTime::currentTime();
+
+	QByteArrayMap argument;
+	argument["peerUserName"] = peerUserName.toUtf8();
+	m_tcpSocket.write(serializeResponse("tryTunneling", argument));
+}
+
+void Client::tcpIn_tryTunneling(QString peerUserName, bool canTunnel, QString failReason)
+{
+	if (!checkStatusAndDisconnect("tcpIn_tryTunneling", LoginedStatus, NatCheckFinished))
+		return;
+	m_lastInTime = QTime::currentTime();
+
+	emit onReplyTryTunneling(peerUserName, canTunnel, failReason);
+}
+
+void Client::tcpOut_readyTunneling(QString peerUserName, QString peerLocalPassword, int requestId)
+{
+	m_lastOutTime = QTime::currentTime();
+
+	QByteArrayMap argument;
+	argument["peerUserName"] = peerUserName.toUtf8();
+	argument["peerLocalPassword"] = peerLocalPassword.toUtf8();
+	argument["requestId"] = QByteArray::number(requestId);
+	m_tcpSocket.write(serializeResponse("readyTunneling", argument));
+}
+
+void Client::tcpIn_readyTunneling(QString peerUserName, int requestId, int tunnelId)
+{
+	if (!checkStatusAndDisconnect("tcpIn_readyTunneling", LoginedStatus, NatCheckFinished))
+		return;
+	m_lastInTime = QTime::currentTime();
+
+	if (tunnelId != 0)
+	{
+		if (m_mapTunnelInfo.contains(tunnelId))
+		{
+			disconnectServer(QString("tcpIn_readyTunneling duplicated tunnelId %1").arg(tunnelId));
+			return;
+		}
+		TunnelInfo & tunnel = m_mapTunnelInfo[tunnelId];
+		tunnel.status = ReadyTunnelingStatus;
+	}
+
+	emit onReplyReadTunneling(requestId, tunnelId);
+}
+
+void Client::tcpIn_startTunneling(int tunnelId, QString localPassword, QString peerUserName, QHostAddress peerHostAddress, quint16 peerPort)
+{
+	if (!checkStatusAndDisconnect("tcpIn_startTunneling", LoginedStatus, NatCheckFinished))
+		return;
+	m_lastInTime = QTime::currentTime();
+
+	if (localPassword == m_localPassword)
+	{
+		if (tunnelId == 0 || m_mapTunnelInfo.contains(tunnelId))
+		{
+			disconnectServer(QString("tcpIn_readyTunneling error or duplicated tunnelId %1").arg(tunnelId));
+			return;
+		}
+		TunnelInfo & tunnel = m_mapTunnelInfo[tunnelId];
+		tunnel.status = TunnelingStatus;
+		tunnel.peerUserName = peerUserName;
+		tunnel.peerHostAddress = tryConvertToIpv4(peerHostAddress);
+		tunnel.peerPort = peerPort;
+
+		if (peerPort)
+		{
+
+		}
+
+		tcpOut_startTunneling(tunnelId, true);
+	}else
+	{
+		tcpOut_startTunneling(tunnelId, false);
+	}
+}
+
+void Client::tcpOut_startTunneling(int tunnelId, bool localPasswordCorrect)
+{
+	m_lastOutTime = QTime::currentTime();
+
+	QByteArrayMap argument;
+	argument["tunnelId"] = QByteArray::number(tunnelId);
+	argument["localPasswordCorrect"] = localPasswordCorrect ? "1" : "0";
+	m_tcpSocket.write(serializeResponse("startTunneling", argument));
 }

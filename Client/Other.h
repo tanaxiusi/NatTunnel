@@ -18,3 +18,4 @@ QByteArray parseRequest(QByteArray line, QByteArrayMap * outArgument);
 QByteArray serializeResponse(QByteArray type, QByteArrayMap argument);
 QByteArray checksumThenUnpackUdpPackage(QByteArray package);
 bool isSameHostAddress(const QHostAddress & a, const QHostAddress & b);
+QHostAddress tryConvertToIpv4(const QHostAddress & hostAddress);
