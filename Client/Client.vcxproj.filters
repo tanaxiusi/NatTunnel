@@ -68,6 +68,15 @@
     <ClCompile Include="ikcp.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_QUpnpPortMapper.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_QUpnpPortMapper.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="QUpnpPortMapper.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="MainDlg.h">
@@ -80,6 +89,9 @@
       <Filter>Resource Files</Filter>
     </CustomBuild>
     <CustomBuild Include="Client.h">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="QUpnpPortMapper.h">
       <Filter>Header Files</Filter>
     </CustomBuild>
   </ItemGroup>
@@ -96,5 +108,11 @@
     <ClInclude Include="ikcp.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Client.rc" />
   </ItemGroup>
 </Project>

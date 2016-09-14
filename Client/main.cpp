@@ -25,12 +25,12 @@ void MyMessageHandler(QtMsgType type, const QMessageLogContext & context, const 
 	case QtFatalMsg:
 		abort();
 	}
+	const QString finalText = QString("%1 %2 %3\n").arg(datetime.toString("yyyyMMdd/hh:mm:ss.zzz")).arg(typeText).arg(text);
 	if (fileLog.isOpen())
 	{
 		QMutexLocker locker(&mutexFileLog);
 		if (fileLog.size() == 0)
 			fileLog.write("\xef\xbb\xbf");
-		const QString finalText = QString("%1 %2 %3\n").arg(datetime.toString("yyyyMMdd/hh:mm:ss.zzz")).arg(typeText).arg(text);
 		fileLog.write(finalText.toUtf8());
 		fileLog.flush();
 		locker.unlock();
@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
 
 	fileLog.setFileName(app.applicationDirPath() + "/NatTunnelClient.log");
 	fileLog.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text);
-	qInstallMessageHandler(MyMessageHandler);
+	//qInstallMessageHandler(MyMessageHandler);
 
 	MainDlg wnd;
 	wnd.show();

@@ -18,6 +18,10 @@ signals:
 	void logined();
 	void loginFailed(QString msg);
 	void natTypeConfirmed(NatType natType);
+	void firewallWarning();
+	quint16 wannaAddUpnpPortMapping(quint16 internalPort);
+	void wannaDeleteUpnpPortMapping(quint16 externalPort);
+	void wannaCreateKcpConnection(int tunnelId, QHostAddress hostAddress, quint16 port, quint32 magicNumber);
 
 	void onReplyTryTunneling(QString peerUserName, bool canTunnel, QString failReason);
 	void onReplyReadTunneling(int requestId, int tunnelId);
@@ -71,6 +75,11 @@ public:
 	bool start();
 	bool stop();
 
+	QHostAddress getLocalAddress();
+	QHostAddress getLocalPublicAddress();
+
+	void setUpnpAvailable(bool upnpAvailable);
+
 	void tryTunneling(QString peerUserName);
 	void readyTunneling(QString peerUserName, QString peerLocalPassword, int requestId);
 	
@@ -96,17 +105,22 @@ private:
 
 	void disconnectServer(QString reason);
 	void sendUdp(int localIndex, int serverIndex, QByteArray package);
-	void onUdpReadyRead(int localIndex);
+	void onUdpReadyRead_server(int localIndex);
+	void onUdpReadyRead_client(int localIndex);
 
 	void dealTcpIn(QByteArray line);
 	void dealUdpIn(int localIndex, int serverIndex, const QByteArray & line);
 
-private:
+	void checkFirewall();
+	void addUpnpPortMapping();
+	void deleteUpnpPortMapping();
+	quint32 getKcpMagicNumber(QString peerUserName);
 
+private:
 	void tcpOut_heartbeat();
 	void tcpIn_heartbeat();
 
-	void tcpIn_hello();
+	void tcpIn_hello(QString serverName, QHostAddress clientAddress);
 
 	void tcpOut_login();
 	void tcpIn_login(bool loginOk, QString msg, quint16 serverUdpPort1, quint16 serverUdpPort2);
@@ -121,14 +135,18 @@ private:
 
 	void tcpIn_checkNatStep2Type2(NatType natType);
 
-	void tcpOut_tryTunneling(QString peerUserName);
-	void tcpIn_tryTunneling(QString peerUserName, bool canTunnel, QString failReason);
+	void tcpOut_upnpAvailability(bool on);
 
-	void tcpOut_readyTunneling(QString peerUserName, QString peerLocalPassword, int requestId);
+	void tcpOut_tryTunneling(QString peerUserName);
+	void tcpIn_tryTunneling(QString peerUserName, bool canTunnel, bool needUpnp, QString failReason);
+
+	void tcpOut_readyTunneling(QString peerUserName, QString peerLocalPassword, quint16 udp2UpnpPort, int requestId);
 	void tcpIn_readyTunneling(QString peerUserName, int requestId, int tunnelId);
 
-	void tcpIn_startTunneling(int tunnelId, QString localPassword, QString peerUserName, QHostAddress peerHostAddress, quint16 peerPort);
-	void tcpOut_startTunneling(int tunnelId, bool localPasswordCorrect);
+	void tcpIn_startTunneling(int tunnelId, QString localPassword, QString peerUserName, QHostAddress peerHostAddress, quint16 peerPort, bool needUpnp);
+	void tcpOut_startTunneling(int tunnelId, bool canTunnel, quint16 udp2UpnpPort, QString errorString);
+
+	void tcpIn_tunneling(int tunnelId, QHostAddress peerHostAddress, quint16 peerPort);
 
 private:
 	bool m_running = false;
@@ -155,6 +173,12 @@ private:
 
 	QTime m_lastInTime;
 	QTime m_lastOutTime;
+
+	bool m_upnpAvailability = false;
+	bool m_isPublicNetwork = false;
+	QHostAddress m_localPublicAddress;
+
+	quint16 m_udp2UpnpPort = 0;
 
 	QMap<int, TunnelInfo> m_mapTunnelInfo;
 	QMap<QPair<QHostAddress, quint16>, int> m_mapHostTunnelId;

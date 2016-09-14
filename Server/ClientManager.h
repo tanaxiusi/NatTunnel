@@ -71,6 +71,8 @@ private:
 	void tcpIn_heartbeat(QTcpSocket & tcpSocket, ClientInfo & client);
 	void tcpOut_heartbeat(QTcpSocket & tcpSocket, ClientInfo & client);
 
+	void tcpOut_hello(QTcpSocket & tcpSocket, ClientInfo & client);
+
 	void tcpIn_login(QTcpSocket & tcpSocket, ClientInfo & client, QString userName, QString password);
 	void tcpOut_login(QTcpSocket & tcpSocket, ClientInfo & client, bool loginOk, QString msg, quint16 serverUdpPort1 = 0, quint16 serverUdpPort2 = 0);
 	bool login(QTcpSocket & tcpSocket, ClientInfo & client, QString userName, QString password, QString * outMsg);

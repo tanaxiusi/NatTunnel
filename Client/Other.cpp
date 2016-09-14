@@ -96,3 +96,41 @@ QHostAddress tryConvertToIpv4(const QHostAddress & hostAddress)
 	}
 	return hostAddress;
 }
+
+QString getNatDescription(NatType natType)
+{
+	switch (natType)
+	{
+	case UnknownNatType:
+		return "UnknownNatType";
+	case PublicNetwork:
+		return "PublicNetwork";
+	case FullOrRestrictedConeNat:
+		return "FullOrRestrictedConeNat";
+	case PortRestrictedConeNat:
+		return "PortRestrictedConeNat";
+	case SymmetricNat:
+		return "SymmetricNat";
+	default:
+		return "Error";
+	}
+}
+
+bool isNatAddress(const QHostAddress & hostAddress)
+{
+	bool isIpv4 = false;
+	const quint32 ipv4 = hostAddress.toIPv4Address(&isIpv4);
+	if (!isIpv4)
+		return false;
+
+	const quint8 * a = (const quint8 *)&ipv4;
+	if (a[3] == 10)
+		return true;
+	if (a[3] == 100 && a[2] >= 64 && a[2] <= 127)
+		return true;
+	if (a[3] == 172 && a[2] >= 16 && a[2] <= 31)
+		return true;
+	if (a[3] == 192 && a[2] == 168)
+		return true;
+	return false;
+}

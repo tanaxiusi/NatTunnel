@@ -79,12 +79,13 @@ void ClientManager::onTcpNewConnection()
 		connect(tcpSocket, SIGNAL(disconnected()), tcpSocket, SLOT(deleteLater()));
 
 		tcpSocket->setSocketOption(QAbstractSocket::KeepAliveOption, true);
-		tcpSocket->write("NatTunnelv1\n");
+		
+		ClientInfo & client = m_mapClientInfo[tcpSocket];
+		client.status = ConnectedStatus;
+		client.lastInTime = QTime::currentTime();
+		client.lastOutTime = QTime::currentTime();
 
-		ClientInfo & clientInfo = m_mapClientInfo[tcpSocket];
-		clientInfo.status = ConnectedStatus;
-		clientInfo.lastInTime = QTime::currentTime();
-		clientInfo.lastOutTime = QTime::currentTime();
+		tcpOut_hello(*tcpSocket, client);
 
 		qDebug() << QString("new connection : %1:%2")
 			.arg(tryConvertToIpv4(tcpSocket->peerAddress()).toString()).arg(tcpSocket->peerPort());
@@ -298,6 +299,15 @@ void ClientManager::tcpOut_heartbeat(QTcpSocket & tcpSocket, ClientInfo & client
 	tcpSocket.write(serializeResponse("heartbeat", {}));
 }
 
+void ClientManager::tcpOut_hello(QTcpSocket & tcpSocket, ClientInfo & client)
+{
+	client.lastOutTime = QTime::currentTime();
+	QByteArrayMap argument;
+	argument["serverName"] = "NatTunnelv1";
+	argument["clientAddress"] = tryConvertToIpv4(tcpSocket.peerAddress()).toString().toUtf8();
+
+	tcpSocket.write(serializeResponse("hello", argument));
+}
 
 void ClientManager::tcpIn_login(QTcpSocket & tcpSocket, ClientInfo & client, QString userName, QString password)
 {
@@ -451,9 +461,8 @@ void ClientManager::udpIn_checkNatStep2Type2(int index, QTcpSocket & tcpSocket, 
 		client.natType = PortRestrictedConeNat;
 	client.natStatus = NatCheckFinished;
 	tcpOut_checkNatStep2Type2(tcpSocket, client, client.natType);
-	qDebug() << QString("%1 NatType=%2 port(%3,%4)")
-		.arg(client.userName).arg(getNatDescription(client.natType))
-		.arg(client.udp1Port1).arg(clientUdp1Port2);
+	qDebug() << QString("%1 NatType=%2")
+		.arg(client.userName).arg(getNatDescription(client.natType));
 }
 
 void ClientManager::tcpOut_checkNatStep2Type2(QTcpSocket & tcpSocket, ClientInfo & client, NatType natType)
