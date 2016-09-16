@@ -18,7 +18,6 @@ Client::Client(QObject *parent)
 	m_timer15s.setParent(this);
 	m_kcpManager.setParent(this);
 
-	connect(&m_tcpSocket, SIGNAL(newConnection()), this, SLOT(onTcpNewConnection()));
 	connect(&m_tcpSocket, SIGNAL(connected()), this, SLOT(onTcpConnected()));
 	connect(&m_tcpSocket, SIGNAL(disconnected()), this, SLOT(onTcpDisconnected()));
 	connect(&m_tcpSocket, SIGNAL(readyRead()), this, SLOT(onTcpReadyRead()));
