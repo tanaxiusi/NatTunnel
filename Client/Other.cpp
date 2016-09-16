@@ -50,7 +50,7 @@ QByteArray serializeResponse(QByteArray type, QByteArrayMap argument)
 	return line;
 }
 
-QByteArray checksumThenUnpackUdpPackage(QByteArray package)
+QByteArray checksumThenUnpackPackage(QByteArray package)
 {
 	if (package.size() < 4)
 		return QByteArray();
@@ -60,6 +60,13 @@ QByteArray checksumThenUnpackUdpPackage(QByteArray package)
 	if (receivedCrc != actualCrc)
 		return QByteArray();
 	return content;
+}
+
+QByteArray addChecksumInfo(QByteArray package)
+{
+	uint32_t crc = crc32(package.constData(), package.size());
+	package.insert(0, (const char*)&crc, 4);
+	return package;
 }
 
 bool isSameHostAddress(const QHostAddress & a, const QHostAddress & b)

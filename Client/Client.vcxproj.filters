@@ -77,6 +77,15 @@
     <ClCompile Include="QUpnpPortMapper.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="KcpManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_KcpManager.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_KcpManager.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="MainDlg.h">
@@ -92,6 +101,9 @@
       <Filter>Header Files</Filter>
     </CustomBuild>
     <CustomBuild Include="QUpnpPortMapper.h">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="KcpManager.h">
       <Filter>Header Files</Filter>
     </CustomBuild>
   </ItemGroup>

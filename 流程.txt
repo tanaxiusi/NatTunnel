@@ -34,7 +34,7 @@ Upnp:
 			
 会话发起：
 	ClientA:Tcp->Server:Tcp[TryTunneling](参数：对方用户名)
-	Server:Tcp收到ClientA:Tcp后，检查对方是否在线，然后Server:Tcp->ClientA:Tcp[TryTunneling](参数：对方是否在线、能否连接、连接是否需要本地开启upnp、不能连接的原因)
+	Server:Tcp收到ClientA:Tcp后，检查对方是否在线，然后Server:Tcp->ClientA:Tcp[TryTunneling](参数：能否连接、连接是否需要本地开启upnp、不能连接的原因)
 	如果对方在线，ClientA弹框输入密码，完了后ClientA:Tcp->Server:Tcp[ReadyTunneling](参数：对方用户名、对方本地密码、本地udp端口2开启upnp后的公网端口(如果必需的话)、RequestId)
 	Server:Tcp收到ClientA:Tcp后，如果基础检查(上面的TryTunneling流程)正确，生成TunnelId，记录<TunnelId,ClientAUSerName,ClientBUSerName>，然后Server:Tcp->ClientA:Tcp[ReadyTunneling](参数：TunnelId、RequestId)
 	ClientA:Tcp收到Server:Tcp后，记录<TunnelId,ClientAUSerName,ClientBUSerName>
@@ -50,10 +50,9 @@ Upnp:
 		ClientA:Tcp收到Server:Tcp[CloseTunneling]后，删除TunnelId。
 		
 会话结束：
-	ClientA:Kcp->ClientB:Kcp[TerminateTunneling]
-	同时ClientA:Tcp->Server:Tcp[TerminateTunneling](参数：TunnelId)
-	Server:Tcp收到ClientA:Tcp[TerminateTunneling]后，删除TunnelId，Server:Tcp->ClientB:Tcp
-	ClientB:Tcp收到Server:Tcp[TerminateTunneling]后，删除TunnelId，ClientB:Kcp->ClientA:Kcp
+	同时ClientA:Tcp->Server:Tcp[CloseTunneling](参数：TunnelId)
+	Server:Tcp收到ClientA:Tcp[CloseTunneling]后，删除TunnelId，Server:Tcp->ClientB:Tcp
+	ClientB:Tcp收到Server:Tcp[CloseTunneling]后，删除TunnelId，ClientB:Kcp->ClientA:Kcp
 	
 	同时ClientA和ClientB的Kcp连接有心跳包，Server和ClientA/B的Tcp连接也有心跳包，如果某个连接断线了，就中断其他连接。
 		

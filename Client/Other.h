@@ -9,6 +9,8 @@
 #define U16(str)	QString::fromUtf8(str)
 #endif
 
+#define mycompare(a,b)				((a)==(b) ? 0 : ((a)<(b) ? -1 : 1))
+
 enum NatType
 {
 	UnknownNatType = 0,
@@ -22,7 +24,8 @@ typedef QMap<QByteArray, QByteArray> QByteArrayMap;
 
 QByteArray parseRequest(QByteArray line, QByteArrayMap * outArgument);
 QByteArray serializeResponse(QByteArray type, QByteArrayMap argument);
-QByteArray checksumThenUnpackUdpPackage(QByteArray package);
+QByteArray checksumThenUnpackPackage(QByteArray package);
+QByteArray addChecksumInfo(QByteArray package);
 bool isSameHostAddress(const QHostAddress & a, const QHostAddress & b);
 QHostAddress tryConvertToIpv4(const QHostAddress & hostAddress);
 QString getNatDescription(NatType natType);

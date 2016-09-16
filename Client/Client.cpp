@@ -11,12 +11,23 @@ static bool inline isValidIndex(int index)
 Client::Client(QObject *parent)
 	: QObject(parent)
 {
+	m_tcpSocket.setParent(this);
+	m_udpSocket1.setParent(this);
+	m_udpSocket2.setParent(this);
+	m_timer300ms.setParent(this);
+	m_timer15s.setParent(this);
+	m_kcpManager.setParent(this);
+
 	connect(&m_tcpSocket, SIGNAL(newConnection()), this, SLOT(onTcpNewConnection()));
 	connect(&m_tcpSocket, SIGNAL(connected()), this, SLOT(onTcpConnected()));
 	connect(&m_tcpSocket, SIGNAL(disconnected()), this, SLOT(onTcpDisconnected()));
 	connect(&m_tcpSocket, SIGNAL(readyRead()), this, SLOT(onTcpReadyRead()));
 	connect(&m_udpSocket1, SIGNAL(readyRead()), this, SLOT(onUdp1ReadyRead()));
 	connect(&m_udpSocket2, SIGNAL(readyRead()), this, SLOT(onUdp2ReadyRead()));
+	connect(&m_kcpManager, SIGNAL(wannaLowLevelOutput(int, QHostAddress, quint16, QByteArray)),
+		this, SLOT(onKcpLowLevelOutput(int, QHostAddress, quint16, QByteArray)));
+	connect(&m_kcpManager, SIGNAL(highLevelOutput(int, QByteArray)), this,
+		SLOT(onKcpHighLevelOutput(int, QByteArray)));
 
 	m_timer300ms.setParent(this);
 	connect(&m_timer300ms, SIGNAL(timeout()), this, SLOT(timerFunction300ms()));
@@ -49,7 +60,7 @@ void Client::setServerInfo(QHostAddress hostAddress, quint16 tcpPort)
 {
 	if (m_running)
 		return;
-	m_serverHostAddress = hostAddress;
+	m_serverHostAddress = tryConvertToIpv4(hostAddress);
 	m_serverTcpPort = tcpPort;
 }
 
@@ -103,11 +114,17 @@ void Client::tryTunneling(QString peerUserName)
 	tcpOut_tryTunneling(peerUserName);
 }
 
-void Client::readyTunneling(QString peerUserName, QString peerLocalPassword, int requestId)
+int Client::readyTunneling(QString peerUserName, QString peerLocalPassword, bool useUpnp)
 {
 	if (!m_running || !checkStatus(LoginedStatus, NatCheckFinished))
-		return;
-	tcpOut_readyTunneling(peerUserName, peerLocalPassword, m_udp2UpnpPort, requestId);
+		return 0;
+	int requestId = qrand() * 2;
+	// 使用upnp时，requestId为奇数，在返回的时候可以昨区分
+	if (useUpnp)
+		requestId++;
+	addUpnpPortMapping();
+	tcpOut_readyTunneling(peerUserName, peerLocalPassword, useUpnp ? m_udp2UpnpPort : 0, requestId);
+	return requestId;
 }
 
 void Client::onTcpConnected()
@@ -138,19 +155,12 @@ void Client::onTcpReadyRead()
 
 void Client::onUdp1ReadyRead()
 {
-	// 只有检测NAT类型的时候，udp端口才会跟Server通信，检测完了就只拿来做p2p传输
-	if (m_natStatus != NatCheckFinished)
-		onUdpReadyRead_server(1);
-	else
-		onUdpReadyRead_client(1);
+	onUdpReadyRead(1);
 }
 
 void Client::onUdp2ReadyRead()
 {
-	if (m_natStatus != NatCheckFinished)
-		onUdpReadyRead_server(2);
-	else
-		onUdpReadyRead_client(2);
+	onUdpReadyRead(2);
 }
 
 void Client::timerFunction300ms()
@@ -190,11 +200,37 @@ void Client::timerFunction15s()
 	if (m_tcpSocket.state() == QAbstractSocket::UnconnectedState)
 		startConnect();
 
+	if (m_status == LoginedStatus && m_natStatus == NatCheckFinished)
+	{
+		QByteArrayMap argument;
+		argument["userName"] = m_userName.toUtf8();
+		QByteArray line = serializeResponse("udp1KeepAlive", argument);
+		sendUdp(1, 1, line);
+	}
+
 	const int inTimeout = (m_status == LoginedStatus && m_natStatus == NatCheckFinished) ? (120 * 1000) : (20 * 1000);
 	if (m_lastInTime.elapsed() > inTimeout)
 		m_tcpSocket.disconnectFromHost();
 	else if (m_lastOutTime.elapsed() > 70 * 1000)
 		tcpOut_heartbeat();
+}
+
+void Client::onKcpLowLevelOutput(int tunnelId, QHostAddress hostAddress, quint16 port, QByteArray package)
+{
+	QMap<int, TunnelInfo>::iterator iter = m_mapTunnelInfo.find(tunnelId);
+	if (iter == m_mapTunnelInfo.end())
+		return;
+	TunnelInfo & tunnel = iter.value();
+	QUdpSocket * udpSocket = getUdpSocket(tunnel.localIndex);
+	if (!udpSocket)
+		return;
+
+	udpSocket->writeDatagram(package, hostAddress, port);
+}
+
+void Client::onKcpHighLevelOutput(int tunnelId, QByteArray package)
+{
+	emit tunnelData(tunnelId, package);
 }
 
 QUdpSocket * Client::getUdpSocket(int index)
@@ -300,12 +336,10 @@ void Client::sendUdp(int localIndex, int serverIndex, QByteArray package)
 	QUdpSocket * udpSocket = getUdpSocket(localIndex);
 	quint16 port = getServerUdpPort(serverIndex);
 
-	uint32_t crc = crc32(package.constData(), package.size());
-	package.insert(0, (const char*)&crc, 4);
-	udpSocket->writeDatagram(package, m_serverHostAddress, port);
+	udpSocket->writeDatagram(addChecksumInfo(package), m_serverHostAddress, port);
 }
 
-void Client::onUdpReadyRead_server(int localIndex)
+void Client::onUdpReadyRead(int localIndex)
 {
 	QUdpSocket * udpSocket = getUdpSocket(localIndex);
 	while (udpSocket->hasPendingDatagrams())
@@ -314,25 +348,24 @@ void Client::onUdpReadyRead_server(int localIndex)
 		QHostAddress hostAddress;
 		quint16 port = 0;
 		const int bufferSize = udpSocket->readDatagram(buffer, sizeof(buffer), &hostAddress, &port);
-		if (!isSameHostAddress(hostAddress, m_serverHostAddress))
-			continue;
-		const int serverIndex = getServerIndexFromUdpPort(port);
-		if(serverIndex == 0)
-			continue;
-		QByteArray package = checksumThenUnpackUdpPackage(QByteArray::fromRawData(buffer, bufferSize));
+		hostAddress = tryConvertToIpv4(hostAddress);
+		const bool isServerAddress = (hostAddress == m_serverHostAddress);
+		const int serverIndex = isServerAddress ? getServerIndexFromUdpPort(port) : 0;
+		QByteArray package = checksumThenUnpackPackage(QByteArray::fromRawData(buffer, bufferSize));
 		if (package.isEmpty())
 			continue;
-		if (package.endsWith('\n'))
-			package.chop(1);
-		if (!package.contains('\n'))
-			dealUdpIn(localIndex, serverIndex, package);
-		qDebug() << "onUdpReadyRead" << localIndex << hostAddress.toString() << port;
+		if (serverIndex != 0)
+		{
+			if (package.endsWith('\n'))
+				package.chop(1);
+			if (!package.contains('\n'))
+				dealUdpIn_server(localIndex, serverIndex, package);
+		}
+		else
+		{
+			dealUdpIn_p2p(localIndex, hostAddress, port, package);
+		}
 	}
-}
-
-void Client::onUdpReadyRead_client(int localIndex)
-{
-
 }
 
 void Client::dealTcpIn(QByteArray line)
@@ -372,13 +405,27 @@ void Client::dealTcpIn(QByteArray line)
 		tcpIn_readyTunneling(argument.value("peerUserName"), argument.value("requestId").toInt(),
 			argument.value("tunnelId").toInt());
 	}
-	else
+	else if (type == "startTunneling")
+	{
+		tcpIn_startTunneling(argument.value("tunnelId").toInt(), argument.value("localPassword"),
+			argument.value("peerUserName"), QHostAddress((QString)argument.value("peerAddress")),
+			argument.value("peerPort").toInt(), argument.value("needUpnp").toInt() == 1);
+	}
+	else if (type == "tunneling")
+	{
+		tcpIn_tunneling(argument.value("tunnelId").toInt(), QHostAddress((QString)argument.value("hostAddress")),
+			argument.value("port").toInt());
+	}
+	else if (type == "closeTunneling")
+	{
+		tcpIn_closeTunneling(argument.value("tunnelId").toInt());
+	}else
 	{
 		disconnectServer(QString("dealTcpIn unknown type '%1'").arg((QString)type));
 	}
 }
 
-void Client::dealUdpIn(int localIndex, int serverIndex, const QByteArray & line)
+void Client::dealUdpIn_server(int localIndex, int serverIndex, const QByteArray & line)
 {
 	QByteArrayMap argument;
 	QByteArray type = parseRequest(line, &argument);
@@ -397,6 +444,11 @@ void Client::dealUdpIn(int localIndex, int serverIndex, const QByteArray & line)
 	{
 		udpIn_checkNatStep2Type1(localIndex, serverIndex);
 	}
+}
+
+void Client::dealUdpIn_p2p(int localIndex, QHostAddress peerAddress, quint16 peerPort, const QByteArray & package)
+{
+	m_kcpManager.lowLevelInput(peerAddress, peerPort, package);
 }
 
 void Client::checkFirewall()
@@ -652,12 +704,14 @@ void Client::tcpIn_readyTunneling(QString peerUserName, int requestId, int tunne
 		TunnelInfo & tunnel = m_mapTunnelInfo[tunnelId];
 		tunnel.peerUserName = peerUserName;
 		tunnel.status = ReadyTunnelingStatus;
+		const bool useUpnp = (requestId % 2) == 1;
+		tunnel.localIndex = useUpnp ? 2 : 1;
 	}
 
 	emit onReplyReadTunneling(requestId, tunnelId);
 }
 
-void Client::tcpIn_startTunneling(int tunnelId, QString localPassword, QString peerUserName, QHostAddress peerHostAddress, quint16 peerPort, bool needUpnp)
+void Client::tcpIn_startTunneling(int tunnelId, QString localPassword, QString peerUserName, QHostAddress peerAddress, quint16 peerPort, bool needUpnp)
 {
 	if (!checkStatusAndDisconnect("tcpIn_startTunneling", LoginedStatus, NatCheckFinished))
 		return;
@@ -676,16 +730,17 @@ void Client::tcpIn_startTunneling(int tunnelId, QString localPassword, QString p
 		TunnelInfo & tunnel = m_mapTunnelInfo[tunnelId];
 		tunnel.status = TunnelingStatus;
 		tunnel.peerUserName = peerUserName;
-		tunnel.peerHostAddress = tryConvertToIpv4(peerHostAddress);
+		tunnel.peerAddress = peerAddress;
 		tunnel.peerPort = peerPort;
+		tunnel.localIndex = needUpnp ? 2 : 1;
 
-		if (peerPort)
-		{
-			emit wannaCreateKcpConnection(tunnelId, tunnel.peerHostAddress, tunnel.peerPort, getKcpMagicNumber(tunnel.peerUserName));
-		}
+		m_kcpManager.createKcpConnection(tunnelId, peerAddress, peerPort, getKcpMagicNumber(tunnel.peerUserName));
 
-		addUpnpPortMapping();
-		tcpOut_startTunneling(tunnelId, true, m_udp2UpnpPort, QString());
+		if(needUpnp)
+			addUpnpPortMapping();
+		tcpOut_startTunneling(tunnelId, true, needUpnp ? m_udp2UpnpPort : 0, QString());
+
+		emit tunnelStarted(tunnelId);
 	}else
 	{
 		QString errorString;
@@ -710,20 +765,32 @@ void Client::tcpOut_startTunneling(int tunnelId, bool canTunnel, quint16 udp2Upn
 	m_tcpSocket.write(serializeResponse("startTunneling", argument));
 }
 
-void Client::tcpIn_tunneling(int tunnelId, QHostAddress peerHostAddress, quint16 peerPort)
+void Client::tcpIn_tunneling(int tunnelId, QHostAddress peerAddress, quint16 peerPort)
 {
 	if (tunnelId == 0 || m_mapTunnelInfo.contains(tunnelId))
 	{
 		disconnectServer(QString("tcpIn_readyTunneling error or duplicated tunnelId %1").arg(tunnelId));
 		return;
 	}
+
 	TunnelInfo & tunnel = m_mapTunnelInfo[tunnelId];
 	tunnel.status = TunnelingStatus;
-	tunnel.peerHostAddress = tryConvertToIpv4(peerHostAddress);
+	tunnel.peerAddress = peerAddress;
 	tunnel.peerPort = peerPort;
 
-	if (peerPort)
+	m_kcpManager.createKcpConnection(tunnelId, peerAddress, peerPort, getKcpMagicNumber(tunnel.peerUserName));
+
+	emit tunnelStarted(tunnelId);
+}
+
+void Client::tcpIn_closeTunneling(int tunnelId)
+{
+	if (tunnelId == 0 || m_mapTunnelInfo.contains(tunnelId))
 	{
-		emit wannaCreateKcpConnection(tunnelId, tunnel.peerHostAddress, tunnel.peerPort, getKcpMagicNumber(tunnel.peerUserName));
+		disconnectServer(QString("tcpIn_readyTunneling error or duplicated tunnelId %1").arg(tunnelId));
+		return;
 	}
+
+	m_mapTunnelInfo.remove(tunnelId);
+	m_kcpManager.deleteKcpConnection(tunnelId);
 }

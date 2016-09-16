@@ -6,7 +6,7 @@
 #include <QTimer>
 #include <QTime>
 #include "Other.h"
-#include "ikcp.h"
+#include "KcpManager.h"
 
 class Client : public QObject
 {
@@ -21,10 +21,11 @@ signals:
 	void firewallWarning();
 	quint16 wannaAddUpnpPortMapping(quint16 internalPort);
 	void wannaDeleteUpnpPortMapping(quint16 externalPort);
-	void wannaCreateKcpConnection(int tunnelId, QHostAddress hostAddress, quint16 port, quint32 magicNumber);
 
 	void onReplyTryTunneling(QString peerUserName, bool canTunnel, QString failReason);
 	void onReplyReadTunneling(int requestId, int tunnelId);
+	void tunnelStarted(int tunnelId);
+	void tunnelData(int tunnelId, QByteArray package);
 
 private:
 	enum ClientStatus
@@ -58,8 +59,9 @@ private:
 	struct TunnelInfo
 	{
 		TunnelStatus status = UnknownTunnelStatus;
+		int localIndex = 0;		// 本地udp端口编号(1或2)
 		QString peerUserName;
-		QHostAddress peerHostAddress;
+		QHostAddress peerAddress;
 		quint16 peerPort = 0;
 		ikcpcb * kcp = nullptr;
 	};
@@ -81,7 +83,7 @@ public:
 	void setUpnpAvailable(bool upnpAvailable);
 
 	void tryTunneling(QString peerUserName);
-	void readyTunneling(QString peerUserName, QString peerLocalPassword, int requestId);
+	int readyTunneling(QString peerUserName, QString peerLocalPassword, bool useUpnp);
 	
 private slots:
 	void onTcpConnected();
@@ -91,6 +93,8 @@ private slots:
 	void onUdp2ReadyRead();
 	void timerFunction300ms();
 	void timerFunction15s();
+	void onKcpLowLevelOutput(int tunnelId, QHostAddress hostAddress, quint16 port, QByteArray package);
+	void onKcpHighLevelOutput(int tunnelId, QByteArray package);
 
 private:
 	QUdpSocket * getUdpSocket(int index);
@@ -105,11 +109,11 @@ private:
 
 	void disconnectServer(QString reason);
 	void sendUdp(int localIndex, int serverIndex, QByteArray package);
-	void onUdpReadyRead_server(int localIndex);
-	void onUdpReadyRead_client(int localIndex);
+	void onUdpReadyRead(int localIndex);
 
 	void dealTcpIn(QByteArray line);
-	void dealUdpIn(int localIndex, int serverIndex, const QByteArray & line);
+	void dealUdpIn_server(int localIndex, int serverIndex, const QByteArray & line);
+	void dealUdpIn_p2p(int localIndex, QHostAddress peerAddress, quint16 peerPort, const QByteArray & package);
 
 	void checkFirewall();
 	void addUpnpPortMapping();
@@ -147,6 +151,7 @@ private:
 	void tcpOut_startTunneling(int tunnelId, bool canTunnel, quint16 udp2UpnpPort, QString errorString);
 
 	void tcpIn_tunneling(int tunnelId, QHostAddress peerHostAddress, quint16 peerPort);
+	void tcpIn_closeTunneling(int tunnelId);
 
 private:
 	bool m_running = false;
@@ -156,6 +161,7 @@ private:
 	QUdpSocket m_udpSocket2;
 	QTimer m_timer300ms;
 	QTimer m_timer15s;
+	KcpManager m_kcpManager;
 
 	QString m_userName;
 	QString m_password;
