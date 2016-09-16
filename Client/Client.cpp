@@ -28,6 +28,7 @@ Client::Client(QObject *parent)
 		this, SLOT(onKcpLowLevelOutput(int, QHostAddress, quint16, QByteArray)));
 	connect(&m_kcpManager, SIGNAL(highLevelOutput(int, QByteArray)), this,
 		SLOT(onKcpHighLevelOutput(int, QByteArray)));
+	connect(&m_kcpManager, SIGNAL(handShaked(int)), this, SIGNAL(tunnelHandShaked(int)));
 
 	m_timer300ms.setParent(this);
 	connect(&m_timer300ms, SIGNAL(timeout()), this, SLOT(timerFunction300ms()));
@@ -103,6 +104,8 @@ QHostAddress Client::getLocalPublicAddress()
 
 void Client::setUpnpAvailable(bool upnpAvailability)
 {
+	if (!m_running)
+		return;
 	m_upnpAvailability = upnpAvailability;
 	tcpOut_upnpAvailability(upnpAvailability);
 }
@@ -225,7 +228,7 @@ void Client::onKcpLowLevelOutput(int tunnelId, QHostAddress hostAddress, quint16
 	if (!udpSocket)
 		return;
 
-	udpSocket->writeDatagram(package, hostAddress, port);
+	udpSocket->writeDatagram(addChecksumInfo(package), hostAddress, port);
 }
 
 void Client::onKcpHighLevelOutput(int tunnelId, QByteArray package)
@@ -413,8 +416,8 @@ void Client::dealTcpIn(QByteArray line)
 	}
 	else if (type == "tunneling")
 	{
-		tcpIn_tunneling(argument.value("tunnelId").toInt(), QHostAddress((QString)argument.value("hostAddress")),
-			argument.value("port").toInt());
+		tcpIn_tunneling(argument.value("tunnelId").toInt(), QHostAddress((QString)argument.value("peerAddress")),
+			argument.value("peerPort").toInt());
 	}
 	else if (type == "closeTunneling")
 	{
@@ -673,7 +676,7 @@ void Client::tcpIn_tryTunneling(QString peerUserName, bool canTunnel, bool needU
 	if (needUpnp && !m_upnpAvailability)
 		canTunnel = false;
 
-	emit onReplyTryTunneling(peerUserName, canTunnel, failReason);
+	emit replyTryTunneling(peerUserName, canTunnel, needUpnp, failReason);
 }
 
 void Client::tcpOut_readyTunneling(QString peerUserName, QString peerLocalPassword, quint16 udp2UpnpPort, int requestId)
@@ -706,9 +709,13 @@ void Client::tcpIn_readyTunneling(QString peerUserName, int requestId, int tunne
 		tunnel.status = ReadyTunnelingStatus;
 		const bool useUpnp = (requestId % 2) == 1;
 		tunnel.localIndex = useUpnp ? 2 : 1;
-	}
 
-	emit onReplyReadTunneling(requestId, tunnelId);
+		emit replyReadyTunneling(requestId, tunnelId, tunnel.peerUserName);
+	}
+	else
+	{
+		emit replyReadyTunneling(requestId, 0, QString());
+	}
 }
 
 void Client::tcpIn_startTunneling(int tunnelId, QString localPassword, QString peerUserName, QHostAddress peerAddress, quint16 peerPort, bool needUpnp)
@@ -724,7 +731,7 @@ void Client::tcpIn_startTunneling(int tunnelId, QString localPassword, QString p
 	{
 		if (tunnelId == 0 || m_mapTunnelInfo.contains(tunnelId))
 		{
-			disconnectServer(QString("tcpIn_readyTunneling error or duplicated tunnelId %1").arg(tunnelId));
+			disconnectServer(QString("tcpIn_startTunneling error or duplicated tunnelId %1").arg(tunnelId));
 			return;
 		}
 		TunnelInfo & tunnel = m_mapTunnelInfo[tunnelId];
@@ -740,7 +747,7 @@ void Client::tcpIn_startTunneling(int tunnelId, QString localPassword, QString p
 			addUpnpPortMapping();
 		tcpOut_startTunneling(tunnelId, true, needUpnp ? m_udp2UpnpPort : 0, QString());
 
-		emit tunnelStarted(tunnelId);
+		emit tunnelStarted(tunnelId, tunnel.peerUserName, tunnel.peerAddress);
 	}else
 	{
 		QString errorString;
@@ -767,30 +774,39 @@ void Client::tcpOut_startTunneling(int tunnelId, bool canTunnel, quint16 udp2Upn
 
 void Client::tcpIn_tunneling(int tunnelId, QHostAddress peerAddress, quint16 peerPort)
 {
-	if (tunnelId == 0 || m_mapTunnelInfo.contains(tunnelId))
+	if (tunnelId == 0)
 	{
-		disconnectServer(QString("tcpIn_readyTunneling error or duplicated tunnelId %1").arg(tunnelId));
+		disconnectServer(QString("tcpIn_tunneling error tunnelId %1").arg(tunnelId));
 		return;
 	}
 
 	TunnelInfo & tunnel = m_mapTunnelInfo[tunnelId];
+
+	if (tunnel.status == TunnelingStatus)
+	{
+		disconnectServer(QString("tcpIn_tunneling duplicated tunnelId %1").arg(tunnelId));
+		return;
+	}
+
 	tunnel.status = TunnelingStatus;
 	tunnel.peerAddress = peerAddress;
 	tunnel.peerPort = peerPort;
 
 	m_kcpManager.createKcpConnection(tunnelId, peerAddress, peerPort, getKcpMagicNumber(tunnel.peerUserName));
 
-	emit tunnelStarted(tunnelId);
+	emit tunnelStarted(tunnelId, tunnel.peerUserName, tunnel.peerAddress);
 }
 
 void Client::tcpIn_closeTunneling(int tunnelId)
 {
-	if (tunnelId == 0 || m_mapTunnelInfo.contains(tunnelId))
+	if (tunnelId == 0)
 	{
-		disconnectServer(QString("tcpIn_readyTunneling error or duplicated tunnelId %1").arg(tunnelId));
+		disconnectServer(QString("tcpIn_closeTunneling error tunnelId %1").arg(tunnelId));
 		return;
 	}
 
 	m_mapTunnelInfo.remove(tunnelId);
 	m_kcpManager.deleteKcpConnection(tunnelId);
+
+	emit tunnelClosed(tunnelId);
 }

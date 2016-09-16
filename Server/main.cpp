@@ -2,6 +2,7 @@
 #include <QCoreApplication>
 #include <QFile>
 #include <QMutex>
+#include <QSettings>
 #include <time.h>
 #include <iostream>
 #include "ClientManager.h"
@@ -50,12 +51,21 @@ int main(int argc, char *argv[])
 	fileLog.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text);
 	qInstallMessageHandler(MyMessageHandler);
 
-	QMap<QString, QString> mapUserList;
-	mapUserList["user1"] = "123456";
-	mapUserList["user2"] = "654321";
+	QSettings setting("NatTunnelServer.ini", QSettings::IniFormat);
+	QMap<QString, QString> mapUser;
+	setting.beginGroup("User");
+	for (QString userName : setting.childKeys())
+		mapUser[userName] = setting.value(userName).toString();
+	setting.endGroup();
+
+	const int tcpPort = setting.value("Port/Tcp").toInt();
+	const int udp1Port = setting.value("Port/Udp1").toInt();
+	const int udp2Port = setting.value("Port/Udp2").toInt();
+
 	ClientManager clientManager;
-	clientManager.setUserList(mapUserList);
-	clientManager.start(7771, 7772, 7773);
+	clientManager.setUserList(mapUser);
+	if (!clientManager.start(tcpPort, udp1Port, udp2Port))
+		return 0;
 
 	return app.exec();
 }

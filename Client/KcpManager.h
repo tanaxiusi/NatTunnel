@@ -14,6 +14,7 @@ class KcpManager : public QObject
 signals :
 	void highLevelOutput(int tunnelId, QByteArray package);
 	void wannaLowLevelOutput(int tunnelId, QHostAddress hostAddress, quint16 port, QByteArray package);
+	void handShaked(int tunnelId);
 
 private:
 	struct Peer

@@ -1,12 +1,36 @@
 #include "MainDlg.h"
 #include <QTcpServer>
+#include <QSettings>
+#include <QMessageBox>
+#include <QInputDialog>
 
 MainDlg::MainDlg(QWidget *parent)
-	: QWidget(parent)
+	: QMainWindow(parent)
 {
 	ui.setupUi(this);
 
-	leadWindowsFirewallPopup();
+	m_labelStatus = new QLabel(U16("未连接"));
+	m_labelNatType = new QLabel(U16(" "));
+	m_labelUpnp = new QLabel(U16(" "));
+
+	m_labelStatus->setMinimumWidth(60);
+	m_labelNatType->setMinimumWidth(60);
+	m_labelUpnp->setMinimumWidth(60);
+
+	ui.statusBar->addPermanentWidget(m_labelUpnp);
+	ui.statusBar->addPermanentWidget(m_labelNatType);
+	ui.statusBar->addPermanentWidget(m_labelStatus);
+
+	ui.btnTunnel->setEnabled(false);
+
+	m_model = new QStandardItemModel(ui.tableView);
+	ui.tableView->setModel(m_model);
+	m_model->setHorizontalHeaderLabels(U16("tunnelId,对方用户名,对方IP地址,状态,操作").split(","));
+	ui.tableView->setColumnHidden(0, true);
+	ui.tableView->setColumnWidth(1, 80);
+	ui.tableView->setColumnWidth(2, 80);
+	ui.tableView->setColumnWidth(3, 80);
+	ui.tableView->setColumnWidth(4, 80);
 
 	connect(&m_client, SIGNAL(connected()), this, SLOT(connected()));
 	connect(&m_client, SIGNAL(disconnected()), this, SLOT(disconnected()));
@@ -18,8 +42,31 @@ MainDlg::MainDlg(QWidget *parent)
 	connect(&m_upnpPortMapper, SIGNAL(discoverFinished(bool)), this, SLOT(onUpnpDiscoverFinished(bool)));
 	connect(&m_upnpPortMapper, SIGNAL(queryExternalAddressFinished(QHostAddress,bool,QString)), this, SLOT(onUpnpQueryExternalAddressFinished(QHostAddress, bool, QString)));
 
-	m_client.setUserInfo("user1", "123456");
-	m_client.setServerInfo(QHostAddress("127.0.0.1"), 7771);
+
+	connect(ui.editLocalPassword, SIGNAL(textChanged(const QString &)), this, SLOT(onEditLocalPasswordChanged()));
+	connect(ui.btnTunnel, SIGNAL(clicked()), this, SLOT(onBtnTunnel()));
+	connect(&m_client, SIGNAL(replyTryTunneling(QString, bool, bool, QString)), this, SLOT(onReplyTryTunneling(QString, bool, bool, QString)));
+	connect(&m_client, SIGNAL(replyReadyTunneling(int, int, QString)), this, SLOT(onReplyReadyTunneling(int, int, QString)));
+	connect(&m_client, SIGNAL(tunnelStarted(int, QString, QHostAddress)), this, SLOT(onTunnelStarted(int, QString, QHostAddress)));
+	connect(&m_client, SIGNAL(tunnelHandShaked(int)), this, SLOT(onTunnelHandShaked(int)));
+	connect(&m_client, SIGNAL(tunnelData(int, QByteArray)), this, SLOT(onTunnelData(int, QByteArray)));
+	connect(&m_client, SIGNAL(tunnelClosed(int)), this, SLOT(onTunnelClosed(int)));
+
+	leadWindowsFirewallPopup();
+
+	QSettings setting("NatTunnelClient.ini", QSettings::IniFormat);
+	const QHostAddress serverAddress = QHostAddress(setting.value("Server/Address").toString());
+	const int serverPort = setting.value("Server/Port").toInt();
+
+	const QString userName = setting.value("Client/UserName").toString();
+	const QString password = setting.value("Client/Password").toString();
+	const QString localPassword = setting.value("Client/LocalPassword").toString();
+
+	ui.editUserName->setText(userName);
+	ui.editLocalPassword->setText(localPassword);
+
+	m_client.setUserInfo(userName, password);
+	m_client.setServerInfo(serverAddress, serverPort);
 	m_client.start();
 }
 
@@ -42,41 +89,56 @@ void MainDlg::leadWindowsFirewallPopup()
 #endif
 }
 
+void MainDlg::closeEvent(QCloseEvent *event)
+{
+	QSettings setting("NatTunnelClient.ini", QSettings::IniFormat);
+	setting.setValue("Client/LocalPassword", ui.editLocalPassword->text());
+}
 void MainDlg::connected()
 {
-	ui.plainTextEdit->appendPlainText("connected");
+	m_labelStatus->setText(U16("正在登录"));
 
 	const QHostAddress localAddress = m_client.getLocalAddress();
 	if (isNatAddress(localAddress))
 	{
 		m_upnpPortMapper.open(m_client.getLocalAddress());
 		m_upnpPortMapper.discover();
+		m_labelUpnp->setText(U16("正在检测upnp支持"));
+	}
+	else
+	{
+		m_labelUpnp->setText(U16("当前网络环境无需upnp"));
 	}
 }
 
 void MainDlg::disconnected()
 {
-	ui.plainTextEdit->appendPlainText("disconnected");
+	m_labelStatus->setText(U16("断开"));
+	m_labelNatType->clear();
+	m_labelUpnp->clear();
+	ui.btnTunnel->setEnabled(false);
 }
 
 void MainDlg::logined()
 {
-	ui.plainTextEdit->appendPlainText("logined");
+	m_labelStatus->setText(U16("登录成功"));
+	m_labelNatType->setText(U16("正在检测NAT类型"));
 }
 
 void MainDlg::loginFailed(QString msg)
 {
-	ui.plainTextEdit->appendPlainText("loginFailed " + msg);
+	m_labelStatus->setText(msg);
 }
 
 void MainDlg::natTypeConfirmed(NatType natType)
 {
-	ui.plainTextEdit->appendPlainText("natType = " + getNatDescription(natType));
+	m_labelNatType->setText(getNatDescription(natType));
+	ui.btnTunnel->setEnabled(true);
 }
 
 void MainDlg::firewallWarning()
 {
-	ui.plainTextEdit->appendPlainText("WARNING! your firewall is blocking the connection");
+	ui.statusBar->showMessage(U16("当前处于公网环境，但是防火墙可能拦截了本程序"));
 }
 
 void MainDlg::onUpnpDiscoverFinished(bool ok)
@@ -84,13 +146,13 @@ void MainDlg::onUpnpDiscoverFinished(bool ok)
 	if (ok)
 	{
 		m_client.setUpnpAvailable(true);
-		ui.plainTextEdit->appendPlainText("upnp discoverd");
+		m_labelUpnp->setText(U16("upnp可用"));
 		m_upnpPortMapper.queryExternalAddress();
 	}
 	else
 	{
 		m_client.setUpnpAvailable(false);
-		ui.plainTextEdit->appendPlainText("WARNING! upnp not enable");
+		m_labelUpnp->setText(U16("upnp不可用"));
 	}
 }
 
@@ -98,11 +160,109 @@ void MainDlg::onUpnpQueryExternalAddressFinished(QHostAddress address, bool ok, 
 {
 	if (ok)
 	{
-		ui.plainTextEdit->appendPlainText(QString("upnp exteral address = %1").arg(tryConvertToIpv4(address).toString()));
 		if (!isSameHostAddress(address, m_client.getLocalPublicAddress()))
-			ui.plainTextEdit->appendPlainText(QString("WARNING! but not same as %1").arg(m_client.getLocalPublicAddress().toString()));
+			ui.statusBar->showMessage(U16("服务器端返回的IP地址 %1 和upnp返回的地址 %2 不同").arg(m_client.getLocalPublicAddress().toString()).arg(address.toString()));
 	}else
 	{
-		ui.plainTextEdit->appendPlainText("WARNING! upnp GetExternalIPAddress failed");
+		ui.statusBar->showMessage(U16("upnp获取公网地址失败"));
 	}
+}
+
+void MainDlg::onEditLocalPasswordChanged()
+{
+	m_client.setLocalPassword(ui.editLocalPassword->text());
+}
+
+void MainDlg::onBtnTunnel()
+{
+	const QString peerUserName = ui.comboBoxPeerUserName->currentText();
+	if (peerUserName.isEmpty())
+		return;
+
+	m_client.tryTunneling(peerUserName);
+	ui.btnTunnel->setEnabled(false);
+}
+
+void MainDlg::onReplyTryTunneling(QString peerUserName, bool canTunnel, bool needUpnp, QString failReason)
+{
+	if (!canTunnel)
+	{
+		QMessageBox::warning(this, U16("连接失败"), failReason);
+		ui.btnTunnel->setEnabled(true);
+		return;
+	}
+	const QString peerLocalPassword = QInputDialog::getText(this, U16("连接"), U16("输入 %1 的本地密码").arg(peerUserName), QLineEdit::Password);
+	if (peerLocalPassword.isNull())
+	{
+		ui.btnTunnel->setEnabled(true);
+		return;
+	}
+
+	m_client.readyTunneling(peerUserName, peerLocalPassword, needUpnp);
+}
+
+void MainDlg::onReplyReadyTunneling(int requestId, int tunnelId, QString peerUserName)
+{
+	if (tunnelId == 0)
+	{
+		QMessageBox::warning(this, U16("连接失败"), U16("连接失败"));
+		return;
+	}
+
+	ui.btnTunnel->setEnabled(true);
+	updateTableRow(tunnelId, peerUserName, "", U16("准备中"));
+}
+
+void MainDlg::onTunnelStarted(int tunnelId, QString peerUserName, QHostAddress peerAddress)
+{
+	updateTableRow(tunnelId, peerUserName, peerAddress.toString(), U16("开始连接"));
+}
+
+void MainDlg::onTunnelHandShaked(int tunnelId)
+{
+	updateTableRow(tunnelId, QString(), QString(), U16("连接成功"));
+}
+
+void MainDlg::onTunnelData(int tunnelId, QByteArray package)
+{
+
+}
+
+void MainDlg::onTunnelClosed(int tunnelId)
+{
+	deleteTableRow(tunnelId);
+}
+
+void MainDlg::updateTableRow(int tunnelId, QString peerUsername, QString peerAddress, QString status)
+{
+	const QString key = QString::number(tunnelId);
+	QList<QStandardItem*> lstItem = m_model->findItems(key);
+	if (lstItem.isEmpty())
+	{
+		lstItem << new QStandardItem(key) << new QStandardItem(peerUsername)
+			<< new QStandardItem(peerAddress) << new QStandardItem(status) << new QStandardItem();
+		m_model->appendRow(lstItem);
+		QPushButton * btnCloseConnection = new QPushButton(U16("断开"));
+		btnCloseConnection->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding));
+		ui.tableView->setIndexWidget(m_model->index(m_model->rowCount() - 1, m_model->columnCount() - 1), btnCloseConnection);
+	}
+	else
+	{
+		const int row = lstItem.at(0)->row();
+		if(!peerUsername.isNull())
+			m_model->item(row, 1)->setText(peerUsername);
+		if(!peerAddress.isNull())
+			m_model->item(row, 2)->setText(peerAddress);
+		if(!status.isNull())
+			m_model->item(row, 3)->setText(status);
+	}
+}
+
+void MainDlg::deleteTableRow(int tunnelId)
+{
+	const QString key = QString::number(tunnelId);
+	QList<QStandardItem*> lstItem = m_model->findItems(key);
+	if (lstItem.isEmpty())
+		return;
+	m_model->removeRow(lstItem.at(0)->row());
 }

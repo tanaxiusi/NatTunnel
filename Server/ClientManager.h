@@ -93,6 +93,8 @@ private:
 	bool getTcpSocketAndClientInfoByUserName(QString userName, QTcpSocket ** outTcpSocket, ClientInfo ** outClientInfo);
 	TunnelInfo * getTunnelInfo(int tunnelId);
 
+	void clearUserTunnel(QString userName);
+
 	void dealTcpIn(QByteArray line, QTcpSocket & tcpSocket, ClientInfo & client);
 	void dealUdpIn(int index, const QByteArray & line, QHostAddress hostAddress, quint16 port);
 
@@ -118,12 +120,12 @@ private:
 	void tcpOut_tryTunneling(QTcpSocket & tcpSocket, ClientInfo & client, QString peerUserName, bool canTunnel, bool needUpnp, QString failReason);
 
 	void tcpIn_readyTunneling(QTcpSocket & tcpSocket, ClientInfo & client, QString peerUserName, QString peerLocalPassword, quint16 udp2UpnpPort, int requestId);
-	void tcpOut_readyTunneling(QTcpSocket & tcpSocket, ClientInfo & client, int requestId, int tunnelId);
+	void tcpOut_readyTunneling(QTcpSocket & tcpSocket, ClientInfo & client, int requestId, int tunnelId, QString peerUserName);
 
-	void tcpOut_startTunneling(QTcpSocket & tcpSocket, ClientInfo & client, int tunnelId, QString localPassword, QString peerUserName, QHostAddress peerHostAddress, quint16 peerPort, bool needUpnp);
+	void tcpOut_startTunneling(QTcpSocket & tcpSocket, ClientInfo & client, int tunnelId, QString localPassword, QString peerUserName, QHostAddress peerAddress, quint16 peerPort, bool needUpnp);
 	void tcpIn_startTunneling(QTcpSocket & tcpSocket, ClientInfo & client, int tunnelId, bool canTunnel, quint16 udp2UpnpPort, QString errorString);
 
-	void tcpOut_tunneling(QTcpSocket & tcpSocket, ClientInfo & client, int tunnelId, QHostAddress peerHostAddress, quint16 peerPort);
+	void tcpOut_tunneling(QTcpSocket & tcpSocket, ClientInfo & client, int tunnelId, QHostAddress peerAddress, quint16 peerPort);
 
 	void tcpIn_closeTunneling(QTcpSocket & tcpSocket, ClientInfo & client, int tunnelId);
 	void tcpOut_closeTunneling(QTcpSocket & tcpSocket, ClientInfo & client, int tunnelId);

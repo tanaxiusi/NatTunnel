@@ -57,7 +57,6 @@ void KcpManager::deleteKcpConnection(int tunnelId)
 
 void KcpManager::lowLevelInput(QHostAddress hostAddress, quint16 port, QByteArray package)
 {
-	package = checksumThenUnpackPackage(package);
 	if (package.isEmpty())
 		return;
 	KcpConnection * connection = getConnectionByPeer(Peer(hostAddress, port), true);
@@ -86,6 +85,7 @@ void KcpManager::lowLevelInput(QHostAddress hostAddress, quint16 port, QByteArra
 				return;
 			}
 			connection->handShaked = true;
+			emit handShaked(connection->tunnelId);
 			outputBuffer.append(QByteArray::fromRawData(buffer + 1, bufferSize - 1));
 		}else
 		{
@@ -149,7 +149,7 @@ int KcpManager::kcp_write(const char *buf, int len, ikcpcb *kcp)
 	if (iter == m_map.end())
 		return -1;
 	KcpConnection & connection = *iter;
-	emit wannaLowLevelOutput(connection.tunnelId, connection.peer.address, connection.peer.port, addChecksumInfo(QByteArray::fromRawData(buf, len)));
+	emit wannaLowLevelOutput(connection.tunnelId, connection.peer.address, connection.peer.port, QByteArray::fromRawData(buf, len));
 	return 0;
 }
 

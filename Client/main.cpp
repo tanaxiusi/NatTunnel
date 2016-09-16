@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
 
 	fileLog.setFileName(app.applicationDirPath() + "/NatTunnelClient.log");
 	fileLog.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text);
-	//qInstallMessageHandler(MyMessageHandler);
+	qInstallMessageHandler(MyMessageHandler);
 
 	MainDlg wnd;
 	wnd.show();
