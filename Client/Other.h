@@ -24,6 +24,7 @@ typedef QMap<QByteArray, QByteArray> QByteArrayMap;
 
 QByteArray parseRequest(QByteArray line, QByteArrayMap * outArgument);
 QByteArray serializeResponse(QByteArray type, QByteArrayMap argument);
+QString argumentToString(QByteArrayMap argument);
 QByteArray checksumThenUnpackPackage(QByteArray package);
 QByteArray addChecksumInfo(QByteArray package);
 bool isSameHostAddress(const QHostAddress & a, const QHostAddress & b);

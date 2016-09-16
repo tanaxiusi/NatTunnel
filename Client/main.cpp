@@ -2,6 +2,7 @@
 #include <QApplication>
 #include <QFile>
 #include <QMutex>
+#include <time.h>
 
 static QFile fileLog;
 static QMutex mutexFileLog;
@@ -44,6 +45,8 @@ int main(int argc, char *argv[])
 	fileLog.setFileName(app.applicationDirPath() + "/NatTunnelClient.log");
 	fileLog.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text);
 	qInstallMessageHandler(MyMessageHandler);
+
+	srand(time(0));
 
 	MainDlg wnd;
 	wnd.show();

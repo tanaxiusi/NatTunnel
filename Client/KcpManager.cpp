@@ -163,7 +163,8 @@ KcpManager::KcpConnection * KcpManager::getConnectionByPeer(const Peer & peer, b
 		KcpConnection * connection = &(iter.value());
 		if (peer.port != 0)
 		{
-			if (connection->peer.port == peer.port && connection->peer.address == peer.address)
+			if ((connection->peer.port == 0 && allowUncertain || connection->peer.port == peer.port)
+				&& connection->peer.address == peer.address)
 				return connection;
 		}
 		else

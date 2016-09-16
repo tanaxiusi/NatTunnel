@@ -110,6 +110,7 @@ private:
 	bool checkStatusAndDisconnect(QString functionName, ClientStatus correctStatus, NatCheckStatus correctNatStatus);
 
 	void disconnectServer(QString reason);
+	void sendTcp(QByteArray type, QByteArrayMap argument);
 	void sendUdp(int localIndex, int serverIndex, QByteArray package);
 	void onUdpReadyRead(int localIndex);
 
@@ -121,6 +122,7 @@ private:
 	void addUpnpPortMapping();
 	void deleteUpnpPortMapping();
 	quint32 getKcpMagicNumber(QString peerUserName);
+	void createKcpConnection(int tunnelId, TunnelInfo & tunnel);
 
 private:
 	void tcpOut_heartbeat();

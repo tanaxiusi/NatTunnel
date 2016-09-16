@@ -57,6 +57,26 @@ QByteArray serializeResponse(QByteArray type, QByteArrayMap argument)
 	return line;
 }
 
+QString argumentToString(QByteArrayMap argument)
+{
+	QByteArray line;
+	for (auto iter = argument.constBegin(); iter != argument.constEnd(); ++iter)
+	{
+		const QByteArray & argumentName = iter.key();
+		const QByteArray & argumentValue = iter.value();
+
+		if (argumentName.contains("=") || argumentName.contains(" "))
+			return QByteArray();
+
+		if (!line.isEmpty())
+			line.append(" ");
+		line.append(argumentName);
+		line.append("=");
+		line.append(argumentValue);
+	}
+	return line;
+}
+
 QByteArray checksumThenUnpackUdpPackage(QByteArray package)
 {
 	if (package.size() < 4)

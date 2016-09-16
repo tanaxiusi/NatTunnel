@@ -83,11 +83,12 @@ private:
 	bool checkStatusAndDisconnect(QTcpSocket & tcpSocket, ClientInfo & client, QString functionName, ClientStatus correctStatus, NatCheckStatus correctNatStatus);
 
 	void disconnectClient(QTcpSocket & tcpSocket, ClientInfo & client, QString reason);
-	void sendTcp(QTcpSocket & tcpSocket, ClientInfo & client, QByteArray package);
-	void sendUdp(int index, QByteArray package, QHostAddress hostAddress, quint16 port);
+	void sendTcp(QTcpSocket & tcpSocket, ClientInfo & client, QByteArray type, QByteArrayMap argument);
+	void sendUdp(int index, QByteArray type, QByteArrayMap argument, QHostAddress hostAddress, quint16 port);
 	void onUdpReadyRead(int index);
 
 	bool checkCanTunnel(ClientInfo & localClient, QString peerUserName, bool * outLocalNeedUpnp, bool * outPeerNeedUpnp, QString * outFailReason);
+	quint16 getTunnelPort(ClientInfo & client, quint16 orginalPort, quint16 upnpPort);
 	int getNextTunnelId();
 
 	bool getTcpSocketAndClientInfoByUserName(QString userName, QTcpSocket ** outTcpSocket, ClientInfo ** outClientInfo);

@@ -42,7 +42,6 @@ MainDlg::MainDlg(QWidget *parent)
 	connect(&m_upnpPortMapper, SIGNAL(discoverFinished(bool)), this, SLOT(onUpnpDiscoverFinished(bool)));
 	connect(&m_upnpPortMapper, SIGNAL(queryExternalAddressFinished(QHostAddress,bool,QString)), this, SLOT(onUpnpQueryExternalAddressFinished(QHostAddress, bool, QString)));
 
-
 	connect(ui.editLocalPassword, SIGNAL(textChanged(const QString &)), this, SLOT(onEditLocalPasswordChanged()));
 	connect(ui.btnTunnel, SIGNAL(clicked()), this, SLOT(onBtnTunnel()));
 	connect(&m_client, SIGNAL(replyTryTunneling(QString, bool, bool, QString)), this, SLOT(onReplyTryTunneling(QString, bool, bool, QString)));
@@ -51,6 +50,9 @@ MainDlg::MainDlg(QWidget *parent)
 	connect(&m_client, SIGNAL(tunnelHandShaked(int)), this, SLOT(onTunnelHandShaked(int)));
 	connect(&m_client, SIGNAL(tunnelData(int, QByteArray)), this, SLOT(onTunnelData(int, QByteArray)));
 	connect(&m_client, SIGNAL(tunnelClosed(int)), this, SLOT(onTunnelClosed(int)));
+
+	connect(&m_client, SIGNAL(wannaAddUpnpPortMapping(quint16)), this, SLOT(addUpnpPortMapping(quint16)));
+	connect(&m_client, SIGNAL(wannaDeleteUpnpPortMapping(quint16)), this, SLOT(deleteUpnpPortMapping(quint16)));
 
 	leadWindowsFirewallPopup();
 
@@ -265,4 +267,16 @@ void MainDlg::deleteTableRow(int tunnelId)
 	if (lstItem.isEmpty())
 		return;
 	m_model->removeRow(lstItem.at(0)->row());
+}
+
+quint16 MainDlg::addUpnpPortMapping(quint16 internalPort)
+{
+	quint16 externalPort = (rand() & 0x7FFF) + 25000;
+	m_upnpPortMapper.addPortMapping(QAbstractSocket::UdpSocket, m_upnpPortMapper.localAddress(), internalPort, externalPort, "NatTunnelClient");
+	return externalPort;
+}
+
+void MainDlg::deleteUpnpPortMapping(quint16 externalPort)
+{
+	m_upnpPortMapper.deletePortMapping(QAbstractSocket::UdpSocket, externalPort);
 }

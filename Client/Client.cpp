@@ -331,6 +331,12 @@ void Client::disconnectServer(QString reason)
 	qDebug() << QString("force disconnect, reason=%1").arg(reason);
 }
 
+void Client::sendTcp(QByteArray type, QByteArrayMap argument)
+{
+	qDebug() << QString("tcpOut %1 %2").arg((QString)type).arg(argumentToString(argument));
+	m_tcpSocket.write(serializeResponse(type, argument));
+}
+
 void Client::sendUdp(int localIndex, int serverIndex, QByteArray package)
 {
 	if (!isValidIndex(localIndex) || !isValidIndex(serverIndex))
@@ -380,51 +386,32 @@ void Client::dealTcpIn(QByteArray line)
 		return;
 	}
 
+	qDebug() << QString("tcpIn %1 %2").arg((QString)type).arg(argumentToString(argument));
+
 	if (type == "heartbeat")
-	{
 		tcpIn_heartbeat();
-	}
 	else if (type == "hello")
-	{
 		tcpIn_hello(argument.value("serverName"), QHostAddress((QString)argument.value("clientAddress")));
-	}
 	else if(type == "login")
-	{
 		tcpIn_login(argument.value("loginOk").toInt() == 1, argument.value("msg"),
 			argument.value("serverUdpPort1").toInt(), argument.value("serverUdpPort2").toInt());
-	}
 	else if (type == "checkNatStep2Type2")
-	{
 		tcpIn_checkNatStep2Type2((NatType)argument.value("natType").toInt());
-	}
 	else if (type == "tryTunneling")
-	{
 		tcpIn_tryTunneling(argument.value("peerUserName"), argument.value("canTunnel").toInt() == 1,
 			argument.value("needUpnp").toInt() == 1, argument.value("failReason"));
-	}
 	else if (type == "readyTunneling")
-	{
 		tcpIn_readyTunneling(argument.value("peerUserName"), argument.value("requestId").toInt(),
 			argument.value("tunnelId").toInt());
-	}
 	else if (type == "startTunneling")
-	{
 		tcpIn_startTunneling(argument.value("tunnelId").toInt(), argument.value("localPassword"),
 			argument.value("peerUserName"), QHostAddress((QString)argument.value("peerAddress")),
 			argument.value("peerPort").toInt(), argument.value("needUpnp").toInt() == 1);
-	}
 	else if (type == "tunneling")
-	{
 		tcpIn_tunneling(argument.value("tunnelId").toInt(), QHostAddress((QString)argument.value("peerAddress")),
 			argument.value("peerPort").toInt());
-	}
 	else if (type == "closeTunneling")
-	{
 		tcpIn_closeTunneling(argument.value("tunnelId").toInt());
-	}else
-	{
-		disconnectServer(QString("dealTcpIn unknown type '%1'").arg((QString)type));
-	}
 }
 
 void Client::dealUdpIn_server(int localIndex, int serverIndex, const QByteArray & line)
@@ -439,13 +426,9 @@ void Client::dealUdpIn_server(int localIndex, int serverIndex, const QByteArray 
 		return;
 
 	if (type == "checkNatStep1")
-	{
 		udpIn_checkNatStep1(localIndex, serverIndex);
-	}
 	else if (type == "checkNatStep2Type1")
-	{
 		udpIn_checkNatStep2Type1(localIndex, serverIndex);
-	}
 }
 
 void Client::dealUdpIn_p2p(int localIndex, QHostAddress peerAddress, quint16 peerPort, const QByteArray & package)
@@ -482,10 +465,22 @@ quint32 Client::getKcpMagicNumber(QString peerUserName)
 	return crc32(buffer.constData(), buffer.size());
 }
 
+void Client::createKcpConnection(int tunnelId, TunnelInfo & tunnel)
+{
+	if (tunnel.peerPort == 0 && m_natType == FullOrRestrictedConeNat)
+	{
+		// peerPort==0说明对方是SymmetricNat，如果自己是RestrictedConeNat，需要先发个包给对方IP随机端口
+		QUdpSocket * udpSocket = getUdpSocket(tunnel.localIndex);
+		if (udpSocket)
+			udpSocket->writeDatagram("~", tunnel.peerAddress, 25000 + rand());
+	}
+	m_kcpManager.createKcpConnection(tunnelId, tunnel.peerAddress, tunnel.peerPort, getKcpMagicNumber(tunnel.peerUserName));
+}
+
 void Client::tcpOut_heartbeat()
 {
 	m_lastOutTime = QTime::currentTime();
-	m_tcpSocket.write(serializeResponse("heartbeat", {}));
+	sendTcp("heartbeat", {});
 }
 
 void Client::tcpIn_heartbeat()
@@ -513,7 +508,7 @@ void Client::tcpOut_login()
 	QByteArrayMap argument;
 	argument["userName"] = m_userName.toUtf8();
 	argument["password"] = m_password.toUtf8();
-	m_tcpSocket.write(serializeResponse("login", argument));
+	sendTcp("login", argument);
 
 	m_status = LoginingStatus;
 }
@@ -578,7 +573,7 @@ void Client::tcpOut_checkNatStep1(int partlyType, quint16 clientUdp2LocalPort)
 	QByteArrayMap argument;
 	argument["partlyType"] = QByteArray::number(partlyType);
 	argument["clientUdp2LocalPort"] = QByteArray::number(clientUdp2LocalPort);
-	m_tcpSocket.write(serializeResponse("checkNatStep1", argument));
+	sendTcp("checkNatStep1", argument);
 }
 
 void Client::udpIn_checkNatStep2Type1(int localIndex, int serverIndex)
@@ -627,7 +622,7 @@ void Client::tcpOut_checkNatStep2Type1(NatType natType)
 
 	QByteArrayMap argument;
 	argument["natType"] = QByteArray::number((int)natType);
-	m_tcpSocket.write(serializeResponse("checkNatStep2Type1", argument));
+	sendTcp("checkNatStep2Type1", argument);
 }
 
 void Client::tcpIn_checkNatStep2Type2(NatType natType)
@@ -654,7 +649,7 @@ void Client::tcpOut_upnpAvailability(bool on)
 
 	QByteArrayMap argument;
 	argument["on"] = on ? "1" : "0";
-	m_tcpSocket.write(serializeResponse("upnpAvailability", argument));
+	sendTcp("upnpAvailability", argument);
 }
 
 void Client::tcpOut_tryTunneling(QString peerUserName)
@@ -663,7 +658,7 @@ void Client::tcpOut_tryTunneling(QString peerUserName)
 
 	QByteArrayMap argument;
 	argument["peerUserName"] = peerUserName.toUtf8();
-	m_tcpSocket.write(serializeResponse("tryTunneling", argument));
+	sendTcp("tryTunneling", argument);
 }
 
 void Client::tcpIn_tryTunneling(QString peerUserName, bool canTunnel, bool needUpnp, QString failReason)
@@ -687,7 +682,7 @@ void Client::tcpOut_readyTunneling(QString peerUserName, QString peerLocalPasswo
 	argument["peerLocalPassword"] = peerLocalPassword.toUtf8();
 	argument["udp2UpnpPort"] = QByteArray::number(udp2UpnpPort);
 	argument["requestId"] = QByteArray::number(requestId);
-	m_tcpSocket.write(serializeResponse("readyTunneling", argument));
+	sendTcp("readyTunneling", argument);
 }
 
 void Client::tcpIn_readyTunneling(QString peerUserName, int requestId, int tunnelId)
@@ -740,7 +735,7 @@ void Client::tcpIn_startTunneling(int tunnelId, QString localPassword, QString p
 		tunnel.peerPort = peerPort;
 		tunnel.localIndex = needUpnp ? 2 : 1;
 
-		m_kcpManager.createKcpConnection(tunnelId, peerAddress, peerPort, getKcpMagicNumber(tunnel.peerUserName));
+		createKcpConnection(tunnelId, tunnel);
 
 		if(needUpnp)
 			addUpnpPortMapping();
@@ -768,7 +763,7 @@ void Client::tcpOut_startTunneling(int tunnelId, bool canTunnel, quint16 udp2Upn
 	argument["canTunnel"] = canTunnel ? "1" : "0";
 	argument["udp2UpnpPort"] = QByteArray::number(udp2UpnpPort);
 	argument["errorString"] = errorString.toUtf8();
-	m_tcpSocket.write(serializeResponse("startTunneling", argument));
+	sendTcp("startTunneling", argument);
 }
 
 void Client::tcpIn_tunneling(int tunnelId, QHostAddress peerAddress, quint16 peerPort)
@@ -791,7 +786,7 @@ void Client::tcpIn_tunneling(int tunnelId, QHostAddress peerAddress, quint16 pee
 	tunnel.peerAddress = peerAddress;
 	tunnel.peerPort = peerPort;
 
-	m_kcpManager.createKcpConnection(tunnelId, peerAddress, peerPort, getKcpMagicNumber(tunnel.peerUserName));
+	createKcpConnection(tunnelId, tunnel);
 
 	emit tunnelStarted(tunnelId, tunnel.peerUserName, tunnel.peerAddress);
 }
