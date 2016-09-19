@@ -764,6 +764,7 @@ void ClientManager::tcpIn_closeTunneling(QTcpSocket & tcpSocket, ClientInfo & cl
 {
 	if (!checkStatusAndDisconnect(tcpSocket, client, "tcpIn_closeTunneling", LoginedStatus, NatCheckFinished))
 		return;
+
 	TunnelInfo & tunnel = *getTunnelInfo(tunnelId);
 	if (&tunnel == nullptr)
 		return;
@@ -786,6 +787,8 @@ void ClientManager::tcpIn_closeTunneling(QTcpSocket & tcpSocket, ClientInfo & cl
 	}
 
 	m_mapTunnelInfo.remove(tunnelId);
+
+	tcpOut_closeTunneling(tcpSocket, client, tunnelId);
 
 	QTcpSocket * peerTcpSocket = nullptr;
 	ClientInfo * peerClient = nullptr;

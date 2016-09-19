@@ -147,9 +147,8 @@ void MainDlg::onUpnpDiscoverFinished(bool ok)
 {
 	if (ok)
 	{
-		m_client.setUpnpAvailable(true);
-		m_labelUpnp->setText(U16("upnp可用"));
 		m_upnpPortMapper.queryExternalAddress();
+		m_labelUpnp->setText(U16("upnp正在查询公网地址"));
 	}
 	else
 	{
@@ -162,11 +161,21 @@ void MainDlg::onUpnpQueryExternalAddressFinished(QHostAddress address, bool ok, 
 {
 	if (ok)
 	{
+		if (isNatAddress(address))
+		{
+			ui.statusBar->showMessage(U16("upnp返回的地址 %2 仍然是内网地址").arg(address.toString()));
+			return;
+		}
+
+		m_client.setUpnpAvailable(true);
+		m_labelUpnp->setText(U16("upnp可用"));
+
 		if (!isSameHostAddress(address, m_client.getLocalPublicAddress()))
 			ui.statusBar->showMessage(U16("服务器端返回的IP地址 %1 和upnp返回的地址 %2 不同").arg(m_client.getLocalPublicAddress().toString()).arg(address.toString()));
 	}else
 	{
-		ui.statusBar->showMessage(U16("upnp获取公网地址失败"));
+		m_client.setUpnpAvailable(false);
+		m_labelUpnp->setText(U16("upnp获取公网地址失败"));
 	}
 }
 
@@ -244,9 +253,12 @@ void MainDlg::updateTableRow(int tunnelId, QString peerUsername, QString peerAdd
 		lstItem << new QStandardItem(key) << new QStandardItem(peerUsername)
 			<< new QStandardItem(peerAddress) << new QStandardItem(status) << new QStandardItem();
 		m_model->appendRow(lstItem);
-		QPushButton * btnCloseConnection = new QPushButton(U16("断开"));
-		btnCloseConnection->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding));
-		ui.tableView->setIndexWidget(m_model->index(m_model->rowCount() - 1, m_model->columnCount() - 1), btnCloseConnection);
+		QPushButton * btnCloseTunneling = new QPushButton(U16("断开"));
+		btnCloseTunneling->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding));
+		btnCloseTunneling->setProperty("tunnelId", tunnelId);
+		connect(btnCloseTunneling, SIGNAL(clicked()), this, SLOT(onBtnCloseTunneling()));
+
+		ui.tableView->setIndexWidget(m_model->index(m_model->rowCount() - 1, m_model->columnCount() - 1), btnCloseTunneling);
 	}
 	else
 	{
@@ -279,4 +291,17 @@ quint16 MainDlg::addUpnpPortMapping(quint16 internalPort)
 void MainDlg::deleteUpnpPortMapping(quint16 externalPort)
 {
 	m_upnpPortMapper.deletePortMapping(QAbstractSocket::UdpSocket, externalPort);
+}
+
+void MainDlg::onBtnCloseTunneling()
+{
+	QPushButton * btnCloseTunneling = (QPushButton*)sender();
+	if (!btnCloseTunneling)
+		return;
+
+	const int tunnelId = btnCloseTunneling->property("tunnelId").toInt();
+	if (tunnelId == 0)
+		return;
+	m_client.closeTunneling(tunnelId);
+	btnCloseTunneling->setEnabled(false);
 }

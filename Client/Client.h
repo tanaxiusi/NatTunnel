@@ -86,6 +86,7 @@ public:
 
 	void tryTunneling(QString peerUserName);
 	int readyTunneling(QString peerUserName, QString peerLocalPassword, bool useUpnp);
+	void closeTunneling(int tunnelId);
 	
 private slots:
 	void onTcpConnected();
@@ -155,7 +156,9 @@ private:
 	void tcpOut_startTunneling(int tunnelId, bool canTunnel, quint16 udp2UpnpPort, QString errorString);
 
 	void tcpIn_tunneling(int tunnelId, QHostAddress peerAddress, quint16 peerPort);
+
 	void tcpIn_closeTunneling(int tunnelId);
+	void tcpOut_closeTunneling(int tunnelId);
 
 private:
 	bool m_running = false;
@@ -189,6 +192,8 @@ private:
 	QHostAddress m_localPublicAddress;
 
 	quint16 m_udp2UpnpPort = 0;
+
+	QSet<int> m_waitingRequestId;
 
 	QMap<int, TunnelInfo> m_mapTunnelInfo;
 	QMap<QPair<QHostAddress, quint16>, int> m_mapHostTunnelId;

@@ -50,9 +50,10 @@ Upnp:
 		ClientA:Tcp收到Server:Tcp[CloseTunneling]后，删除TunnelId。
 		
 会话结束：
-	同时ClientA:Tcp->Server:Tcp[CloseTunneling](参数：TunnelId)
-	Server:Tcp收到ClientA:Tcp[CloseTunneling]后，删除TunnelId，Server:Tcp->ClientB:Tcp
-	ClientB:Tcp收到Server:Tcp[CloseTunneling]后，删除TunnelId，ClientB:Kcp->ClientA:Kcp
+	ClientA:Tcp->Server:Tcp[CloseTunneling](参数：TunnelId)
+	Server:Tcp收到ClientA:Tcp[CloseTunneling]后，删除TunnelId，Server:Tcp->ClientA:Tcp，Server:Tcp->ClientB:Tcp
+	ClientA:Tcp收到Server:Tcp[CloseTunneling]后，删除TunnelId
+	ClientB:Tcp收到Server:Tcp[CloseTunneling]后，删除TunnelId
 	
 	同时ClientA和ClientB的Kcp连接有心跳包，Server和ClientA/B的Tcp连接也有心跳包，如果某个连接断线了，就中断其他连接。
 		

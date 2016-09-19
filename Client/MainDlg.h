@@ -45,6 +45,8 @@ private slots:
 	quint16 addUpnpPortMapping(quint16 internalPort);
 	void deleteUpnpPortMapping(quint16 externalPort);
 
+	void onBtnCloseTunneling();
+
 private:
 	void updateTableRow(int tunnelId, QString peerUsername, QString peerAddress, QString status);
 	void deleteTableRow(int tunnelId);

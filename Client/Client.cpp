@@ -124,9 +124,16 @@ int Client::readyTunneling(QString peerUserName, QString peerLocalPassword, bool
 	// 使用upnp时，requestId为奇数，在返回的时候可以昨区分
 	if (useUpnp)
 		requestId++;
-	addUpnpPortMapping();
+	if(useUpnp)
+		addUpnpPortMapping();
 	tcpOut_readyTunneling(peerUserName, peerLocalPassword, useUpnp ? m_udp2UpnpPort : 0, requestId);
+	m_waitingRequestId.insert(requestId);
 	return requestId;
+}
+
+void Client::closeTunneling(int tunnelId)
+{
+	tcpOut_closeTunneling(tunnelId);
 }
 
 void Client::onTcpConnected()
@@ -289,6 +296,7 @@ void Client::clear()
 	m_localPublicAddress = QHostAddress();
 	m_udp2UpnpPort = 0;
 
+	m_waitingRequestId.clear();
 	m_mapTunnelInfo.clear();
 	m_mapHostTunnelId.clear();
 }
@@ -334,6 +342,7 @@ void Client::disconnectServer(QString reason)
 void Client::sendTcp(QByteArray type, QByteArrayMap argument)
 {
 	qDebug() << QString("tcpOut %1 %2").arg((QString)type).arg(argumentToString(argument));
+	m_lastOutTime = QTime::currentTime();
 	m_tcpSocket.write(serializeResponse(type, argument));
 }
 
@@ -392,7 +401,7 @@ void Client::dealTcpIn(QByteArray line)
 		tcpIn_heartbeat();
 	else if (type == "hello")
 		tcpIn_hello(argument.value("serverName"), QHostAddress((QString)argument.value("clientAddress")));
-	else if(type == "login")
+	else if (type == "login")
 		tcpIn_login(argument.value("loginOk").toInt() == 1, argument.value("msg"),
 			argument.value("serverUdpPort1").toInt(), argument.value("serverUdpPort2").toInt());
 	else if (type == "checkNatStep2Type2")
@@ -412,6 +421,10 @@ void Client::dealTcpIn(QByteArray line)
 			argument.value("peerPort").toInt());
 	else if (type == "closeTunneling")
 		tcpIn_closeTunneling(argument.value("tunnelId").toInt());
+	else
+		return;
+
+	m_lastInTime = QTime::currentTime();
 }
 
 void Client::dealUdpIn_server(int localIndex, int serverIndex, const QByteArray & line)
@@ -479,20 +492,17 @@ void Client::createKcpConnection(int tunnelId, TunnelInfo & tunnel)
 
 void Client::tcpOut_heartbeat()
 {
-	m_lastOutTime = QTime::currentTime();
 	sendTcp("heartbeat", {});
 }
 
 void Client::tcpIn_heartbeat()
 {
-	m_lastInTime = QTime::currentTime();
 }
 
 void Client::tcpIn_hello(QString serverName, QHostAddress clientAddress)
 {
 	if (!checkStatusAndDisconnect("tcpIn_hello", ConnectedStatus, UnknownNatCheckStatus))
 		return;
-	m_lastInTime = QTime::currentTime();
 	if (isSameHostAddress(clientAddress, m_tcpSocket.localAddress()))
 		m_isPublicNetwork = true;
 
@@ -503,8 +513,6 @@ void Client::tcpIn_hello(QString serverName, QHostAddress clientAddress)
 
 void Client::tcpOut_login()
 {
-	m_lastOutTime = QTime::currentTime();
-
 	QByteArrayMap argument;
 	argument["userName"] = m_userName.toUtf8();
 	argument["password"] = m_password.toUtf8();
@@ -517,7 +525,6 @@ void Client::tcpIn_login(bool loginOk, QString msg, quint16 serverUdpPort1, quin
 {
 	if (!checkStatusAndDisconnect("tcpIn_login", LoginingStatus, UnknownNatCheckStatus))
 		return;
-	m_lastInTime = QTime::currentTime();
 	if (loginOk)
 	{
 		m_status = LoginedStatus;
@@ -541,7 +548,6 @@ void Client::udpIn_checkNatStep1(int localIndex, int serverIndex)
 		return;
 	if (m_natStatus != Step1_1SendingToServer1 && m_natStatus != Step1_1WaitingForServer2)
 		return;
-	m_lastInTime = QTime::currentTime();
 
 	if (serverIndex == 1)
 	{
@@ -568,8 +574,6 @@ void Client::timeout_checkNatStep1()
 
 void Client::tcpOut_checkNatStep1(int partlyType, quint16 clientUdp2LocalPort)
 {
-	m_lastOutTime = QTime::currentTime();
-
 	QByteArrayMap argument;
 	argument["partlyType"] = QByteArray::number(partlyType);
 	argument["clientUdp2LocalPort"] = QByteArray::number(clientUdp2LocalPort);
@@ -584,7 +588,6 @@ void Client::udpIn_checkNatStep2Type1(int localIndex, int serverIndex)
 		return;
 	if (m_natStatus != Step2_Type1_12WaitingForServer1 && m_natStatus != Step2_Type1_2WaitingForServer1)
 		return;
-	m_lastInTime = QTime::currentTime();
 
 	if(localIndex == 1)
 	{ 
@@ -618,8 +621,6 @@ void Client::timeout_checkNatStep2Type1()
 
 void Client::tcpOut_checkNatStep2Type1(NatType natType)
 {
-	m_lastOutTime = QTime::currentTime();
-
 	QByteArrayMap argument;
 	argument["natType"] = QByteArray::number((int)natType);
 	sendTcp("checkNatStep2Type1", argument);
@@ -634,7 +635,6 @@ void Client::tcpIn_checkNatStep2Type2(NatType natType)
 		disconnectServer("tcpIn_checkNatStep2Type2 argument error");
 		return;
 	}
-	m_lastInTime = QTime::currentTime();
 
 	m_natType = natType;
 	m_natStatus = NatCheckFinished;
@@ -645,8 +645,6 @@ void Client::tcpIn_checkNatStep2Type2(NatType natType)
 
 void Client::tcpOut_upnpAvailability(bool on)
 {
-	m_lastOutTime = QTime::currentTime();
-
 	QByteArrayMap argument;
 	argument["on"] = on ? "1" : "0";
 	sendTcp("upnpAvailability", argument);
@@ -654,8 +652,6 @@ void Client::tcpOut_upnpAvailability(bool on)
 
 void Client::tcpOut_tryTunneling(QString peerUserName)
 {
-	m_lastOutTime = QTime::currentTime();
-
 	QByteArrayMap argument;
 	argument["peerUserName"] = peerUserName.toUtf8();
 	sendTcp("tryTunneling", argument);
@@ -665,7 +661,6 @@ void Client::tcpIn_tryTunneling(QString peerUserName, bool canTunnel, bool needU
 {
 	if (!checkStatusAndDisconnect("tcpIn_tryTunneling", LoginedStatus, NatCheckFinished))
 		return;
-	m_lastInTime = QTime::currentTime();
 
 	if (needUpnp && !m_upnpAvailability)
 		canTunnel = false;
@@ -675,8 +670,6 @@ void Client::tcpIn_tryTunneling(QString peerUserName, bool canTunnel, bool needU
 
 void Client::tcpOut_readyTunneling(QString peerUserName, QString peerLocalPassword, quint16 udp2UpnpPort, int requestId)
 {
-	m_lastOutTime = QTime::currentTime();
-
 	QByteArrayMap argument;
 	argument["peerUserName"] = peerUserName.toUtf8();
 	argument["peerLocalPassword"] = peerLocalPassword.toUtf8();
@@ -689,7 +682,12 @@ void Client::tcpIn_readyTunneling(QString peerUserName, int requestId, int tunne
 {
 	if (!checkStatusAndDisconnect("tcpIn_readyTunneling", LoginedStatus, NatCheckFinished))
 		return;
-	m_lastInTime = QTime::currentTime();
+	if (!m_waitingRequestId.contains(requestId))
+	{
+		disconnectServer(QString("tcpIn_readyTunneling unknown requestId %1").arg(requestId));
+		return;
+	}
+	m_waitingRequestId.remove(requestId);
 
 	if (tunnelId != 0)
 	{
@@ -716,7 +714,6 @@ void Client::tcpIn_startTunneling(int tunnelId, QString localPassword, QString p
 {
 	if (!checkStatusAndDisconnect("tcpIn_startTunneling", LoginedStatus, NatCheckFinished))
 		return;
-	m_lastInTime = QTime::currentTime();
 
 	const bool localPasswordError = (localPassword != m_localPassword);
 	const bool upnpError = needUpnp && !m_upnpAvailability;
@@ -756,8 +753,6 @@ void Client::tcpIn_startTunneling(int tunnelId, QString localPassword, QString p
 
 void Client::tcpOut_startTunneling(int tunnelId, bool canTunnel, quint16 udp2UpnpPort, QString errorString)
 {
-	m_lastOutTime = QTime::currentTime();
-
 	QByteArrayMap argument;
 	argument["tunnelId"] = QByteArray::number(tunnelId);
 	argument["canTunnel"] = canTunnel ? "1" : "0";
@@ -803,4 +798,11 @@ void Client::tcpIn_closeTunneling(int tunnelId)
 	m_kcpManager.deleteKcpConnection(tunnelId);
 
 	emit tunnelClosed(tunnelId);
+}
+
+void Client::tcpOut_closeTunneling(int tunnelId)
+{
+	QByteArrayMap argument;
+	argument["tunnelId"] = QByteArray::number(tunnelId);
+	sendTcp("closeTunneling", argument);
 }
