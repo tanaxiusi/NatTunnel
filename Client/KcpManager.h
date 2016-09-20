@@ -6,6 +6,7 @@
 #include <QTimer>
 #include "ikcp.h"
 #include "Other.h"
+#include "Peer.h"
 
 class KcpManager : public QObject
 {
@@ -17,16 +18,6 @@ signals :
 	void handShaked(int tunnelId);
 
 private:
-	struct Peer
-	{
-		QHostAddress address;
-		quint16 port;
-		Peer(QHostAddress address = QHostAddress(), quint16 port = 0)
-		{
-			this->address = address;
-			this->port = port;
-		}
-	};
 	struct KcpConnection
 	{
 		Peer peer;
@@ -34,8 +25,6 @@ private:
 		int tunnelId;
 		bool handShaked = false;
 	};
-
-
 
 public:
 	KcpManager(QObject *parent = 0);

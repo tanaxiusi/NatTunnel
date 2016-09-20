@@ -1,6 +1,19 @@
 #include "Other.h"
 #include "crc32.h"
 
+char * strcopy(char * dst, size_t SizeInBytes, const char * src)
+{
+	char * cp = dst;
+	while (*cp++ = *src++)
+		if (cp - dst == SizeInBytes - 1)
+		{
+			*cp = '\0';
+			break;
+		}
+
+	return(dst);
+}
+
 QByteArray parseRequest(QByteArray line, QByteArrayMap * outArgument)
 {
 	if (line.endsWith('\n'))
@@ -161,3 +174,5 @@ bool isNatAddress(const QHostAddress & hostAddress)
 		return true;
 	return false;
 }
+
+

@@ -20,6 +20,9 @@ enum NatType
 	SymmetricNat
 };
 
+#define strcpy_(dest,src)			strcopy((dest),sizeof(dest),(src))
+char * strcopy(char * dst, size_t SizeInBytes, const char * src);
+
 typedef QMap<QByteArray, QByteArray> QByteArrayMap;
 
 QByteArray parseRequest(QByteArray line, QByteArrayMap * outArgument);

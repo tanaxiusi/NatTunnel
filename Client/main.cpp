@@ -3,6 +3,7 @@
 #include <QFile>
 #include <QMutex>
 #include <time.h>
+#include <iostream>
 
 static QFile fileLog;
 static QMutex mutexFileLog;
@@ -36,6 +37,8 @@ void MyMessageHandler(QtMsgType type, const QMessageLogContext & context, const 
 		fileLog.flush();
 		locker.unlock();
 	}
+
+	std::cout << finalText.toLocal8Bit().constData();
 }
 
 int main(int argc, char *argv[])

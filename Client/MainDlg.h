@@ -6,6 +6,7 @@
 #include "ui_MainDlg.h"
 #include "Client.h"
 #include "QUpnpPortMapper.h"
+#include "TcpTransfer.h"
 
 class MainDlg : public QMainWindow
 {
@@ -46,6 +47,9 @@ private slots:
 	void deleteUpnpPortMapping(quint16 externalPort);
 
 	void onBtnCloseTunneling();
+	void onBtnAddTransfer();
+
+	void onTcpTransferOutput(QByteArray package);
 
 private:
 	void updateTableRow(int tunnelId, QString peerUsername, QString peerAddress, QString status);
@@ -61,4 +65,5 @@ private:
 	QLabel * m_labelNatType = nullptr;
 	QLabel * m_labelUpnp = nullptr;
 	QStandardItemModel * m_model = nullptr;
+	QMap<int, TcpTransfer*> m_mapTcpTransfer;
 };

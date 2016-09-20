@@ -136,6 +136,13 @@ void Client::closeTunneling(int tunnelId)
 	tcpOut_closeTunneling(tunnelId);
 }
 
+int Client::tunnelWrite(int tunnelId, QByteArray package)
+{
+	if (!m_running)
+		return -2;
+	return m_kcpManager.highLevelInput(tunnelId, package);
+}
+
 void Client::onTcpConnected()
 {
 	m_status = ConnectedStatus;
@@ -277,6 +284,8 @@ void Client::clear()
 	m_tcpSocket.close();
 	m_udpSocket1.close();
 	m_udpSocket2.close();
+
+	m_kcpManager.clear();
 
 	deleteUpnpPortMapping();
 

@@ -87,6 +87,8 @@ public:
 	void tryTunneling(QString peerUserName);
 	int readyTunneling(QString peerUserName, QString peerLocalPassword, bool useUpnp);
 	void closeTunneling(int tunnelId);
+
+	int tunnelWrite(int tunnelId, QByteArray package);
 	
 private slots:
 	void onTcpConnected();

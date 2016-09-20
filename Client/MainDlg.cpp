@@ -25,12 +25,13 @@ MainDlg::MainDlg(QWidget *parent)
 
 	m_model = new QStandardItemModel(ui.tableView);
 	ui.tableView->setModel(m_model);
-	m_model->setHorizontalHeaderLabels(U16("tunnelId,对方用户名,对方IP地址,状态,操作").split(","));
+	m_model->setHorizontalHeaderLabels(U16("tunnelId,对方用户名,对方IP地址,状态,,").split(",", QString::SkipEmptyParts));
 	ui.tableView->setColumnHidden(0, true);
 	ui.tableView->setColumnWidth(1, 80);
 	ui.tableView->setColumnWidth(2, 80);
 	ui.tableView->setColumnWidth(3, 80);
 	ui.tableView->setColumnWidth(4, 80);
+	ui.tableView->setColumnWidth(5, 80);
 
 	connect(&m_client, SIGNAL(connected()), this, SLOT(connected()));
 	connect(&m_client, SIGNAL(disconnected()), this, SLOT(disconnected()));
@@ -232,16 +233,31 @@ void MainDlg::onTunnelStarted(int tunnelId, QString peerUserName, QHostAddress p
 void MainDlg::onTunnelHandShaked(int tunnelId)
 {
 	updateTableRow(tunnelId, QString(), QString(), U16("连接成功"));
+
+	TcpTransfer *& tcpTransfer = m_mapTcpTransfer[tunnelId];
+	Q_ASSERT(!tcpTransfer);
+	tcpTransfer = new TcpTransfer();
+	tcpTransfer->setProperty("tunnelId", tunnelId);
+	connect(tcpTransfer, SIGNAL(dataOutput(QByteArray)), this, SLOT(onTcpTransferOutput(QByteArray)));
 }
 
 void MainDlg::onTunnelData(int tunnelId, QByteArray package)
 {
-
+	TcpTransfer * tcpTransfer = m_mapTcpTransfer.value(tunnelId);
+	if (tcpTransfer)
+		tcpTransfer->dataInput(package);
 }
 
 void MainDlg::onTunnelClosed(int tunnelId)
 {
 	deleteTableRow(tunnelId);
+
+	TcpTransfer * tcpTransfer = m_mapTcpTransfer.value(tunnelId);
+	if (tcpTransfer)
+	{
+		delete tcpTransfer;
+		m_mapTcpTransfer.remove(tunnelId);
+	}
 }
 
 void MainDlg::updateTableRow(int tunnelId, QString peerUsername, QString peerAddress, QString status)
@@ -250,15 +266,21 @@ void MainDlg::updateTableRow(int tunnelId, QString peerUsername, QString peerAdd
 	QList<QStandardItem*> lstItem = m_model->findItems(key);
 	if (lstItem.isEmpty())
 	{
-		lstItem << new QStandardItem(key) << new QStandardItem(peerUsername)
-			<< new QStandardItem(peerAddress) << new QStandardItem(status) << new QStandardItem();
+		lstItem << new QStandardItem(key) << new QStandardItem(peerUsername) << new QStandardItem(peerAddress)
+			<< new QStandardItem(status) << new QStandardItem() << new QStandardItem();
 		m_model->appendRow(lstItem);
 		QPushButton * btnCloseTunneling = new QPushButton(U16("断开"));
+		QPushButton * btnAddTransfer = new QPushButton(U16("添加转发"));
 		btnCloseTunneling->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding));
 		btnCloseTunneling->setProperty("tunnelId", tunnelId);
-		connect(btnCloseTunneling, SIGNAL(clicked()), this, SLOT(onBtnCloseTunneling()));
+		btnAddTransfer->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding));
+		btnAddTransfer->setProperty("tunnelId", tunnelId);
 
-		ui.tableView->setIndexWidget(m_model->index(m_model->rowCount() - 1, m_model->columnCount() - 1), btnCloseTunneling);
+		connect(btnCloseTunneling, SIGNAL(clicked()), this, SLOT(onBtnCloseTunneling()));
+		connect(btnAddTransfer, SIGNAL(clicked()), this, SLOT(onBtnAddTransfer()));
+
+		ui.tableView->setIndexWidget(m_model->index(m_model->rowCount() - 1, m_model->columnCount() - 2), btnCloseTunneling);
+		ui.tableView->setIndexWidget(m_model->index(m_model->rowCount() - 1, m_model->columnCount() - 1), btnAddTransfer);
 	}
 	else
 	{
@@ -298,10 +320,34 @@ void MainDlg::onBtnCloseTunneling()
 	QPushButton * btnCloseTunneling = (QPushButton*)sender();
 	if (!btnCloseTunneling)
 		return;
-
 	const int tunnelId = btnCloseTunneling->property("tunnelId").toInt();
 	if (tunnelId == 0)
 		return;
 	m_client.closeTunneling(tunnelId);
 	btnCloseTunneling->setEnabled(false);
+}
+
+void MainDlg::onBtnAddTransfer()
+{
+	QPushButton * btnAddTransfer = (QPushButton*)sender();
+	if (!btnAddTransfer)
+		return;
+	const int tunnelId = btnAddTransfer->property("tunnelId").toInt();
+	if (tunnelId == 0)
+		return;
+	TcpTransfer * tcpTransfer = m_mapTcpTransfer.value(tunnelId);
+	if (!tcpTransfer)
+		return;
+	tcpTransfer->addTransfer(6033, 3306, QHostAddress("127.0.0.1"));
+}
+
+void MainDlg::onTcpTransferOutput(QByteArray package)
+{
+	TcpTransfer * tcpTransfer = (TcpTransfer*)sender();
+	if (!tcpTransfer)
+		return;
+	const int tunnelId = tcpTransfer->property("tunnelId").toInt();
+	if (tunnelId == 0)
+		return;
+	m_client.tunnelWrite(tunnelId, package);
 }
