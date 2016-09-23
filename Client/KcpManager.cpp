@@ -114,8 +114,9 @@ int KcpManager::highLevelInput(int tunnelId, QByteArray package)
 	while (remainingSize > 0)
 	{
 		const int thisSize = qMin(remainingSize, (int)kcp->mss);
-		if (ikcp_waitsnd(kcp) >= 2000)
-			break;
+		const int waitsnd = ikcp_waitsnd(kcp);
+		if (waitsnd > 2000)
+			qWarning() << "ikcp_waitsnd" << waitsnd;
 		if (ikcp_send(kcp, ptr, thisSize) < 0)
 			break;
 

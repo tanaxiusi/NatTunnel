@@ -5,6 +5,22 @@
 static const quint8 Direction_In = 1;
 static const quint8 Direction_Out = 2;
 
+static const int SocketMaxWaitingSize = 1024 * 1024;
+static const int SocketReadBufferSize = 512 * 1024;
+
+static inline quint8 getOppositeDirection(quint8 direction)
+{
+	switch (direction)
+	{
+	case Direction_In:
+		return Direction_Out;
+	case Direction_Out:
+		return Direction_In;
+	default:
+		return 0;
+	}
+}
+
 static const int HeaderSize = 4;
 
 #pragma pack(push)
@@ -39,6 +55,13 @@ struct DataStreamFrame
 	qint64 socketDescriptor;
 	quint8 direction;
 	char data[0];
+};
+
+struct AckFrame
+{
+	qint64 socketDescriptor;
+	quint8 direction;
+	int writtenSize;
 };
 
 #pragma pack(pop)
@@ -112,6 +135,24 @@ bool TcpTransfer::isValidFrameType(FrameType frameType)
 	return frameType > BeginUnknownFrameType && frameType < EndUnknownFrameType;
 }
 
+TcpTransfer::SocketInInfo * TcpTransfer::findSocketIn(const qint64 & peerSocketDescriptor)
+{
+	auto iter = m_mapSocketIn.find(peerSocketDescriptor);
+	if (iter != m_mapSocketIn.end())
+		return &(iter.value());
+	else
+		return nullptr;
+}
+
+TcpTransfer::SocketOutInfo * TcpTransfer::findSocketOut(const qint64 & socketDescriptor)
+{
+	auto iter = m_mapSocketOut.find(socketDescriptor);
+	if (iter != m_mapSocketOut.end())
+		return &(iter.value());
+	else
+		return nullptr;
+}
+
 void TcpTransfer::dealFrame(FrameType type, const QByteArray & frameData)
 {
 	if (type == AddTransferType)
@@ -149,6 +190,13 @@ void TcpTransfer::dealFrame(FrameType type, const QByteArray & frameData)
 		const DataStreamFrame * frame = (const DataStreamFrame*)frameData.constData();
 		input_DataStream(frame->socketDescriptor, frame->direction, frame->data, frameData.size() - sizeof(DataStreamFrame));
 	}
+	else if (type == AckType)
+	{
+		if (frameData.size() < sizeof(AckType))
+			return;
+		const AckFrame * frame = (const AckFrame*)frameData.constData();
+		input_Ack(frame->socketDescriptor, frame->direction, frame->writtenSize);
+	}
 }
 
 void TcpTransfer::input_AddTransfer(quint16 localPort, quint16 remoteDestPort, QString remoteDestAddressText)
@@ -178,10 +226,12 @@ void TcpTransfer::input_NewConnection(quint16 localPort, qint64 socketDescriptor
 		socketIn.cachedData.clear();
 
 		socketIn.obj = new QTcpSocket();
+		socketIn.obj->setReadBufferSize(SocketReadBufferSize);
 		socketIn.peerSocketDescriptor = socketDescriptor;
 		connect(socketIn.obj, SIGNAL(stateChanged(QAbstractSocket::SocketState)),
 			this, SLOT(onSocketInStateChanged(QAbstractSocket::SocketState)));
 		connect(socketIn.obj, SIGNAL(readyRead()), this, SLOT(onSocketInReadyRead()));
+		connect(socketIn.obj, SIGNAL(bytesWritten(qint64)), this, SLOT(onSocketInBytesWritten(qint64)));
 		socketIn.obj->setProperty("peerSocketDescriptor", socketDescriptor);
 		socketIn.obj->connectToHost(peer.address, peer.port);
 	}
@@ -191,49 +241,75 @@ void TcpTransfer::input_NewConnection(quint16 localPort, qint64 socketDescriptor
 
 void TcpTransfer::input_DisconnectConnection(qint64 socketDescriptor, quint8 direction)
 {
-	// 对面传进来的方向是相反的
-	if (direction == Direction_In)
+	direction = getOppositeDirection(direction);
+	if (direction == Direction_Out)
 	{
 		qDebug() << QString("TcpTransfer::input_DisconnectConnection socketOut disconnected socketDescriptor=%1")
 			.arg(socketDescriptor);
 
-		QTcpSocket * socketOut = m_mapSocketOut.value(socketDescriptor);
-		if (socketOut)
-			delete socketOut;
+		if (SocketOutInfo * socketOut = findSocketOut(socketDescriptor))
+			delete socketOut->obj;
 	}
-	else if (direction == Direction_Out)
+	else if (direction == Direction_In)
 	{
+		const qint64 & peerSocketDescriptor = socketDescriptor;
 		qDebug() << QString("TcpTransfer::input_DisconnectConnection socketIn disconnected peerSocketDescriptor=%1")
-			.arg(socketDescriptor);
+			.arg(peerSocketDescriptor);
 
-		auto iter = m_mapSocketIn.find(socketDescriptor);
-		if (iter != m_mapSocketIn.end())
-		{
-			SocketInInfo & socketIn = iter.value();
-			delete socketIn.obj;
-		}
+		if (SocketInInfo * socketIn = findSocketIn(peerSocketDescriptor))
+			delete socketIn->obj;
 	}
 }
 
 void TcpTransfer::input_DataStream(qint64 socketDescriptor, quint8 direction, const char * data, int dataSize)
 {
-	// 对面传进来的方向是相反的
-	if (direction == Direction_In)
+	direction = getOppositeDirection(direction);
+	if (direction == Direction_Out)
 	{
-		QTcpSocket * socketOut = m_mapSocketOut.value(socketDescriptor);
-		if (socketOut)
-			socketOut->write(data, dataSize);
+		if (SocketOutInfo * socketOut = findSocketOut(socketDescriptor))
+			socketOut->obj->write(data, dataSize);
 	}
-	else if (direction == Direction_Out)
+	else if (direction == Direction_In)
 	{
-		auto iter = m_mapSocketIn.find(socketDescriptor);
-		if (iter != m_mapSocketIn.end())
+		const qint64 & peerSocketDescriptor = socketDescriptor;
+		if (SocketInInfo * socketIn = findSocketIn(peerSocketDescriptor))
 		{
-			SocketInInfo & socketIn = iter.value();
-			if (socketIn.obj->state() == QAbstractSocket::ConnectedState)
-				socketIn.obj->write(data, dataSize);
+			if (socketIn->obj->state() == QAbstractSocket::ConnectedState)
+				socketIn->obj->write(data, dataSize);
 			else
-				socketIn.cachedData.append(data, dataSize);
+				socketIn->cachedData.append(data, dataSize);
+		}
+	}
+}
+
+void TcpTransfer::input_Ack(qint64 socketDescriptor, quint8 direction, int writtenSize)
+{
+	direction = getOppositeDirection(direction);
+	if (direction == Direction_Out)
+	{
+		if (SocketOutInfo * socketOut = findSocketOut(socketDescriptor))
+		{
+			socketOut->peerWaitingSize -= writtenSize;
+			if (socketOut->peerWaitingSize < 0)
+			{
+				socketOut->peerWaitingSize = 0;
+				qWarning() << QString("TcpTransfer::input_Ack out peerWaitingSize < 0, socketDescriptor=%1")
+					.arg(socketDescriptor);
+			}
+		}
+	}
+	else if (direction == Direction_In)
+	{
+		const qint64 & peerSocketDescriptor = socketDescriptor;
+		if (SocketInInfo * socketIn = findSocketIn(peerSocketDescriptor))
+		{
+			socketIn->peerWaitingSize -= writtenSize;
+			if (socketIn->peerWaitingSize < 0)
+			{
+				socketIn->peerWaitingSize = 0;
+				qWarning() << QString("TcpTransfer::input_Ack in peerWaitingSize < 0, peerSocketDescriptor=%1")
+					.arg(peerSocketDescriptor);
+			}
 		}
 	}
 }
@@ -254,12 +330,9 @@ void TcpTransfer::outputFrame(FrameType type, const QByteArray & frameData, cons
 	QByteArray package = frameData;
 	package.insert(0, QByteArray::fromRawData((const char*)&header, sizeof(header)));
 
-	if (extraDataSize > 0)
-		package.append(QByteArray::fromRawData(extraData, extraDataSize));
-
 	emit dataOutput(package);
-	//if (extraDataSize > 0)
-	//	emit dataOutput(QByteArray::fromRawData(extraData, extraDataSize));
+	if (extraDataSize > 0)
+		emit dataOutput(QByteArray::fromRawData(extraData, extraDataSize));
 }
 
 void TcpTransfer::output_AddTransfer(quint16 localPort, quint16 remoteDestPort, QString remoteDestAddressText)
@@ -302,6 +375,15 @@ void TcpTransfer::output_DataStream(qint64 socketDescriptor, quint8 direction, c
 	outputFrame(DataStreamType, QByteArray::fromRawData((const char*)&frame, sizeof(frame)), data, dataSize);
 }
 
+void TcpTransfer::output_Ack(qint64 socketDescriptor, quint8 direction, int writtenSize)
+{
+	AckFrame frame;
+	frame.socketDescriptor = socketDescriptor;
+	frame.direction = direction;
+	frame.writtenSize = writtenSize;
+	outputFrame(AckType, QByteArray::fromRawData((const char*)&frame, sizeof(frame)));
+}
+
 void TcpTransfer::onSocketInStateChanged(QAbstractSocket::SocketState state)
 {
 	QTcpSocket * tcpSocket = (QTcpSocket*)sender();
@@ -311,13 +393,11 @@ void TcpTransfer::onSocketInStateChanged(QAbstractSocket::SocketState state)
 	{
 		// UnconnectedState状态表示连接失败或断开连接
 		const qint64 peerSocketDescriptor = tcpSocket->property("peerSocketDescriptor").toLongLong();
-		auto iter = m_mapSocketIn.find(peerSocketDescriptor);
-		if (iter != m_mapSocketIn.end())
+		if (SocketInInfo * socketIn = findSocketIn(peerSocketDescriptor))
 		{
-			SocketInInfo & socketIn = iter.value();
-			socketIn.obj->deleteLater();
-			socketIn.obj = nullptr;
-			m_mapSocketIn.erase(iter);
+			socketIn->obj->deleteLater();
+			socketIn->obj = nullptr;
+			m_mapSocketIn.remove(peerSocketDescriptor);
 			output_DisconnectConnection(peerSocketDescriptor, Direction_In);
 		}
 		qDebug() << QString("TcpTransfer::onSocketInStateChanged disconnected peerSocketDescriptor=%1").arg(peerSocketDescriptor);
@@ -325,14 +405,13 @@ void TcpTransfer::onSocketInStateChanged(QAbstractSocket::SocketState state)
 	else if (state == QAbstractSocket::ConnectedState)
 	{
 		const qint64 peerSocketDescriptor = tcpSocket->property("peerSocketDescriptor").toLongLong();
-		auto iter = m_mapSocketIn.find(peerSocketDescriptor);
-		if (iter == m_mapSocketIn.end())
+		SocketInInfo * socketIn = findSocketIn(peerSocketDescriptor);
+		if (!socketIn)
 			return;
-		SocketInInfo & socketIn = iter.value();
-		if (socketIn.cachedData.size() > 0)
+		if (socketIn->cachedData.size() > 0)
 		{
-			socketIn.obj->write(socketIn.cachedData);
-			socketIn.cachedData.clear();
+			socketIn->obj->write(socketIn->cachedData);
+			socketIn->cachedData.clear();
 		}
 		qDebug() << QString("TcpTransfer::onSocketInStateChanged connected peerSocketDescriptor=%1").arg(peerSocketDescriptor);
 	}
@@ -364,14 +443,22 @@ void TcpTransfer::onTcpNewConnection()
 	const quint16 localPort = tcpServer->serverPort();
 	while (tcpServer->hasPendingConnections())
 	{
-		QTcpSocket * socketOut = tcpServer->nextPendingConnection();
-		const qint64 socketDescriptor = socketOut->socketDescriptor();
-		socketOut->setProperty("localPort", localPort);
-		socketOut->setProperty("socketDescriptor", socketDescriptor);
-		m_mapSocketOut[socketDescriptor] = socketOut;
-		connect(socketOut, SIGNAL(stateChanged(QAbstractSocket::SocketState)),
+		QTcpSocket * socketOutObj = tcpServer->nextPendingConnection();
+		const qint64 socketDescriptor = socketOutObj->socketDescriptor();
+
+		Q_ASSERT(!m_mapSocketOut.contains(socketDescriptor));
+		SocketOutInfo & socketOut = m_mapSocketOut[socketDescriptor];
+		if (socketOut.obj)
+			delete socketOut.obj;
+		socketOut.obj = socketOutObj;
+
+		socketOut.obj->setReadBufferSize(SocketReadBufferSize);
+		socketOut.obj->setProperty("localPort", localPort);
+		socketOut.obj->setProperty("socketDescriptor", socketDescriptor);
+		connect(socketOut.obj, SIGNAL(stateChanged(QAbstractSocket::SocketState)),
 			this, SLOT(onSocketOutStateChanged(QAbstractSocket::SocketState)));
-		connect(socketOut, SIGNAL(readyRead()), this, SLOT(onSocketOutReadyRead()));
+		connect(socketOut.obj, SIGNAL(readyRead()), this, SLOT(onSocketOutReadyRead()));
+		connect(socketOut.obj, SIGNAL(bytesWritten(qint64)), this, SLOT(onSocketOutBytesWritten(qint64)));
 		output_NewConnection(localPort, socketDescriptor);
 
 		qDebug() << QString("TcpTransfer::onTcpNewConnection localPort=%1 socketDescriptor=%2")
@@ -381,23 +468,64 @@ void TcpTransfer::onTcpNewConnection()
 
 void TcpTransfer::onSocketOutReadyRead()
 {
-	QTcpSocket * socketOut = (QTcpSocket*)sender();
-	if (!socketOut)
+	QTcpSocket * socketOutObj = (QTcpSocket*)sender();
+	if (!socketOutObj)
 		return;
-	const qint64 socketDescriptor = socketOut->socketDescriptor();
-	QByteArray bytes = socketOut->readAll();
-	output_DataStream(socketDescriptor, Direction_Out, bytes.constData(), bytes.size());
-
-	const quint16 localPort = socketOut->property("localPort").toInt();
+	const qint64 socketDescriptor = socketOutObj->socketDescriptor();
+	if (SocketOutInfo * socketOut = findSocketOut(socketDescriptor))
+	{
+		int availableSize = SocketMaxWaitingSize - socketOut->peerWaitingSize;
+		if (availableSize < 0)
+			return;
+		QByteArray bytes = socketOutObj->read(availableSize);
+		socketOut->peerWaitingSize += bytes.size();
+		output_DataStream(socketDescriptor, Direction_Out, bytes.constData(), bytes.size());
+	}
+	else
+	{
+		qCritical() << QString("TcpTransfer::onSocketOutReadyRead unknown socketDescriptor %1").arg(socketDescriptor);
+		socketOutObj->deleteLater();
+	}	
 }
 
 void TcpTransfer::onSocketInReadyRead()
 {
+	QTcpSocket * socketInObj = (QTcpSocket*)sender();
+	if (!socketInObj)
+		return;
+	const qint64 peerSocketDescriptor = socketInObj->property("peerSocketDescriptor").toLongLong();
+
+	if (SocketInInfo * socketIn = findSocketIn(peerSocketDescriptor))
+	{
+		int availableSize = SocketMaxWaitingSize - socketIn->peerWaitingSize;
+		if (availableSize < 0)
+			return;
+		QByteArray bytes = socketInObj->read(availableSize);
+		socketIn->peerWaitingSize += bytes.size();
+		output_DataStream(peerSocketDescriptor, Direction_In, bytes.constData(), bytes.size());
+	}
+	else
+	{
+		qCritical() << QString("TcpTransfer::onSocketOutReadyRead unknown peerSocketDescriptor %1").arg(peerSocketDescriptor);
+		socketInObj->deleteLater();
+	}
+}
+
+void TcpTransfer::onSocketOutBytesWritten(qint64 size)
+{
+	QTcpSocket * socketOut = (QTcpSocket*)sender();
+	if (!socketOut)
+		return;
+	const qint64 socketDescriptor = socketOut->socketDescriptor();
+	output_Ack(socketDescriptor, Direction_Out, size);
+}
+
+void TcpTransfer::onSocketInBytesWritten(qint64 size)
+{
 	QTcpSocket * socketIn = (QTcpSocket*)sender();
 	if (!socketIn)
 		return;
-	const qint64 peerSocketDescriptor = socketIn->property("peerSocketDescriptor").toLongLong();
 
-	QByteArray bytes = socketIn->readAll();
-	output_DataStream(peerSocketDescriptor, Direction_In, bytes.constData(), bytes.size());
+	const qint64 peerSocketDescriptor = socketIn->property("peerSocketDescriptor").toLongLong();
+	output_Ack(peerSocketDescriptor, Direction_In, size);
 }
