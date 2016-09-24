@@ -8,6 +8,10 @@
 static QFile fileLog;
 static QMutex mutexFileLog;
 
+#ifdef _DEBUG
+#include "vld.h"
+#endif
+
 void MyMessageHandler(QtMsgType type, const QMessageLogContext & context, const QString & text)
 {
 	const QDateTime datetime = QDateTime::currentDateTime();

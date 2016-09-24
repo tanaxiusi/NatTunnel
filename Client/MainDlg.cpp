@@ -33,24 +33,45 @@ MainDlg::MainDlg(QWidget *parent)
 	ui.tableView->setColumnWidth(4, 80);
 	ui.tableView->setColumnWidth(5, 80);
 
-	connect(&m_client, SIGNAL(connected()), this, SLOT(connected()));
-	connect(&m_client, SIGNAL(disconnected()), this, SLOT(disconnected()));
-	connect(&m_client, SIGNAL(logined()), this, SLOT(logined()));
-	connect(&m_client, SIGNAL(loginFailed(QString)), this, SLOT(loginFailed(QString)));
-	connect(&m_client, SIGNAL(natTypeConfirmed(NatType)), this, SLOT(natTypeConfirmed(NatType)));
-	connect(&m_client, SIGNAL(upnpStatusChanged(Client::UpnpStatus)), this, SLOT(onClientUpnpStatusChanged(Client::UpnpStatus)));
-	connect(&m_client, SIGNAL(warning(QString)), this, SLOT(onClientWarning(QString)));
-
 	connect(ui.editLocalPassword, SIGNAL(textChanged(const QString &)), this, SLOT(onEditLocalPasswordChanged()));
 	connect(ui.btnTunnel, SIGNAL(clicked()), this, SLOT(onBtnTunnel()));
-	connect(&m_client, SIGNAL(replyTryTunneling(QString, bool, bool, QString)), this, SLOT(onReplyTryTunneling(QString, bool, bool, QString)));
-	connect(&m_client, SIGNAL(replyReadyTunneling(int, int, QString)), this, SLOT(onReplyReadyTunneling(int, int, QString)));
-	connect(&m_client, SIGNAL(tunnelStarted(int, QString, QHostAddress)), this, SLOT(onTunnelStarted(int, QString, QHostAddress)));
-	connect(&m_client, SIGNAL(tunnelHandShaked(int)), this, SLOT(onTunnelHandShaked(int)));
-	connect(&m_client, SIGNAL(tunnelData(int, QByteArray)), this, SLOT(onTunnelData(int, QByteArray)));
-	connect(&m_client, SIGNAL(tunnelClosed(int)), this, SLOT(onTunnelClosed(int)));
 
 	leadWindowsFirewallPopup();
+
+	start();
+}
+
+MainDlg::~MainDlg()
+{
+	stop();
+}
+
+void MainDlg::start()
+{
+	if (m_workingThread.isRunning())
+		return;
+
+	m_workingThread.start();
+
+	m_client = new Client();
+	m_transferManager = new TransferManager(nullptr, m_client);
+
+	m_client->moveToThread(&m_workingThread);
+	m_transferManager->moveToThread(&m_workingThread);
+
+	connect(m_client, SIGNAL(connected()), this, SLOT(connected()));
+	connect(m_client, SIGNAL(disconnected()), this, SLOT(disconnected()));
+	connect(m_client, SIGNAL(logined()), this, SLOT(logined()));
+	connect(m_client, SIGNAL(loginFailed(QString)), this, SLOT(loginFailed(QString)));
+	connect(m_client, SIGNAL(natTypeConfirmed(NatType)), this, SLOT(natTypeConfirmed(NatType)));
+	connect(m_client, SIGNAL(upnpStatusChanged(UpnpStatus)), this, SLOT(onClientUpnpStatusChanged(UpnpStatus)));
+	connect(m_client, SIGNAL(warning(QString)), this, SLOT(onClientWarning(QString)));
+
+	connect(m_client, SIGNAL(replyTryTunneling(QString, bool, bool, QString)), this, SLOT(onReplyTryTunneling(QString, bool, bool, QString)));
+	connect(m_client, SIGNAL(replyReadyTunneling(int, int, QString)), this, SLOT(onReplyReadyTunneling(int, int, QString)));
+	connect(m_client, SIGNAL(tunnelStarted(int, QString, QHostAddress)), this, SLOT(onTunnelStarted(int, QString, QHostAddress)));
+	connect(m_client, SIGNAL(tunnelHandShaked(int)), this, SLOT(onTunnelHandShaked(int)));
+	connect(m_client, SIGNAL(tunnelClosed(int)), this, SLOT(onTunnelClosed(int)));
 
 	QSettings setting("NatTunnelClient.ini", QSettings::IniFormat);
 	const QHostAddress serverAddress = QHostAddress(setting.value("Server/Address").toString());
@@ -63,15 +84,26 @@ MainDlg::MainDlg(QWidget *parent)
 	ui.editUserName->setText(userName);
 	ui.editLocalPassword->setText(localPassword);
 
-	m_client.setUserInfo(userName, password);
-	m_client.setServerInfo(serverAddress, serverPort);
-	m_client.start();
+	m_client->setUserInfo(userName, password);
+	m_client->setServerInfo(serverAddress, serverPort);
+	QMetaObject::invokeMethod(m_client, "start");
 }
 
-MainDlg::~MainDlg()
+void MainDlg::stop()
 {
-	m_client.stop();
+	if (!m_workingThread.isRunning())
+		return;
+
+	m_client->deleteLater();
+	m_transferManager->deleteLater();
+
+	m_client = nullptr;
+	m_transferManager = nullptr;
+
+	m_workingThread.quit();
+	m_workingThread.wait();
 }
+
 
 void MainDlg::leadWindowsFirewallPopup()
 {
@@ -95,20 +127,10 @@ void MainDlg::closeEvent(QCloseEvent *event)
 void MainDlg::connected()
 {
 	m_labelStatus->setText(U16("正在登录"));
-
-	const QHostAddress localAddress = m_client.getLocalAddress();
-	if (isNatAddress(localAddress))
-		m_labelUpnp->setText(U16("正在检测upnp支持"));
-	else
-		m_labelUpnp->setText(U16("当前网络环境无需upnp"));
 }
 
 void MainDlg::disconnected()
-{
-	for (TcpTransfer * tcpTransfer : m_mapTcpTransfer)
-		delete tcpTransfer;
-	m_mapTcpTransfer.clear();
-	
+{	
 	m_labelStatus->setText(U16("断开"));
 	m_labelNatType->clear();
 	m_labelUpnp->clear();
@@ -132,27 +154,27 @@ void MainDlg::natTypeConfirmed(NatType natType)
 	ui.btnTunnel->setEnabled(true);
 }
 
-void MainDlg::onClientUpnpStatusChanged(Client::UpnpStatus upnpStatus)
+void MainDlg::onClientUpnpStatusChanged(UpnpStatus upnpStatus)
 {
 	QString text;
 	switch (upnpStatus)
 	{
-	case Client::UpnpUnknownStatus:
+	case UpnpUnknownStatus:
 		text = U16("Upnp未知状态");
 		break;
-	case Client::UpnpDiscovering:
-		text = U16("Upnp正在探测");
+	case UpnpDiscovering:
+		text = U16("正在检测upnp支持");
 		break;
-	case Client::UpnpUnneeded:
+	case UpnpUnneeded:
 		text = U16("当前网络环境无需Upnp");
 		break;
-	case Client::UpnpQueryingExternalAddress:
+	case UpnpQueryingExternalAddress:
 		text = U16("Upnp正在查询公网地址");
 		break;
-	case Client::UpnpOk:
+	case UpnpOk:
 		text = U16("Upnp可用");
 		break;
-	case Client::UpnpFailed:
+	case UpnpFailed:
 		text = U16("Upnp不可用");
 		break;
 	default:
@@ -168,7 +190,7 @@ void MainDlg::onClientWarning(QString msg)
 
 void MainDlg::onEditLocalPasswordChanged()
 {
-	m_client.setLocalPassword(ui.editLocalPassword->text());
+	QMetaObject::invokeMethod(m_client, "setLocalPassword", Q_ARG(QString, ui.editLocalPassword->text()));
 }
 
 void MainDlg::onBtnTunnel()
@@ -177,7 +199,7 @@ void MainDlg::onBtnTunnel()
 	if (peerUserName.isEmpty())
 		return;
 
-	m_client.tryTunneling(peerUserName);
+	QMetaObject::invokeMethod(m_client, "tryTunneling", Q_ARG(QString, peerUserName));
 	ui.btnTunnel->setEnabled(false);
 }
 
@@ -196,7 +218,8 @@ void MainDlg::onReplyTryTunneling(QString peerUserName, bool canTunnel, bool nee
 		return;
 	}
 
-	m_client.readyTunneling(peerUserName, peerLocalPassword, needUpnp);
+	QMetaObject::invokeMethod(m_client, "readyTunneling",
+		Q_ARG(QString, peerUserName), Q_ARG(QString, peerLocalPassword), Q_ARG(bool, needUpnp));
 }
 
 void MainDlg::onReplyReadyTunneling(int requestId, int tunnelId, QString peerUserName)
@@ -219,31 +242,11 @@ void MainDlg::onTunnelStarted(int tunnelId, QString peerUserName, QHostAddress p
 void MainDlg::onTunnelHandShaked(int tunnelId)
 {
 	updateTableRow(tunnelId, QString(), QString(), U16("连接成功"));
-
-	TcpTransfer *& tcpTransfer = m_mapTcpTransfer[tunnelId];
-	Q_ASSERT(!tcpTransfer);
-	tcpTransfer = new TcpTransfer();
-	tcpTransfer->setProperty("tunnelId", tunnelId);
-	connect(tcpTransfer, SIGNAL(dataOutput(QByteArray)), this, SLOT(onTcpTransferOutput(QByteArray)));
-}
-
-void MainDlg::onTunnelData(int tunnelId, QByteArray package)
-{
-	TcpTransfer * tcpTransfer = m_mapTcpTransfer.value(tunnelId);
-	if (tcpTransfer)
-		tcpTransfer->dataInput(package);
 }
 
 void MainDlg::onTunnelClosed(int tunnelId)
 {
 	deleteTableRow(tunnelId);
-
-	TcpTransfer * tcpTransfer = m_mapTcpTransfer.value(tunnelId);
-	if (tcpTransfer)
-	{
-		delete tcpTransfer;
-		m_mapTcpTransfer.remove(tunnelId);
-	}
 }
 
 void MainDlg::updateTableRow(int tunnelId, QString peerUsername, QString peerAddress, QString status)
@@ -297,12 +300,19 @@ void MainDlg::onBtnCloseTunneling()
 	const int tunnelId = btnCloseTunneling->property("tunnelId").toInt();
 	if (tunnelId == 0)
 		return;
-	m_client.closeTunneling(tunnelId);
+	QMetaObject::invokeMethod(m_client, "closeTunneling", Q_ARG(int, tunnelId));
 	btnCloseTunneling->setEnabled(false);
 }
 
 void MainDlg::onBtnAddTransfer()
 {
+	QPushButton * btnAddTransfer = (QPushButton*)sender();
+	if (!btnAddTransfer)
+		return;
+	const int tunnelId = btnAddTransfer->property("tunnelId").toInt();
+	if (tunnelId == 0)
+		return;
+
 	QString inputText = QInputDialog::getText(this, "", "");
 	if (inputText.isNull())
 		return;
@@ -311,25 +321,15 @@ void MainDlg::onBtnAddTransfer()
 	if (inputTextList.size() != 3)
 		return;
 
-	QPushButton * btnAddTransfer = (QPushButton*)sender();
-	if (!btnAddTransfer)
-		return;
-	const int tunnelId = btnAddTransfer->property("tunnelId").toInt();
-	if (tunnelId == 0)
-		return;
-	TcpTransfer * tcpTransfer = m_mapTcpTransfer.value(tunnelId);
-	if (!tcpTransfer)
-		return;
-	tcpTransfer->addTransfer(inputTextList[0].toInt(), inputTextList[1].toInt(), QHostAddress(inputTextList[2]));
+	const quint16 localPort = inputTextList[0].toInt();
+	const quint16 remoteDestPort = inputTextList[1].toInt();
+	const QHostAddress remoteDestAddress = QHostAddress(inputTextList[2]);
+
+	bool result = false;
+	QMetaObject::invokeMethod(m_transferManager, "addTransfer", Qt::BlockingQueuedConnection, Q_RETURN_ARG(bool, result),
+		Q_ARG(int, tunnelId), Q_ARG(quint16, localPort), Q_ARG(quint16, remoteDestPort), Q_ARG(QHostAddress, remoteDestAddress));
+
+	result = false;
 }
 
-void MainDlg::onTcpTransferOutput(QByteArray package)
-{
-	TcpTransfer * tcpTransfer = (TcpTransfer*)sender();
-	if (!tcpTransfer)
-		return;
-	const int tunnelId = tcpTransfer->property("tunnelId").toInt();
-	if (tunnelId == 0)
-		return;
-	m_client.tunnelWrite(tunnelId, package);
-}
+

@@ -20,6 +20,16 @@ enum NatType
 	SymmetricNat
 };
 
+enum UpnpStatus
+{
+	UpnpUnknownStatus = 0,
+	UpnpDiscovering,
+	UpnpUnneeded,
+	UpnpQueryingExternalAddress,
+	UpnpOk,
+	UpnpFailed
+};
+
 #define strcpy_(dest,src)			strcopy((dest),sizeof(dest),(src))
 char * strcopy(char * dst, size_t SizeInBytes, const char * src);
 

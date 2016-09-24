@@ -1,6 +1,10 @@
 #include "Other.h"
 #include "crc32.h"
 
+static const int _typeId_NatType = qRegisterMetaType<NatType>("NatType");
+static const int _typeId_UpnpStatus = qRegisterMetaType<UpnpStatus>("UpnpStatus");
+static const int _typeId_QHostAddress = qRegisterMetaType<QHostAddress>("QHostAddress");
+
 char * strcopy(char * dst, size_t SizeInBytes, const char * src)
 {
 	char * cp = dst;

@@ -8,6 +8,7 @@
 #include "Client.h"
 #include "QUpnpPortMapper.h"
 #include "TcpTransfer.h"
+#include "TransferManager.h"
 
 class MainDlg : public QMainWindow
 {
@@ -16,6 +17,9 @@ class MainDlg : public QMainWindow
 public:
 	MainDlg(QWidget *parent = 0);
 	~MainDlg();
+
+	void start();
+	void stop();
 
 	void leadWindowsFirewallPopup();
 
@@ -28,7 +32,7 @@ private slots:
 	void logined();
 	void loginFailed(QString msg);
 	void natTypeConfirmed(NatType natType);
-	void onClientUpnpStatusChanged(Client::UpnpStatus upnpStatus);
+	void onClientUpnpStatusChanged(UpnpStatus upnpStatus);
 	void onClientWarning(QString msg);
 
 	void onEditLocalPasswordChanged();
@@ -39,13 +43,10 @@ private slots:
 
 	void onTunnelStarted(int tunnelId, QString peerUserName, QHostAddress peerAddress);
 	void onTunnelHandShaked(int tunnelId);
-	void onTunnelData(int tunnelId, QByteArray package);
 	void onTunnelClosed(int tunnelId);
 
 	void onBtnCloseTunneling();
 	void onBtnAddTransfer();
-
-	void onTcpTransferOutput(QByteArray package);
 
 private:
 	void updateTableRow(int tunnelId, QString peerUsername, QString peerAddress, QString status);
@@ -61,7 +62,6 @@ private:
 	QStandardItemModel * m_tableModel = nullptr;
 
 	QThread m_workingThread;
-
-	Client m_client;
-	QMap<int, TcpTransfer*> m_mapTcpTransfer;
+	Client * m_client = nullptr;
+	TransferManager * m_transferManager = nullptr;
 };

@@ -13,25 +13,13 @@ class Client : public QObject
 {
 	Q_OBJECT
 
-public:
-	enum UpnpStatus
-	{
-		UpnpUnknownStatus = 0,
-		UpnpDiscovering,
-		UpnpUnneeded,
-		UpnpQueryingExternalAddress,
-		UpnpOk,
-		UpnpFailed
-	};
-
-
 signals:
 	void connected();
 	void disconnected();
 	void logined();
 	void loginFailed(QString msg);
 	void natTypeConfirmed(NatType natType);
-	void upnpStatusChanged(Client::UpnpStatus upnpStatus);
+	void upnpStatusChanged(UpnpStatus upnpStatus);
 
 	void warning(QString msg);
 
@@ -85,6 +73,7 @@ public:
 	Client(QObject *parent = 0);
 	~Client();
 
+public slots:
 	void setUserInfo(QString userName, QString password);
 	void setLocalPassword(QString localPassword);
 	void setServerInfo(QHostAddress hostAddress, quint16 tcpPort);
