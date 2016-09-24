@@ -125,6 +125,9 @@ int KcpManager::highLevelInput(int tunnelId, QByteArray package)
 		remainingSize -= thisSize;
 	}
 
+	if (writtenSize > 0)
+		ikcp_flush(kcp);
+
 	return writtenSize;
 }
 

@@ -74,6 +74,12 @@ TcpTransfer::TcpTransfer(QObject *parent)
 
 TcpTransfer::~TcpTransfer()
 {
+	for (SocketOutInfo socketOut : m_mapSocketOut.values())
+		delete socketOut.obj;
+	m_mapSocketOut.clear();
+	for (SocketInInfo socketIn : m_mapSocketIn.values())
+		delete socketIn.obj;
+	m_mapSocketIn.clear();
 	for (QTcpServer * tcpServer : m_mapTcpServer)
 		delete tcpServer;
 	m_mapTcpServer.clear();
