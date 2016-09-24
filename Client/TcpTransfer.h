@@ -73,6 +73,10 @@ private:
 	void output_DataStream(qint64 socketDescriptor, quint8 direction, const char * data, int dataSize);
 	void output_Ack(qint64 socketDescriptor, quint8 direction, int writtenSize);
 
+private:
+	int readAndSendSocketOut(qint64 socketDescriptor, SocketOutInfo & socketOut);
+	int readAndSendSocketIn(qint64 peerSocketDescriptor, SocketInInfo & socketIn);
+
 private slots:
 	void onSocketInStateChanged(QAbstractSocket::SocketState state);
 	void onSocketOutStateChanged(QAbstractSocket::SocketState state);

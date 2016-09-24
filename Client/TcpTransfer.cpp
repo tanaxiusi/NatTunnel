@@ -302,6 +302,7 @@ void TcpTransfer::input_Ack(qint64 socketDescriptor, quint8 direction, int writt
 				qWarning() << QString("TcpTransfer::input_Ack out peerWaitingSize < 0, socketDescriptor=%1")
 					.arg(socketDescriptor);
 			}
+			readAndSendSocketOut(socketDescriptor, *socketOut);
 		}
 	}
 	else if (direction == Direction_In)
@@ -316,6 +317,7 @@ void TcpTransfer::input_Ack(qint64 socketDescriptor, quint8 direction, int writt
 				qWarning() << QString("TcpTransfer::input_Ack in peerWaitingSize < 0, peerSocketDescriptor=%1")
 					.arg(peerSocketDescriptor);
 			}
+			readAndSendSocketIn(peerSocketDescriptor, *socketIn);
 		}
 	}
 }
@@ -388,6 +390,32 @@ void TcpTransfer::output_Ack(qint64 socketDescriptor, quint8 direction, int writ
 	frame.direction = direction;
 	frame.writtenSize = writtenSize;
 	outputFrame(AckType, QByteArray::fromRawData((const char*)&frame, sizeof(frame)));
+}
+
+int TcpTransfer::readAndSendSocketOut(qint64 socketDescriptor, SocketOutInfo & socketOut)
+{
+	if (socketOut.obj->bytesAvailable() == 0)
+		return 0;
+	const int maxSendSize = SocketMaxWaitingSize - socketOut.peerWaitingSize;
+	if (maxSendSize < 0)
+		return 0;
+	QByteArray bytes = socketOut.obj->read(maxSendSize);
+	socketOut.peerWaitingSize += bytes.size();
+	output_DataStream(socketDescriptor, Direction_Out, bytes.constData(), bytes.size());
+	return bytes.size();
+}
+
+int TcpTransfer::readAndSendSocketIn(qint64 peerSocketDescriptor, SocketInInfo & socketIn)
+{
+	if (socketIn.obj->bytesAvailable() == 0)
+		return 0;
+	const int maxSendSize = SocketMaxWaitingSize - socketIn.peerWaitingSize;
+	if (maxSendSize < 0)
+		return 0;
+	QByteArray bytes = socketIn.obj->read(maxSendSize);
+	socketIn.peerWaitingSize += bytes.size();
+	output_DataStream(peerSocketDescriptor, Direction_In, bytes.constData(), bytes.size());
+	return bytes.size();
 }
 
 void TcpTransfer::onSocketInStateChanged(QAbstractSocket::SocketState state)
@@ -480,12 +508,7 @@ void TcpTransfer::onSocketOutReadyRead()
 	const qint64 socketDescriptor = socketOutObj->socketDescriptor();
 	if (SocketOutInfo * socketOut = findSocketOut(socketDescriptor))
 	{
-		int availableSize = SocketMaxWaitingSize - socketOut->peerWaitingSize;
-		if (availableSize < 0)
-			return;
-		QByteArray bytes = socketOutObj->read(availableSize);
-		socketOut->peerWaitingSize += bytes.size();
-		output_DataStream(socketDescriptor, Direction_Out, bytes.constData(), bytes.size());
+		readAndSendSocketOut(socketDescriptor, *socketOut);
 	}
 	else
 	{
@@ -503,12 +526,7 @@ void TcpTransfer::onSocketInReadyRead()
 
 	if (SocketInInfo * socketIn = findSocketIn(peerSocketDescriptor))
 	{
-		int availableSize = SocketMaxWaitingSize - socketIn->peerWaitingSize;
-		if (availableSize < 0)
-			return;
-		QByteArray bytes = socketInObj->read(availableSize);
-		socketIn->peerWaitingSize += bytes.size();
-		output_DataStream(peerSocketDescriptor, Direction_In, bytes.constData(), bytes.size());
+		readAndSendSocketIn(peerSocketDescriptor, *socketIn);
 	}
 	else
 	{
