@@ -88,6 +88,7 @@ private:
 	void onUdpReadyRead(int index);
 
 	bool checkCanTunnel(ClientInfo & localClient, QString peerUserName, bool * outLocalNeedUpnp, bool * outPeerNeedUpnp, QString * outFailReason);
+	bool isExistTunnel(QString userName1, QString userName2);
 	quint16 getTunnelPort(ClientInfo & client, quint16 orginalPort, quint16 upnpPort);
 	int getNextTunnelId();
 

@@ -3,6 +3,8 @@
 #include <QObject>
 #include <QTcpSocket>
 #include <QTcpServer>
+#include <QTimer>
+#include <QTime>
 #include "Peer.h"
 
 class TcpTransfer : public QObject
@@ -13,13 +15,14 @@ private:
 	enum FrameType
 	{
 		BeginUnknownFrameType = 0,
-		AddTransferType = 1,
-		DeleteTransferType = 2,
-		NewConnectionType = 3,
-		DisconnectConnectionType = 4,
-		DataStreamType = 5,
-		AckType = 6,
-		EndUnknownFrameType = 7,
+		HeartBeatType,
+		AddTransferType,
+		DeleteTransferType,
+		NewConnectionType,
+		DisconnectConnectionType,
+		DataStreamType,
+		AckType,
+		EndUnknownFrameType,
 	};
 
 	struct SocketInInfo
@@ -31,6 +34,7 @@ private:
 	};
 	struct SocketOutInfo
 	{
+		qint64 socketDescriptor = 0;
 		QTcpSocket * obj = nullptr;
 		int peerWaitingSize = 0;
 	};
@@ -57,6 +61,7 @@ private:
 
 private:
 	void dealFrame(FrameType type, const QByteArray & frameData);
+	void input_heartBeat();
 	void input_AddTransfer(quint16 localPort, quint16 remoteDestPort, QString remoteDestAddressText);
 	void input_DeleteTransfer(quint16 localPort);
 	void input_NewConnection(quint16 localPort, qint64 socketDescriptor);
@@ -66,6 +71,7 @@ private:
 
 private:
 	void outputFrame(FrameType type, const QByteArray & frameData, const char * extraData = nullptr, int extraDataSize = 0);
+	void output_heartBeat();
 	void output_AddTransfer(quint16 localPort, quint16 remoteDestPort, QString remoteDestAddressText);
 	void output_DeleteTransfer(quint16 localPort);
 	void output_NewConnection(quint16 localPort, qint64 socketDescriptor);
@@ -74,10 +80,11 @@ private:
 	void output_Ack(qint64 socketDescriptor, quint8 direction, int writtenSize);
 
 private:
-	int readAndSendSocketOut(qint64 socketDescriptor, SocketOutInfo & socketOut);
-	int readAndSendSocketIn(qint64 peerSocketDescriptor, SocketInInfo & socketIn);
+	int readAndSendSocketOut(SocketOutInfo & socketOut);
+	int readAndSendSocketIn(SocketInInfo & socketIn);
 
 private slots:
+	void timerFunction15s();
 	void onSocketInStateChanged(QAbstractSocket::SocketState state);
 	void onSocketOutStateChanged(QAbstractSocket::SocketState state);
 	void onTcpNewConnection();
@@ -93,4 +100,6 @@ private:
 	QMap<quint16, Peer> m_mapTransferIn;			// <localPort,...> 转入隧道对面端口-本地地址端口
 	QMap<qint64, SocketOutInfo> m_mapSocketOut;		// <peerSocketDescriptor,...> 转出隧道的连接
 	QMap<qint64, SocketInInfo> m_mapSocketIn;		// <socketDescriptor,...> 转入隧道的连接
+	QTime m_lastOutTime;
+	QTimer m_timer15s;
 };

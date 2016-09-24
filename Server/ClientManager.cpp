@@ -307,31 +307,53 @@ bool ClientManager::checkCanTunnel(ClientInfo & localClient, QString peerUserNam
 	
 	const bool localNatPartlyTypeIs1 = (localClient.natType == PublicNetwork || localClient.natType == FullOrRestrictedConeNat);
 	const bool peerNatPartlyTypeIs1 = (peerClient.natType == PublicNetwork || peerClient.natType == FullOrRestrictedConeNat);
-	if (localNatPartlyTypeIs1 || peerNatPartlyTypeIs1 || (localClient.natType == PortRestrictedConeNat && peerClient.natType == PortRestrictedConeNat))
+	// 只要一边达到RestrictedConeNat等级，或者两边都是PortRestrictedConeNat，都可以无需upnp
+	const bool unneedUpnp = (localNatPartlyTypeIs1 || peerNatPartlyTypeIs1 || (localClient.natType == PortRestrictedConeNat && peerClient.natType == PortRestrictedConeNat));
+	const bool needUpnp = !unneedUpnp;
+
+	if (needUpnp)
 	{
-		// 只要一边达到RestrictedConeNat等级，或者两边都是PortRestrictedConeNat，都可以无需upnp
-		return true;
+		if (!localClient.upnpAvailable && !peerClient.upnpAvailable)
+		{
+			*outFailReason = U16("本地NAT类型=%1 对方NAT类型=%2 都不支持upnp 无法连接")
+				.arg(getNatDescription(localClient.natType)).arg(getNatDescription(peerClient.natType));
+			return false;
+		}
+		// 剩下的情况是PortRestrictedConeNat+SymmetricNat或者两边都是SymmetricNat
+		if (localClient.upnpAvailable)
+		{
+			*outLocalNeedUpnp = true;
+		}
+		else if (peerClient.upnpAvailable)
+		{
+			// 这种情况下对面开upnp
+			*outPeerNeedUpnp = true;
+		}
 	}
-	
-	// 剩下的情况是PortRestrictedConeNat+SymmetricNat或者两边都是SymmetricNat
-	if (localClient.upnpAvailable)
+
+	if(isExistTunnel(localClient.userName, peerClient.userName))
 	{
-		*outLocalNeedUpnp = true;
-		return true;
-	}
-	else if (peerClient.upnpAvailable)
-	{
-		// 这种情况下对面开upnp
-		*outPeerNeedUpnp = true;
-		return true;
-	}
-	else
-	{
-		*outFailReason = U16("本地NAT类型=%1 对方NAT类型=%2 都不支持upnp 无法连接")
-			.arg(getNatDescription(localClient.natType)).arg(getNatDescription(peerClient.natType));
+		*outFailReason = U16("已经存在到 %1 的连接").arg(peerUserName);
 		return false;
 	}
+	return true;
 }
+
+
+bool ClientManager::isExistTunnel(QString userName1, QString userName2)
+{
+	for (auto iter = m_mapTunnelInfo.begin(); iter != m_mapTunnelInfo.end(); ++iter)
+	{
+		TunnelInfo & tunnel = iter.value();
+		if(tunnel.clientAUserName == userName1 && tunnel.clientBUserName == userName2 ||
+			tunnel.clientBUserName == userName1 && tunnel.clientAUserName == userName2)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 
 quint16 ClientManager::getTunnelPort(ClientInfo & client, quint16 orginalPort, quint16 upnpPort)
 {
