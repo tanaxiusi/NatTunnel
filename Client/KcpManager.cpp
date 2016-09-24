@@ -1,13 +1,18 @@
-#include "KcpManager.h"
+﻿#include "KcpManager.h"
 #include <QDateTime>
 #include "Other.h"
+
+static inline quint32 getCurrentTime()
+{
+	return (quint32)(QDateTime::currentMSecsSinceEpoch() & 0xfffffffful);
+}
 
 KcpManager::KcpManager(QObject *parent)
 	: QObject(parent)
 {
 	m_timerUpdate.setParent(this);
 	connect(&m_timerUpdate, SIGNAL(timeout()), this, SLOT(updateAllKcp()));
-	m_timerUpdate.start(25);
+	m_timerUpdate.start(10);
 }
 
 KcpManager::~KcpManager()
@@ -31,8 +36,6 @@ void KcpManager::createKcpConnection(int tunnelId, QHostAddress hostAddress, qui
 	ikcp_nodelay(kcp, 1, 10, 2, 1);
 	ikcp_wndsize(kcp, 512, 512);
 	kcp->output = KcpManager::kcp_write;
-	ikcp_send(kcp, "H", 1);
-	updateKcp(kcp);
 
 	KcpConnection connection;
 	connection.tunnelId = tunnelId;
@@ -41,6 +44,9 @@ void KcpManager::createKcpConnection(int tunnelId, QHostAddress hostAddress, qui
 	
 	m_mapTunnelId[tunnelId] = kcp;
 	m_map[kcp] = connection;
+
+	ikcp_send(kcp, "H", 1);
+	updateKcp(m_map[kcp], getCurrentTime());
 }
 
 void KcpManager::deleteKcpConnection(int tunnelId)
@@ -59,13 +65,14 @@ void KcpManager::lowLevelInput(QHostAddress hostAddress, quint16 port, QByteArra
 {
 	if (package.isEmpty())
 		return;
-	KcpConnection * connection = getConnectionByPeer(Peer(hostAddress, port), true);
-	if (!connection)
+	KcpConnection & connection = *getConnectionByPeer(Peer(hostAddress, port), true);
+	if (&connection == nullptr)
 		return;
-	if (connection->peer.port == 0)
-		connection->peer.port = port;
-	ikcpcb * kcp = connection->kcp;
+	if (connection.peer.port == 0)
+		connection.peer.port = port;
+	ikcpcb * kcp = connection.kcp;
 	ikcp_input(kcp, package.constData(), package.size());
+	updateKcp(connection, getCurrentTime());
 
 	QByteArray outputBuffer;
 	bool received = false;
@@ -76,16 +83,16 @@ void KcpManager::lowLevelInput(QHostAddress hostAddress, quint16 port, QByteArra
 		if (bufferSize <= 0)
 			break;
 
-		if (!connection->handShaked)
+		if (!connection.handShaked)
 		{
-			// �÷����ĵ�һ���ֽ���Ϊ���ֱ��
+			// 用发来的第一个字节作为握手标记
 			if (buffer[0] != 'H')
 			{
-				deleteKcpConnection(connection->tunnelId);
+				deleteKcpConnection(connection.tunnelId);
 				return;
 			}
-			connection->handShaked = true;
-			emit handShaked(connection->tunnelId);
+			connection.handShaked = true;
+			emit handShaked(connection.tunnelId);
 			outputBuffer.append(QByteArray::fromRawData(buffer + 1, bufferSize - 1));
 		}else
 		{
@@ -95,7 +102,7 @@ void KcpManager::lowLevelInput(QHostAddress hostAddress, quint16 port, QByteArra
 	}
 	if (received)
 	{
-		emit highLevelOutput(connection->tunnelId, outputBuffer);
+		emit highLevelOutput(connection.tunnelId, outputBuffer);
 	}
 }
 
@@ -133,10 +140,14 @@ int KcpManager::highLevelInput(int tunnelId, QByteArray package)
 
 void KcpManager::updateAllKcp()
 {
+	const quint32 currentTime = getCurrentTime();
 	for (auto iter = m_map.begin(); iter != m_map.end(); ++iter)
 	{
 		ikcpcb * kcp = iter.key();
-		updateKcp(kcp);
+		KcpConnection & connection = iter.value();
+		quint32 diff = currentTime - connection.nextUpdateTime;
+		if(diff < 0x3fffffffu)		// currentTime - nextUpdateTime < 1/4 32位无符号整数，即判定为大于
+			updateKcp(connection, currentTime);
 	}
 }
 
@@ -184,7 +195,8 @@ KcpManager::KcpConnection * KcpManager::getConnectionByPeer(const Peer & peer, b
 	return nullptr;
 }
 
-void KcpManager::updateKcp(ikcpcb * kcp)
+void KcpManager::updateKcp(KcpConnection & connection, quint32 currentTime)
 {
-	ikcp_update(kcp, (IUINT32)(QDateTime::currentMSecsSinceEpoch() & 0xfffffffful));
+	ikcp_update(connection.kcp, currentTime);
+	connection.nextUpdateTime = ikcp_check(connection.kcp, currentTime);
 }

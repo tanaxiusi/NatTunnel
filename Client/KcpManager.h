@@ -22,6 +22,7 @@ private:
 	{
 		Peer peer;
 		ikcpcb * kcp = nullptr;
+		quint32 nextUpdateTime;
 		int tunnelId;
 		bool handShaked = false;
 	};
@@ -45,7 +46,7 @@ private:
 	static int kcp_write(const char *buf, int len, ikcpcb *kcp, void *user);
 	int kcp_write(const char *buf, int len, ikcpcb *kcp);
 	KcpConnection * getConnectionByPeer(const Peer & peer, bool allowUncertain);
-	void updateKcp(ikcpcb * kcp);
+	void updateKcp(KcpConnection & connection, quint32 currentTime);
 
 private:
 	QMap<int, ikcpcb*> m_mapTunnelId;
