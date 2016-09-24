@@ -1,5 +1,4 @@
-#ifndef QUPNPPORTMAPPER_H
-#define QUPNPPORTMAPPER_H
+#pragma once
 
 #include <QObject>
 #include <QHostAddress>
@@ -59,5 +58,3 @@ private:
 	bool m_lastAddPortMappingOk;
 	bool m_lastDeletePortMappingOk;
 };
-
-#endif // QUPNPPORTMAPPER_H

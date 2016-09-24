@@ -3,6 +3,7 @@
 #include <QMainWindow>
 #include <QCloseEvent>
 #include <QStandardItemModel>
+#include <QThread>
 #include "ui_MainDlg.h"
 #include "Client.h"
 #include "QUpnpPortMapper.h"
@@ -27,10 +28,8 @@ private slots:
 	void logined();
 	void loginFailed(QString msg);
 	void natTypeConfirmed(NatType natType);
-	void firewallWarning();
-
-	void onUpnpDiscoverFinished(bool ok);
-	void onUpnpQueryExternalAddressFinished(QHostAddress address, bool ok, QString errorString);
+	void onClientUpnpStatusChanged(Client::UpnpStatus upnpStatus);
+	void onClientWarning(QString msg);
 
 	void onEditLocalPasswordChanged();
 
@@ -42,9 +41,6 @@ private slots:
 	void onTunnelHandShaked(int tunnelId);
 	void onTunnelData(int tunnelId, QByteArray package);
 	void onTunnelClosed(int tunnelId);
-
-	quint16 addUpnpPortMapping(quint16 internalPort);
-	void deleteUpnpPortMapping(quint16 externalPort);
 
 	void onBtnCloseTunneling();
 	void onBtnAddTransfer();
@@ -59,11 +55,13 @@ private:
 
 private:
 	Ui::MainDlgClass ui;
-	Client m_client;
-	QUpnpPortMapper m_upnpPortMapper;
 	QLabel * m_labelStatus = nullptr;
 	QLabel * m_labelNatType = nullptr;
 	QLabel * m_labelUpnp = nullptr;
-	QStandardItemModel * m_model = nullptr;
+	QStandardItemModel * m_tableModel = nullptr;
+
+	QThread m_workingThread;
+
+	Client m_client;
 	QMap<int, TcpTransfer*> m_mapTcpTransfer;
 };

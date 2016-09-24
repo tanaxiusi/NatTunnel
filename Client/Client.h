@@ -7,10 +7,23 @@
 #include <QTime>
 #include "Other.h"
 #include "KcpManager.h"
+#include "QUpnpPortMapper.h"
 
 class Client : public QObject
 {
 	Q_OBJECT
+
+public:
+	enum UpnpStatus
+	{
+		UpnpUnknownStatus = 0,
+		UpnpDiscovering,
+		UpnpUnneeded,
+		UpnpQueryingExternalAddress,
+		UpnpOk,
+		UpnpFailed
+	};
+
 
 signals:
 	void connected();
@@ -18,9 +31,9 @@ signals:
 	void logined();
 	void loginFailed(QString msg);
 	void natTypeConfirmed(NatType natType);
-	void firewallWarning();
-	quint16 wannaAddUpnpPortMapping(quint16 internalPort);
-	void wannaDeleteUpnpPortMapping(quint16 externalPort);
+	void upnpStatusChanged(Client::UpnpStatus upnpStatus);
+
+	void warning(QString msg);
 
 	void replyTryTunneling(QString peerUserName, bool canTunnel, bool needUpnp, QString failReason);
 	void replyReadyTunneling(int requestId, int tunnelId, QString peerUserName);
@@ -100,6 +113,8 @@ private slots:
 	void timerFunction15s();
 	void onKcpLowLevelOutput(int tunnelId, QHostAddress hostAddress, quint16 port, QByteArray package);
 	void onKcpHighLevelOutput(int tunnelId, QByteArray package);
+	void onUpnpDiscoverFinished(bool ok);
+	void onUpnpQueryExternalAddressFinished(QHostAddress address, bool ok, QString errorString);
 
 private:
 	QUdpSocket * getUdpSocket(int index);
@@ -171,6 +186,7 @@ private:
 	QTimer m_timer300ms;
 	QTimer m_timer15s;
 	KcpManager m_kcpManager;
+	QUpnpPortMapper m_upnpPortMapper;
 
 	QString m_userName;
 	QString m_password;
@@ -185,6 +201,8 @@ private:
 	NatCheckStatus m_natStatus = UnknownNatCheckStatus;
 	QTime m_beginWaitTime;
 	NatType m_natType = UnknownNatType;
+
+	UpnpStatus m_upnpStatus = UpnpUnknownStatus;
 
 	QTime m_lastInTime;
 	QTime m_lastOutTime;

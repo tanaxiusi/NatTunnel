@@ -17,6 +17,7 @@ Client::Client(QObject *parent)
 	m_timer300ms.setParent(this);
 	m_timer15s.setParent(this);
 	m_kcpManager.setParent(this);
+	m_upnpPortMapper.setParent(this);
 
 	connect(&m_tcpSocket, SIGNAL(connected()), this, SLOT(onTcpConnected()));
 	connect(&m_tcpSocket, SIGNAL(disconnected()), this, SLOT(onTcpDisconnected()));
@@ -28,6 +29,10 @@ Client::Client(QObject *parent)
 	connect(&m_kcpManager, SIGNAL(highLevelOutput(int, QByteArray)), this,
 		SLOT(onKcpHighLevelOutput(int, QByteArray)));
 	connect(&m_kcpManager, SIGNAL(handShaked(int)), this, SIGNAL(tunnelHandShaked(int)));
+	connect(&m_upnpPortMapper, SIGNAL(discoverFinished(bool)),
+		this, SLOT(onUpnpDiscoverFinished(bool)));
+	connect(&m_upnpPortMapper, SIGNAL(queryExternalAddressFinished(QHostAddress, bool, QString)),
+		this, SLOT(onUpnpQueryExternalAddressFinished(QHostAddress, bool, QString)));
 
 	m_timer300ms.setParent(this);
 	connect(&m_timer300ms, SIGNAL(timeout()), this, SLOT(timerFunction300ms()));
@@ -147,7 +152,21 @@ void Client::onTcpConnected()
 {
 	m_status = ConnectedStatus;
 	m_lastInTime = QTime::currentTime();
+
+	const QHostAddress localAddress = getLocalAddress();
+	if (isNatAddress(localAddress))
+	{
+		m_upnpPortMapper.open(localAddress);
+		m_upnpPortMapper.discover();
+		m_upnpStatus = UpnpDiscovering;
+	}
+	else
+	{
+		m_upnpStatus = UpnpUnneeded;
+	}
+
 	emit connected();
+	emit upnpStatusChanged(m_upnpStatus);
 }
 
 void Client::onTcpDisconnected()
@@ -249,6 +268,44 @@ void Client::onKcpHighLevelOutput(int tunnelId, QByteArray package)
 	emit tunnelData(tunnelId, package);
 }
 
+void Client::onUpnpDiscoverFinished(bool ok)
+{
+	if (ok)
+	{
+		m_upnpPortMapper.queryExternalAddress();
+		m_upnpStatus = UpnpQueryingExternalAddress;
+	}
+	else
+	{
+		m_upnpStatus = UpnpFailed;
+	}
+	emit upnpStatusChanged(m_upnpStatus);
+}
+
+void Client::onUpnpQueryExternalAddressFinished(QHostAddress address, bool ok, QString errorString)
+{
+	if (ok)
+	{
+		if (isNatAddress(address))
+		{
+			m_upnpStatus = UpnpFailed;
+			emit warning(U16("Upnp返回的地址 %2 仍然是内网地址").arg(address.toString()));
+		}
+		else
+		{
+			m_upnpStatus = UpnpOk;
+			setUpnpAvailable(true);
+			if (!isSameHostAddress(address, getLocalPublicAddress()))
+				emit warning(U16("服务器端返回的IP地址 %1 和upnp返回的地址 %2 不同").arg(getLocalPublicAddress().toString()).arg(address.toString()));
+		}
+	}
+	else
+	{
+		m_upnpStatus = UpnpFailed;
+	}
+	emit upnpStatusChanged(m_upnpStatus);
+}
+
 QUdpSocket * Client::getUdpSocket(int index)
 {
 	if (index == 1)
@@ -296,6 +353,8 @@ void Client::clear()
 	m_natStatus = UnknownNatCheckStatus;
 	m_beginWaitTime = QTime();
 	m_natType = UnknownNatType;
+
+	m_upnpStatus = UpnpUnknownStatus;
 
 	m_lastInTime = QTime();
 	m_lastOutTime = QTime();
@@ -462,19 +521,27 @@ void Client::checkFirewall()
 {
 	// 如果IP检测发现是公网，但是流程走下来得出的结论不是，说明其中的udp包被防火墙拦截了
 	if (m_isPublicNetwork && m_natType != PublicNetwork)
-		emit firewallWarning();
+		emit warning(U16("当前处于公网环境，但是防火墙可能拦截了本程序"));
 }
 
 void Client::addUpnpPortMapping()
 {
 	if (m_udp2UpnpPort == 0)
-		m_udp2UpnpPort = emit wannaAddUpnpPortMapping(m_udpSocket2.localPort());
+	{
+		const quint16 internalPort = m_udpSocket2.localPort();
+		const quint16 externalPort = (rand() & 0x7FFF) + 25000;
+		m_upnpPortMapper.addPortMapping(QAbstractSocket::UdpSocket, m_upnpPortMapper.localAddress(), internalPort, externalPort, "NatTunnelClient");
+		m_udp2UpnpPort = externalPort;
+	}
 }
 
 void Client::deleteUpnpPortMapping()
 {
 	if (m_udp2UpnpPort != 0)
-		emit wannaDeleteUpnpPortMapping(m_udp2UpnpPort);
+	{
+		const quint16 externalPort = m_udp2UpnpPort;
+		m_upnpPortMapper.deletePortMapping(QAbstractSocket::UdpSocket, externalPort);
+	}
 }
 
 quint32 Client::getKcpMagicNumber(QString peerUserName)

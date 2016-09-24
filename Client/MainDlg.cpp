@@ -23,9 +23,9 @@ MainDlg::MainDlg(QWidget *parent)
 
 	ui.btnTunnel->setEnabled(false);
 
-	m_model = new QStandardItemModel(ui.tableView);
-	ui.tableView->setModel(m_model);
-	m_model->setHorizontalHeaderLabels(U16("tunnelId,对方用户名,对方IP地址,状态,,").split(",", QString::SkipEmptyParts));
+	m_tableModel = new QStandardItemModel(ui.tableView);
+	ui.tableView->setModel(m_tableModel);
+	m_tableModel->setHorizontalHeaderLabels(U16("tunnelId,对方用户名,对方IP地址,状态,,").split(",", QString::SkipEmptyParts));
 	ui.tableView->setColumnHidden(0, true);
 	ui.tableView->setColumnWidth(1, 80);
 	ui.tableView->setColumnWidth(2, 80);
@@ -38,10 +38,8 @@ MainDlg::MainDlg(QWidget *parent)
 	connect(&m_client, SIGNAL(logined()), this, SLOT(logined()));
 	connect(&m_client, SIGNAL(loginFailed(QString)), this, SLOT(loginFailed(QString)));
 	connect(&m_client, SIGNAL(natTypeConfirmed(NatType)), this, SLOT(natTypeConfirmed(NatType)));
-	connect(&m_client, SIGNAL(firewallWarning()), this, SLOT(firewallWarning()));
-
-	connect(&m_upnpPortMapper, SIGNAL(discoverFinished(bool)), this, SLOT(onUpnpDiscoverFinished(bool)));
-	connect(&m_upnpPortMapper, SIGNAL(queryExternalAddressFinished(QHostAddress,bool,QString)), this, SLOT(onUpnpQueryExternalAddressFinished(QHostAddress, bool, QString)));
+	connect(&m_client, SIGNAL(upnpStatusChanged(Client::UpnpStatus)), this, SLOT(onClientUpnpStatusChanged(Client::UpnpStatus)));
+	connect(&m_client, SIGNAL(warning(QString)), this, SLOT(onClientWarning(QString)));
 
 	connect(ui.editLocalPassword, SIGNAL(textChanged(const QString &)), this, SLOT(onEditLocalPasswordChanged()));
 	connect(ui.btnTunnel, SIGNAL(clicked()), this, SLOT(onBtnTunnel()));
@@ -51,9 +49,6 @@ MainDlg::MainDlg(QWidget *parent)
 	connect(&m_client, SIGNAL(tunnelHandShaked(int)), this, SLOT(onTunnelHandShaked(int)));
 	connect(&m_client, SIGNAL(tunnelData(int, QByteArray)), this, SLOT(onTunnelData(int, QByteArray)));
 	connect(&m_client, SIGNAL(tunnelClosed(int)), this, SLOT(onTunnelClosed(int)));
-
-	connect(&m_client, SIGNAL(wannaAddUpnpPortMapping(quint16)), this, SLOT(addUpnpPortMapping(quint16)));
-	connect(&m_client, SIGNAL(wannaDeleteUpnpPortMapping(quint16)), this, SLOT(deleteUpnpPortMapping(quint16)));
 
 	leadWindowsFirewallPopup();
 
@@ -103,19 +98,17 @@ void MainDlg::connected()
 
 	const QHostAddress localAddress = m_client.getLocalAddress();
 	if (isNatAddress(localAddress))
-	{
-		m_upnpPortMapper.open(m_client.getLocalAddress());
-		m_upnpPortMapper.discover();
 		m_labelUpnp->setText(U16("正在检测upnp支持"));
-	}
 	else
-	{
 		m_labelUpnp->setText(U16("当前网络环境无需upnp"));
-	}
 }
 
 void MainDlg::disconnected()
 {
+	for (TcpTransfer * tcpTransfer : m_mapTcpTransfer)
+		delete tcpTransfer;
+	m_mapTcpTransfer.clear();
+	
 	m_labelStatus->setText(U16("断开"));
 	m_labelNatType->clear();
 	m_labelUpnp->clear();
@@ -139,45 +132,38 @@ void MainDlg::natTypeConfirmed(NatType natType)
 	ui.btnTunnel->setEnabled(true);
 }
 
-void MainDlg::firewallWarning()
+void MainDlg::onClientUpnpStatusChanged(Client::UpnpStatus upnpStatus)
 {
-	ui.statusBar->showMessage(U16("当前处于公网环境，但是防火墙可能拦截了本程序"));
+	QString text;
+	switch (upnpStatus)
+	{
+	case Client::UpnpUnknownStatus:
+		text = U16("Upnp未知状态");
+		break;
+	case Client::UpnpDiscovering:
+		text = U16("Upnp正在探测");
+		break;
+	case Client::UpnpUnneeded:
+		text = U16("当前网络环境无需Upnp");
+		break;
+	case Client::UpnpQueryingExternalAddress:
+		text = U16("Upnp正在查询公网地址");
+		break;
+	case Client::UpnpOk:
+		text = U16("Upnp可用");
+		break;
+	case Client::UpnpFailed:
+		text = U16("Upnp不可用");
+		break;
+	default:
+		break;
+	}
+	m_labelUpnp->setText(text);
 }
 
-void MainDlg::onUpnpDiscoverFinished(bool ok)
+void MainDlg::onClientWarning(QString msg)
 {
-	if (ok)
-	{
-		m_upnpPortMapper.queryExternalAddress();
-		m_labelUpnp->setText(U16("upnp正在查询公网地址"));
-	}
-	else
-	{
-		m_client.setUpnpAvailable(false);
-		m_labelUpnp->setText(U16("upnp不可用"));
-	}
-}
-
-void MainDlg::onUpnpQueryExternalAddressFinished(QHostAddress address, bool ok, QString errorString)
-{
-	if (ok)
-	{
-		if (isNatAddress(address))
-		{
-			ui.statusBar->showMessage(U16("upnp返回的地址 %2 仍然是内网地址").arg(address.toString()));
-			return;
-		}
-
-		m_client.setUpnpAvailable(true);
-		m_labelUpnp->setText(U16("upnp可用"));
-
-		if (!isSameHostAddress(address, m_client.getLocalPublicAddress()))
-			ui.statusBar->showMessage(U16("服务器端返回的IP地址 %1 和upnp返回的地址 %2 不同").arg(m_client.getLocalPublicAddress().toString()).arg(address.toString()));
-	}else
-	{
-		m_client.setUpnpAvailable(false);
-		m_labelUpnp->setText(U16("upnp获取公网地址失败"));
-	}
+	ui.statusBar->showMessage(msg);
 }
 
 void MainDlg::onEditLocalPasswordChanged()
@@ -263,12 +249,12 @@ void MainDlg::onTunnelClosed(int tunnelId)
 void MainDlg::updateTableRow(int tunnelId, QString peerUsername, QString peerAddress, QString status)
 {
 	const QString key = QString::number(tunnelId);
-	QList<QStandardItem*> lstItem = m_model->findItems(key);
+	QList<QStandardItem*> lstItem = m_tableModel->findItems(key);
 	if (lstItem.isEmpty())
 	{
 		lstItem << new QStandardItem(key) << new QStandardItem(peerUsername) << new QStandardItem(peerAddress)
 			<< new QStandardItem(status) << new QStandardItem() << new QStandardItem();
-		m_model->appendRow(lstItem);
+		m_tableModel->appendRow(lstItem);
 		QPushButton * btnCloseTunneling = new QPushButton(U16("断开"));
 		QPushButton * btnAddTransfer = new QPushButton(U16("添加转发"));
 		btnCloseTunneling->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding));
@@ -279,40 +265,28 @@ void MainDlg::updateTableRow(int tunnelId, QString peerUsername, QString peerAdd
 		connect(btnCloseTunneling, SIGNAL(clicked()), this, SLOT(onBtnCloseTunneling()));
 		connect(btnAddTransfer, SIGNAL(clicked()), this, SLOT(onBtnAddTransfer()));
 
-		ui.tableView->setIndexWidget(m_model->index(m_model->rowCount() - 1, m_model->columnCount() - 2), btnCloseTunneling);
-		ui.tableView->setIndexWidget(m_model->index(m_model->rowCount() - 1, m_model->columnCount() - 1), btnAddTransfer);
+		ui.tableView->setIndexWidget(m_tableModel->index(m_tableModel->rowCount() - 1, m_tableModel->columnCount() - 2), btnCloseTunneling);
+		ui.tableView->setIndexWidget(m_tableModel->index(m_tableModel->rowCount() - 1, m_tableModel->columnCount() - 1), btnAddTransfer);
 	}
 	else
 	{
 		const int row = lstItem.at(0)->row();
 		if(!peerUsername.isNull())
-			m_model->item(row, 1)->setText(peerUsername);
+			m_tableModel->item(row, 1)->setText(peerUsername);
 		if(!peerAddress.isNull())
-			m_model->item(row, 2)->setText(peerAddress);
+			m_tableModel->item(row, 2)->setText(peerAddress);
 		if(!status.isNull())
-			m_model->item(row, 3)->setText(status);
+			m_tableModel->item(row, 3)->setText(status);
 	}
 }
 
 void MainDlg::deleteTableRow(int tunnelId)
 {
 	const QString key = QString::number(tunnelId);
-	QList<QStandardItem*> lstItem = m_model->findItems(key);
+	QList<QStandardItem*> lstItem = m_tableModel->findItems(key);
 	if (lstItem.isEmpty())
 		return;
-	m_model->removeRow(lstItem.at(0)->row());
-}
-
-quint16 MainDlg::addUpnpPortMapping(quint16 internalPort)
-{
-	quint16 externalPort = (rand() & 0x7FFF) + 25000;
-	m_upnpPortMapper.addPortMapping(QAbstractSocket::UdpSocket, m_upnpPortMapper.localAddress(), internalPort, externalPort, "NatTunnelClient");
-	return externalPort;
-}
-
-void MainDlg::deleteUpnpPortMapping(quint16 externalPort)
-{
-	m_upnpPortMapper.deletePortMapping(QAbstractSocket::UdpSocket, externalPort);
+	m_tableModel->removeRow(lstItem.at(0)->row());
 }
 
 void MainDlg::onBtnCloseTunneling()
@@ -329,6 +303,14 @@ void MainDlg::onBtnCloseTunneling()
 
 void MainDlg::onBtnAddTransfer()
 {
+	QString inputText = QInputDialog::getText(this, "", "");
+	if (inputText.isNull())
+		return;
+
+	QStringList inputTextList = inputText.split(",");
+	if (inputTextList.size() != 3)
+		return;
+
 	QPushButton * btnAddTransfer = (QPushButton*)sender();
 	if (!btnAddTransfer)
 		return;
@@ -338,7 +320,7 @@ void MainDlg::onBtnAddTransfer()
 	TcpTransfer * tcpTransfer = m_mapTcpTransfer.value(tunnelId);
 	if (!tcpTransfer)
 		return;
-	tcpTransfer->addTransfer(6033, 3306, QHostAddress("127.0.0.1"));
+	tcpTransfer->addTransfer(inputTextList[0].toInt(), inputTextList[1].toInt(), QHostAddress(inputTextList[2]));
 }
 
 void MainDlg::onTcpTransferOutput(QByteArray package)
