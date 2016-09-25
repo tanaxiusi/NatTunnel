@@ -99,7 +99,7 @@ private slots:
 	void onUdp1ReadyRead();
 	void onUdp2ReadyRead();
 	void timerFunction300ms();
-	void timerFunction15s();
+	void timerFunction10s();
 	void onKcpLowLevelOutput(int tunnelId, QHostAddress hostAddress, quint16 port, QByteArray package);
 	void onKcpHighLevelOutput(int tunnelId, QByteArray package);
 	void onUpnpDiscoverFinished(bool ok);
@@ -152,6 +152,8 @@ private:
 
 	void tcpOut_upnpAvailability(bool on);
 
+	void udpOut_updateAddress();
+
 	void tcpOut_tryTunneling(QString peerUserName);
 	void tcpIn_tryTunneling(QString peerUserName, bool canTunnel, bool needUpnp, QString failReason);
 
@@ -173,13 +175,15 @@ private:
 	QUdpSocket m_udpSocket1;
 	QUdpSocket m_udpSocket2;
 	QTimer m_timer300ms;
-	QTimer m_timer15s;
+	QTimer m_timer10s;
 	KcpManager m_kcpManager;
 	QUpnpPortMapper m_upnpPortMapper;
 
 	QString m_userName;
 	QString m_password;
 	QString m_localPassword;
+
+	QByteArray m_passwordHash;
 
 	QHostAddress m_serverHostAddress;
 	quint16 m_serverTcpPort = 0;

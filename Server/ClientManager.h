@@ -118,6 +118,8 @@ private:
 
 	void tcpIn_upnpAvailability(QTcpSocket & tcpSocket, ClientInfo & client, bool on);
 
+	void udpIn_updateAddress(int index, QTcpSocket & tcpSocket, ClientInfo & client, QHostAddress clientUdp1HostAddress, quint16 clientUdp1Port1);
+
 	void tcpIn_tryTunneling(QTcpSocket & tcpSocket, ClientInfo & client, QString peerUserName);
 	void tcpOut_tryTunneling(QTcpSocket & tcpSocket, ClientInfo & client, QString peerUserName, bool canTunnel, bool needUpnp, QString failReason);
 

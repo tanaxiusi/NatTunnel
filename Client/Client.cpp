@@ -15,7 +15,7 @@ Client::Client(QObject *parent)
 	m_udpSocket1.setParent(this);
 	m_udpSocket2.setParent(this);
 	m_timer300ms.setParent(this);
-	m_timer15s.setParent(this);
+	m_timer10s.setParent(this);
 	m_kcpManager.setParent(this);
 	m_upnpPortMapper.setParent(this);
 
@@ -38,9 +38,9 @@ Client::Client(QObject *parent)
 	connect(&m_timer300ms, SIGNAL(timeout()), this, SLOT(timerFunction300ms()));
 	m_timer300ms.start(300);
 
-	m_timer15s.setParent(this);
-	connect(&m_timer15s, SIGNAL(timeout()), this, SLOT(timerFunction15s()));
-	m_timer15s.start(15 * 1000);
+	m_timer10s.setParent(this);
+	connect(&m_timer10s, SIGNAL(timeout()), this, SLOT(timerFunction10s()));
+	m_timer10s.start(10 * 1000);
 }
 
 Client::~Client()
@@ -54,6 +54,8 @@ void Client::setUserInfo(QString userName, QString password)
 		return;
 	m_userName = userName;
 	m_password = password;
+
+	m_passwordHash = QCryptographicHash::hash(m_password.toUtf8(), QCryptographicHash::Md5).toHex();
 }
 
 void Client::setLocalPassword(QString localPassword)
@@ -118,6 +120,7 @@ void Client::tryTunneling(QString peerUserName)
 {
 	if (!m_running || !checkStatus(LoginedStatus, NatCheckFinished))
 		return;
+	udpOut_updateAddress();
 	tcpOut_tryTunneling(peerUserName);
 }
 
@@ -131,6 +134,7 @@ int Client::readyTunneling(QString peerUserName, QString peerLocalPassword, bool
 		requestId++;
 	if(useUpnp)
 		addUpnpPortMapping();
+	udpOut_updateAddress();
 	tcpOut_readyTunneling(peerUserName, peerLocalPassword, useUpnp ? m_udp2UpnpPort : 0, requestId);
 	m_waitingRequestId.insert(requestId);
 	return requestId;
@@ -206,12 +210,14 @@ void Client::timerFunction300ms()
 	{
 		QByteArrayMap argument;
 		argument["userName"] = m_userName.toUtf8();
+		argument["passwordHash"] = m_passwordHash;
 		QByteArray line = serializeResponse("checkNatStep1", argument);
 		sendUdp(1, 1, line);
 	}else if(m_natStatus == Step2_Type2_1SendingToServer2)
 	{
 		QByteArrayMap argument;
 		argument["userName"] = m_userName.toUtf8();
+		argument["passwordHash"] = m_passwordHash;
 		QByteArray line = serializeResponse("checkNatStep2Type2", argument);
 		sendUdp(1, 2, line);
 	}
@@ -227,7 +233,7 @@ void Client::timerFunction300ms()
 	}
 }
 
-void Client::timerFunction15s()
+void Client::timerFunction10s()
 {
 	if (!m_running)
 		return;
@@ -237,10 +243,7 @@ void Client::timerFunction15s()
 
 	if (m_status == LoginedStatus && m_natStatus == NatCheckFinished)
 	{
-		QByteArrayMap argument;
-		argument["userName"] = m_userName.toUtf8();
-		QByteArray line = serializeResponse("udp1KeepAlive", argument);
-		sendUdp(1, 1, line);
+		udpOut_updateAddress();
 	}
 
 	const int inTimeout = (m_status == LoginedStatus && m_natStatus == NatCheckFinished) ? (120 * 1000) : (20 * 1000);
@@ -726,6 +729,15 @@ void Client::tcpOut_upnpAvailability(bool on)
 	sendTcp("upnpAvailability", argument);
 }
 
+void Client::udpOut_updateAddress()
+{
+	QByteArrayMap argument;
+	argument["userName"] = m_userName.toUtf8();
+	argument["passwordHash"] = m_passwordHash;
+	QByteArray line = serializeResponse("updateAddress", argument);
+	sendUdp(1, 1, line);
+}
+
 void Client::tcpOut_tryTunneling(QString peerUserName)
 {
 	QByteArrayMap argument;
@@ -812,6 +824,8 @@ void Client::tcpIn_startTunneling(int tunnelId, QString localPassword, QString p
 
 		if(needUpnp)
 			addUpnpPortMapping();
+
+		udpOut_updateAddress();
 		tcpOut_startTunneling(tunnelId, true, needUpnp ? m_udp2UpnpPort : 0, QString());
 
 		emit tunnelStarted(tunnelId, tunnel.peerUserName, tunnel.peerAddress);

@@ -1,5 +1,6 @@
 #include "ClientManager.h"
 #include <QtDebug>
+#include <QCryptographicHash>
 #include "Other.h"
 #include "crc32.h"
 
@@ -472,12 +473,18 @@ void ClientManager::dealUdpIn(int index, const QByteArray & line, QHostAddress h
 		return;
 
 	const QString userName = argument.value("userName");
+	const QByteArray passwordHash = argument.value("passwordHash");
 	QTcpSocket * tcpSocket = m_mapUserTcpSocket.value(userName);
 	if (!tcpSocket)
 		return;
 	auto iter = m_mapClientInfo.find(tcpSocket);
 	if (iter == m_mapClientInfo.end())
 		return;
+
+	const QString password = m_mapUserPassword.value(userName);
+	if (QCryptographicHash::hash(password.toUtf8(), QCryptographicHash::Md5).toHex() != passwordHash)
+		return;
+
 	ClientInfo & client = *iter;
 
 	if (type == "checkNatStep1")
@@ -487,6 +494,10 @@ void ClientManager::dealUdpIn(int index, const QByteArray & line, QHostAddress h
 	else if (type == "checkNatStep2Type2")
 	{
 		udpIn_checkNatStep2Type2(index, *tcpSocket, client, port);
+	}
+	else if (type == "updateAddress")
+	{
+		udpIn_updateAddress(index, *tcpSocket, client, hostAddress, port);
 	}
 }
 
@@ -580,8 +591,8 @@ void ClientManager::udpIn_checkNatStep1(int index, QTcpSocket & tcpSocket, Clien
 
 	m_lstNeedSendUdp.insert(&tcpSocket);
 
-	qDebug() << QString("%1 checkNatStep1 udp1Port1=%2, confirming Nat partlyType")
-		.arg(client.userName).arg(client.udp1Port1);
+	qDebug() << QString("%1 checkNatStep1 udpHostAddress=%2 udp1Port1=%3, confirming Nat partlyType")
+		.arg(client.userName).arg(client.udpHostAddress.toString()).arg(client.udp1Port1);
 }
 
 void ClientManager::tcpIn_checkNatStep1(QTcpSocket & tcpSocket, ClientInfo & client, int partlyType, quint16 clientUdp2LocalPort )
@@ -656,6 +667,23 @@ void ClientManager::tcpOut_checkNatStep2Type2(QTcpSocket & tcpSocket, ClientInfo
 void ClientManager::tcpIn_upnpAvailability(QTcpSocket & tcpSocket, ClientInfo & client, bool on)
 {
 	client.upnpAvailable = on;
+}
+
+void ClientManager::udpIn_updateAddress(int index, QTcpSocket & tcpSocket, ClientInfo & client, QHostAddress clientUdp1HostAddress, quint16 clientUdp1Port1)
+{
+	if (index != 1)
+		return;
+	if (client.status != LoginedStatus)
+		return;
+	if (client.natStatus != NatCheckFinished)
+		return;
+
+	if(client.udpHostAddress != clientUdp1HostAddress || client.udp1Port1 != clientUdp1Port1)
+		qDebug() << QString("%1 udp updateAddress %2 %3")
+			.arg(client.userName).arg(client.udpHostAddress.toString()).arg(client.udp1Port1);
+
+	client.udpHostAddress = clientUdp1HostAddress;
+	client.udp1Port1 = clientUdp1Port1;
 }
 
 void ClientManager::tcpIn_tryTunneling(QTcpSocket & tcpSocket, ClientInfo & client, QString peerUserName)
