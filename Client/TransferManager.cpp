@@ -1,5 +1,7 @@
 #include "TransferManager.h"
 
+static const int _typeId_QListTransferInfo = qRegisterMetaType<QList<TransferInfo> >("QList<TransferInfo>");
+
 TransferManager::TransferManager(QObject *parent, Client * client)
 	: QObject(parent)
 {
@@ -8,7 +10,7 @@ TransferManager::TransferManager(QObject *parent, Client * client)
 	connect(client, SIGNAL(disconnected()), this, SLOT(onClientDisconnected()));
 	connect(client, SIGNAL(tunnelHandShaked(int)), this, SLOT(onTunnelHandShaked(int)));
 	connect(client, SIGNAL(tunnelData(int, QByteArray)), this, SLOT(onTunnelData(int, QByteArray)));
-	connect(client, SIGNAL(tunnelClosed(int)), this, SLOT(onTunnelClosed(int)));
+	connect(client, SIGNAL(tunnelClosed(int,QString)), this, SLOT(onTunnelClosed(int)));
 }
 
 TransferManager::~TransferManager()
@@ -18,12 +20,28 @@ TransferManager::~TransferManager()
 	m_mapTcpTransfer.clear();
 }
 
-bool TransferManager::addTransfer(int tunnelId, quint16 localPort, quint16 remoteDestPort, QHostAddress remoteDestAddress)
+bool TransferManager::addTransfer(int tunnelId, quint16 localPort, quint16 remotePort, QHostAddress remoteAddress)
 {
 	TcpTransfer * tcpTransfer = m_mapTcpTransfer.value(tunnelId);
 	if (!tcpTransfer)
 		return false;
-	return tcpTransfer->addTransfer(localPort, remoteDestPort, remoteDestAddress);
+	return tcpTransfer->addTransfer(localPort, remotePort, remoteAddress);
+}
+
+bool TransferManager::addTransfer(int tunnelId, QList<TransferInfo> transferInfoList, QList<TransferInfo> * outFailedList)
+{
+	TcpTransfer * tcpTransfer = m_mapTcpTransfer.value(tunnelId);
+	if (!tcpTransfer)
+		return false;
+	for (const TransferInfo & transferInfo : transferInfoList)
+	{
+		if (!tcpTransfer->addTransfer(transferInfo.localPort, transferInfo.remotePort, transferInfo.remoteAddress))
+		{
+			if (outFailedList)
+				outFailedList->append(transferInfo);
+		}
+	}
+	return true;
 }
 
 void TransferManager::onClientDisconnected()

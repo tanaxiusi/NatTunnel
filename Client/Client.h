@@ -28,7 +28,7 @@ signals:
 	void tunnelStarted(int tunnelId, QString peerUserName, QHostAddress peerAddress);
 	void tunnelHandShaked(int tunnelId);
 	void tunnelData(int tunnelId, QByteArray package);
-	void tunnelClosed(int tunnelId);
+	void tunnelClosed(int tunnelId, QString reason);
 
 private:
 	enum ClientStatus
@@ -163,8 +163,8 @@ private:
 
 	void tcpIn_tunneling(int tunnelId, QHostAddress peerAddress, quint16 peerPort);
 
-	void tcpIn_closeTunneling(int tunnelId);
-	void tcpOut_closeTunneling(int tunnelId);
+	void tcpIn_closeTunneling(int tunnelId, QString reason);
+	void tcpOut_closeTunneling(int tunnelId, QString reason);
 
 private:
 	bool m_running = false;

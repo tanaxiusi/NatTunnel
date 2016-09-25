@@ -43,7 +43,7 @@ private slots:
 
 	void onTunnelStarted(int tunnelId, QString peerUserName, QHostAddress peerAddress);
 	void onTunnelHandShaked(int tunnelId);
-	void onTunnelClosed(int tunnelId);
+	void onTunnelClosed(int tunnelId, QString reason);
 
 	void onBtnCloseTunneling();
 	void onBtnAddTransfer();
@@ -51,6 +51,8 @@ private slots:
 private:
 	void updateTableRow(int tunnelId, QString peerUsername, QString peerAddress, QString status);
 	void deleteTableRow(int tunnelId);
+
+	QList<TransferInfo> parseTransferInfoList(QString text, QString * outErrorMsg);
 
 
 

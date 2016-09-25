@@ -71,7 +71,7 @@ void MainDlg::start()
 	connect(m_client, SIGNAL(replyReadyTunneling(int, int, QString)), this, SLOT(onReplyReadyTunneling(int, int, QString)));
 	connect(m_client, SIGNAL(tunnelStarted(int, QString, QHostAddress)), this, SLOT(onTunnelStarted(int, QString, QHostAddress)));
 	connect(m_client, SIGNAL(tunnelHandShaked(int)), this, SLOT(onTunnelHandShaked(int)));
-	connect(m_client, SIGNAL(tunnelClosed(int)), this, SLOT(onTunnelClosed(int)));
+	connect(m_client, SIGNAL(tunnelClosed(int,QString)), this, SLOT(onTunnelClosed(int,QString)));
 
 	QSettings setting("NatTunnelClient.ini", QSettings::IniFormat);
 	const QHostAddress serverAddress = QHostAddress(setting.value("Server/Address").toString());
@@ -237,6 +237,7 @@ void MainDlg::onReplyReadyTunneling(int requestId, int tunnelId, QString peerUse
 void MainDlg::onTunnelStarted(int tunnelId, QString peerUserName, QHostAddress peerAddress)
 {
 	updateTableRow(tunnelId, peerUserName, peerAddress.toString(), U16("开始连接"));
+	ui.statusBar->showMessage("");
 }
 
 void MainDlg::onTunnelHandShaked(int tunnelId)
@@ -244,9 +245,65 @@ void MainDlg::onTunnelHandShaked(int tunnelId)
 	updateTableRow(tunnelId, QString(), QString(), U16("连接成功"));
 }
 
-void MainDlg::onTunnelClosed(int tunnelId)
+void MainDlg::onTunnelClosed(int tunnelId, QString reason)
 {
 	deleteTableRow(tunnelId);
+	ui.statusBar->showMessage(U16("连接断开 ") + reason);
+}
+
+void MainDlg::onBtnCloseTunneling()
+{
+	QPushButton * btnCloseTunneling = (QPushButton*)sender();
+	if (!btnCloseTunneling)
+		return;
+	const int tunnelId = btnCloseTunneling->property("tunnelId").toInt();
+	if (tunnelId == 0)
+		return;
+	QMetaObject::invokeMethod(m_client, "closeTunneling", Q_ARG(int, tunnelId));
+	btnCloseTunneling->setEnabled(false);
+}
+
+void MainDlg::onBtnAddTransfer()
+{
+	QPushButton * btnAddTransfer = (QPushButton*)sender();
+	if (!btnAddTransfer)
+		return;
+	const int tunnelId = btnAddTransfer->property("tunnelId").toInt();
+	if (tunnelId == 0)
+		return;
+
+	QString originalText;
+	QString inputText = QInputDialog::getMultiLineText(this, U16("添加转发"), U16("每行一个，格式：[本地端口号或范围] [远程IP地址] [远程端口号或范围]"), originalText);
+	if (inputText.isNull())
+		return;
+
+
+	QString errorMsg;
+	QList<TransferInfo> lstTransferInfo = parseTransferInfoList(inputText, &errorMsg);
+	if (errorMsg.length() > 0)
+	{
+		QMessageBox::warning(this, U16("添加转发"), errorMsg);
+		return;
+	}
+
+	if (lstTransferInfo.isEmpty())
+	{
+		return;
+	}
+
+	QList<TransferInfo> lstFailed;
+	QMetaObject::invokeMethod(m_transferManager, "addTransfer", Qt::BlockingQueuedConnection,
+		Q_ARG(int, tunnelId), Q_ARG(QList<TransferInfo>, lstTransferInfo), Q_ARG(QList<TransferInfo>*, &lstFailed));
+
+	if (lstFailed.size() > 0)
+	{
+		QStringList lineList;
+		for (TransferInfo & transferInfo : lstFailed)
+			lineList << QString("%1 %2 %3").arg(transferInfo.localPort).arg(transferInfo.remoteAddress.toString()).arg(transferInfo.remotePort);
+
+		QMessageBox::warning(this, U16("添加转发"), lineList.join("\n") + U16("\n%1个添加失败").arg(lstFailed.size()));
+	}
+
 }
 
 void MainDlg::updateTableRow(int tunnelId, QString peerUsername, QString peerAddress, QString status)
@@ -274,11 +331,11 @@ void MainDlg::updateTableRow(int tunnelId, QString peerUsername, QString peerAdd
 	else
 	{
 		const int row = lstItem.at(0)->row();
-		if(!peerUsername.isNull())
+		if (!peerUsername.isNull())
 			m_tableModel->item(row, 1)->setText(peerUsername);
-		if(!peerAddress.isNull())
+		if (!peerAddress.isNull())
 			m_tableModel->item(row, 2)->setText(peerAddress);
-		if(!status.isNull())
+		if (!status.isNull())
 			m_tableModel->item(row, 3)->setText(status);
 	}
 }
@@ -292,44 +349,60 @@ void MainDlg::deleteTableRow(int tunnelId)
 	m_tableModel->removeRow(lstItem.at(0)->row());
 }
 
-void MainDlg::onBtnCloseTunneling()
+QList<TransferInfo> MainDlg::parseTransferInfoList(QString text, QString * outErrorMsg)
 {
-	QPushButton * btnCloseTunneling = (QPushButton*)sender();
-	if (!btnCloseTunneling)
-		return;
-	const int tunnelId = btnCloseTunneling->property("tunnelId").toInt();
-	if (tunnelId == 0)
-		return;
-	QMetaObject::invokeMethod(m_client, "closeTunneling", Q_ARG(int, tunnelId));
-	btnCloseTunneling->setEnabled(false);
-}
+	QString dummy;
+	if (!outErrorMsg)
+		outErrorMsg = &dummy;
+	outErrorMsg->clear();
+	QList<TransferInfo> result;
+	const QStringList lineList = text.split("\n", QString::KeepEmptyParts);
+	for (int i = 0; i < lineList.size(); ++i)
+	{
+		QString line = lineList.at(i);
+		line.trimmed();
+		if (line.isEmpty())
+			continue;
 
-void MainDlg::onBtnAddTransfer()
-{
-	QPushButton * btnAddTransfer = (QPushButton*)sender();
-	if (!btnAddTransfer)
-		return;
-	const int tunnelId = btnAddTransfer->property("tunnelId").toInt();
-	if (tunnelId == 0)
-		return;
+		QStringList fieldList = line.split(" ", QString::SkipEmptyParts);
+		if (fieldList.size() != 3)
+		{
+			*outErrorMsg = U16("第%1行 无效的格式：'%2'").arg(i + 1).arg(line);
+			return QList<TransferInfo>();
+		}
+		const QString localPortText = fieldList[0];
+		const QString remoteAddressText = fieldList[1];
+		const QString remotePortText = fieldList[2];
 
-	QString inputText = QInputDialog::getText(this, "", "");
-	if (inputText.isNull())
-		return;
+		bool localPortOk = false, remotePortOk = false;
+		const int localPort = localPortText.toInt(&localPortOk);
+		const QHostAddress remoteAddress = QHostAddress(remoteAddressText);
+		const int remotePort = remotePortText.toInt(&remotePortOk);
 
-	QStringList inputTextList = inputText.split(",");
-	if (inputTextList.size() != 3)
-		return;
+		if (!localPortOk || localPort <= 0 || localPort > 65535)
+		{
+			*outErrorMsg = U16("第%1行 无效的本地端口号 '%2'：").arg(i + 1).arg(localPortText);
+			return QList<TransferInfo>();
+		}
+		if (!remotePortOk || remotePort <= 0 || remotePort > 65535)
+		{
+			*outErrorMsg = U16("第%1行 无效的远程端口号 '%2'：").arg(i + 1).arg(remotePortText);
+			return QList<TransferInfo>();
+		}
+		if (remoteAddressText.isNull())
+		{
+			*outErrorMsg = U16("第%1行 无效的远程IP地址 '%2'：").arg(i + 1).arg(remoteAddressText);
+			return QList<TransferInfo>();
+		}
 
-	const quint16 localPort = inputTextList[0].toInt();
-	const quint16 remoteDestPort = inputTextList[1].toInt();
-	const QHostAddress remoteDestAddress = QHostAddress(inputTextList[2]);
+		TransferInfo transferInfo;
+		transferInfo.localPort = localPort;
+		transferInfo.remoteAddress = remoteAddress;
+		transferInfo.remotePort = remotePort;
 
-	bool result = false;
-	QMetaObject::invokeMethod(m_transferManager, "addTransfer", Qt::BlockingQueuedConnection, Q_RETURN_ARG(bool, result),
-		Q_ARG(int, tunnelId), Q_ARG(quint16, localPort), Q_ARG(quint16, remoteDestPort), Q_ARG(QHostAddress, remoteDestAddress));
-
-	result = false;
+		result << transferInfo;
+	}
+	return result;
 }
 
 

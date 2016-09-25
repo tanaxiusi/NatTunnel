@@ -33,8 +33,8 @@ static const int HeaderSize = 4;
 struct AddTransferFrame
 {
 	quint16 localPort;
-	quint16 remoteDestPort;
-	char remoteDestAddressText[40];
+	quint16 remotePort;
+	char remoteAddressText[40];
 };
 
 struct DeleteTransferFrame
@@ -111,10 +111,16 @@ void TcpTransfer::dataInput(QByteArray package)
 	}
 }
 
-bool TcpTransfer::addTransfer(quint16 localPort, quint16 remoteDestPort, QHostAddress remoteDestAddress)
+bool TcpTransfer::addTransfer(quint16 localPort, quint16 remotePort, QHostAddress remoteAddress)
 {
 	if (m_mapTransferOut.contains(localPort))
-		return false;
+	{
+		const Peer remotePeer = m_mapTransferOut[localPort];
+		if (remotePeer.address == remoteAddress &&  remotePeer.port == remotePort)
+			return true;
+		else
+			return false;
+	}
 	QTcpServer * tcpServer = new QTcpServer();
 	if (!tcpServer || !tcpServer->listen(QHostAddress::Any, localPort))
 	{
@@ -122,9 +128,9 @@ bool TcpTransfer::addTransfer(quint16 localPort, quint16 remoteDestPort, QHostAd
 		return false;
 	}
 	m_mapTcpServer[localPort] = tcpServer;
-	m_mapTransferOut[localPort] = Peer(remoteDestAddress, remoteDestPort);
+	m_mapTransferOut[localPort] = Peer(remoteAddress, remotePort);
 	connect(tcpServer, SIGNAL(newConnection()), this, SLOT(onTcpNewConnection()));
-	output_AddTransfer(localPort, remoteDestPort, remoteDestAddress.toString());
+	output_AddTransfer(localPort, remotePort, remoteAddress.toString());
 	return true;
 }
 
@@ -185,7 +191,7 @@ void TcpTransfer::dealFrame(FrameType type, const QByteArray & frameData)
 		if (frameData.size() < sizeof(AddTransferFrame))
 			return;
 		const AddTransferFrame * frame = (const AddTransferFrame*)frameData.constData();
-		input_AddTransfer(frame->localPort, frame->remoteDestPort, frame->remoteDestAddressText);
+		input_AddTransfer(frame->localPort, frame->remotePort, frame->remoteAddressText);
 	}
 	else if (type == DeleteTransferType)
 	{
@@ -229,13 +235,13 @@ void TcpTransfer::input_heartBeat()
 
 }
 
-void TcpTransfer::input_AddTransfer(quint16 localPort, quint16 remoteDestPort, QString remoteDestAddressText)
+void TcpTransfer::input_AddTransfer(quint16 localPort, quint16 remotePort, QString remoteAddressText)
 {
-	if (remoteDestAddressText.isEmpty())
+	if (remoteAddressText.isEmpty())
 		return;
-	QHostAddress remoteDestAddress(remoteDestAddressText);
-	if (localPort && remoteDestPort && !remoteDestAddress.isNull())
-		m_mapTransferIn[localPort] = Peer(remoteDestAddress, remoteDestPort);
+	QHostAddress remoteAddress(remoteAddressText);
+	if (localPort && remotePort && !remoteAddress.isNull())
+		m_mapTransferIn[localPort] = Peer(remoteAddress, remotePort);
 }
 
 void TcpTransfer::input_DeleteTransfer(quint16 localPort)
@@ -408,12 +414,12 @@ void TcpTransfer::output_heartBeat()
 	outputFrame(HeartBeatType, QByteArray());
 }
 
-void TcpTransfer::output_AddTransfer(quint16 localPort, quint16 remoteDestPort, QString remoteDestAddressText)
+void TcpTransfer::output_AddTransfer(quint16 localPort, quint16 remotePort, QString remoteAddressText)
 {
 	AddTransferFrame frame = { 0 };
 	frame.localPort = localPort;
-	frame.remoteDestPort = remoteDestPort;
-	strcpy_(frame.remoteDestAddressText, remoteDestAddressText.toUtf8().constData());
+	frame.remotePort = remotePort;
+	strcpy_(frame.remoteAddressText, remoteAddressText.toUtf8().constData());
 	outputFrame(AddTransferType, QByteArray::fromRawData((const char*)&frame, sizeof(frame)));
 }
 

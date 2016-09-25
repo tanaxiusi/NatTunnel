@@ -95,7 +95,7 @@ private:
 	bool getTcpSocketAndClientInfoByUserName(QString userName, QTcpSocket ** outTcpSocket, ClientInfo ** outClientInfo);
 	TunnelInfo * getTunnelInfo(int tunnelId);
 
-	void clearUserTunnel(QString userName);
+	void clearUserTunnel(QString userName, QString reason);
 
 	void dealTcpIn(QByteArray line, QTcpSocket & tcpSocket, ClientInfo & client);
 	void dealUdpIn(int index, const QByteArray & line, QHostAddress hostAddress, quint16 port);
@@ -129,8 +129,8 @@ private:
 
 	void tcpOut_tunneling(QTcpSocket & tcpSocket, ClientInfo & client, int tunnelId, QHostAddress peerAddress, quint16 peerPort);
 
-	void tcpIn_closeTunneling(QTcpSocket & tcpSocket, ClientInfo & client, int tunnelId);
-	void tcpOut_closeTunneling(QTcpSocket & tcpSocket, ClientInfo & client, int tunnelId);
+	void tcpIn_closeTunneling(QTcpSocket & tcpSocket, ClientInfo & client, int tunnelId, QString reason);
+	void tcpOut_closeTunneling(QTcpSocket & tcpSocket, ClientInfo & client, int tunnelId, QString reason);
 
 private:
 	bool m_running = false;

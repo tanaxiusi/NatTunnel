@@ -101,7 +101,7 @@ void ClientManager::onTcpDisconnected()
 		return;
 	
 	const QString userName = m_mapClientInfo.value(tcpSocket).userName;
-	clearUserTunnel(userName);
+	clearUserTunnel(userName, U16("对方下线"));
 
 	if (userName.length() > 0)
 		m_mapUserTcpSocket.remove(userName);
@@ -396,7 +396,7 @@ ClientManager::TunnelInfo * ClientManager::getTunnelInfo(int tunnelId)
 	return &(iter.value());
 }
 
-void ClientManager::clearUserTunnel(QString userName)
+void ClientManager::clearUserTunnel(QString userName, QString reason)
 {
 	if (userName.isEmpty())
 		return;
@@ -421,7 +421,7 @@ void ClientManager::clearUserTunnel(QString userName)
 		{
 			QTcpSocket & peerTcpSocket = *ptrPeerTcpSocket;
 			ClientInfo & peerClient = *ptrPeerClient;
-			tcpOut_closeTunneling(peerTcpSocket, peerClient, tunnelId);
+			tcpOut_closeTunneling(peerTcpSocket, peerClient, tunnelId, reason);
 		}
 		m_mapTunnelInfo.erase(iter++);
 	}
@@ -457,7 +457,7 @@ void ClientManager::dealTcpIn(QByteArray line, QTcpSocket & tcpSocket, ClientInf
 		tcpIn_startTunneling(tcpSocket, client, argument.value("tunnelId").toInt(), argument.value("canTunnel").toInt() == 1,
 			argument.value("udp2UpnpPort").toInt(), argument.value("errorString"));
 	else if (type == "closeTunneling")
-		tcpIn_closeTunneling(tcpSocket, client, argument.value("tunnelId").toInt());
+		tcpIn_closeTunneling(tcpSocket, client, argument.value("tunnelId").toInt(), argument.value("reason"));
 	else
 		return;
 
@@ -752,7 +752,7 @@ void ClientManager::tcpIn_startTunneling(QTcpSocket & tcpSocket, ClientInfo & cl
 	{
 		// A找不到，可能下线了
 		m_mapTunnelInfo.remove(tunnelId);
-		tcpOut_closeTunneling(tcpSocket, client, tunnelId);
+		tcpOut_closeTunneling(tcpSocket, client, tunnelId, U16("对方已经下线"));
 		return;
 	}
 
@@ -768,7 +768,8 @@ void ClientManager::tcpIn_startTunneling(QTcpSocket & tcpSocket, ClientInfo & cl
 		tcpOut_tunneling(peerTcpSocket, peerClient, tunnelId, client.udpHostAddress, tunnelPort);
 	}else
 	{
-		tcpOut_closeTunneling(peerTcpSocket, peerClient, tunnelId);
+		m_mapTunnelInfo.remove(tunnelId);
+		tcpOut_closeTunneling(peerTcpSocket, peerClient, tunnelId, errorString);
 	}
 }
 
@@ -782,7 +783,7 @@ void ClientManager::tcpOut_tunneling(QTcpSocket & tcpSocket, ClientInfo & client
 	sendTcp(tcpSocket, client, "tunneling", argument);
 }
 
-void ClientManager::tcpIn_closeTunneling(QTcpSocket & tcpSocket, ClientInfo & client, int tunnelId)
+void ClientManager::tcpIn_closeTunneling(QTcpSocket & tcpSocket, ClientInfo & client, int tunnelId, QString reason)
 {
 	if (!checkStatusAndDisconnect(tcpSocket, client, "tcpIn_closeTunneling", LoginedStatus, NatCheckFinished))
 		return;
@@ -810,19 +811,20 @@ void ClientManager::tcpIn_closeTunneling(QTcpSocket & tcpSocket, ClientInfo & cl
 
 	m_mapTunnelInfo.remove(tunnelId);
 
-	tcpOut_closeTunneling(tcpSocket, client, tunnelId);
+	tcpOut_closeTunneling(tcpSocket, client, tunnelId, reason);
 
 	QTcpSocket * peerTcpSocket = nullptr;
 	ClientInfo * peerClient = nullptr;
 	if (!getTcpSocketAndClientInfoByUserName(peerUserName, &peerTcpSocket, &peerClient))
 		return;
 
-	tcpOut_closeTunneling(*peerTcpSocket, *peerClient, tunnelId);
+	tcpOut_closeTunneling(*peerTcpSocket, *peerClient, tunnelId, reason);
 }
 
-void ClientManager::tcpOut_closeTunneling(QTcpSocket & tcpSocket, ClientInfo & client, int tunnelId)
+void ClientManager::tcpOut_closeTunneling(QTcpSocket & tcpSocket, ClientInfo & client, int tunnelId, QString reason)
 {
 	QByteArrayMap argument;
 	argument["tunnelId"] = QByteArray::number(tunnelId);
+	argument["reason"] = reason.toUtf8();
 	sendTcp(tcpSocket, client, "closeTunneling", argument);
 }

@@ -68,7 +68,7 @@ public:
 
 	void dataInput(QByteArray package);
 
-	bool addTransfer(quint16 localPort, quint16 remoteDestPort, QHostAddress remoteDestAddress);
+	bool addTransfer(quint16 localPort, quint16 remotePort, QHostAddress remoteAddress);
 	bool deleteTransfer(quint16 localPort);
 
 private:
@@ -82,7 +82,7 @@ private:
 private:
 	void dealFrame(FrameType type, const QByteArray & frameData);
 	void input_heartBeat();
-	void input_AddTransfer(quint16 localPort, quint16 remoteDestPort, QString remoteDestAddressText);
+	void input_AddTransfer(quint16 localPort, quint16 remotePort, QString remoteAddressText);
 	void input_DeleteTransfer(quint16 localPort);
 	void input_NewConnection(quint16 localPort, quint32 socketIndex);
 	void input_DisconnectConnection(quint32 socketIndex, quint8 direction);
@@ -92,7 +92,7 @@ private:
 private:
 	void outputFrame(FrameType type, const QByteArray & frameData, const char * extraData = nullptr, int extraDataSize = 0);
 	void output_heartBeat();
-	void output_AddTransfer(quint16 localPort, quint16 remoteDestPort, QString remoteDestAddressText);
+	void output_AddTransfer(quint16 localPort, quint16 remotePort, QString remoteAddressText);
 	void output_DeleteTransfer(quint16 localPort);
 	void output_NewConnection(quint16 localPort, quint32 socketIndex);
 	void output_DisconnectConnection(quint32 socketIndex, quint8 direction);

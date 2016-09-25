@@ -46,7 +46,7 @@ Upnp:
 		如果密码正确，Server:Tcp->ClientA:Tcp[Tunneling](参数：TunnelId、B的IP和端口(端口1NAT后的端口 或 端口2upnp的端口))
 		ClientA:Tcp收到Server:Tcp[Tunneling]后，也创建Kcp连接，同上
 		
-		如果密码错误，删除TunnelId，然后Server:Tcp->ClientA:Tcp[CloseTunneling](参数：TunnelId)
+		如果密码错误，删除TunnelId，然后Server:Tcp->ClientA:Tcp[CloseTunneling](参数：TunnelId、关闭原因)
 		ClientA:Tcp收到Server:Tcp[CloseTunneling]后，删除TunnelId。
 		
 会话结束：

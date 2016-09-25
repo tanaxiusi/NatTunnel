@@ -138,7 +138,7 @@ int Client::readyTunneling(QString peerUserName, QString peerLocalPassword, bool
 
 void Client::closeTunneling(int tunnelId)
 {
-	tcpOut_closeTunneling(tunnelId);
+	tcpOut_closeTunneling(tunnelId, U16("Ö÷¶¯¹Ø±Õ"));
 }
 
 int Client::tunnelWrite(int tunnelId, QByteArray package)
@@ -488,7 +488,7 @@ void Client::dealTcpIn(QByteArray line)
 		tcpIn_tunneling(argument.value("tunnelId").toInt(), QHostAddress((QString)argument.value("peerAddress")),
 			argument.value("peerPort").toInt());
 	else if (type == "closeTunneling")
-		tcpIn_closeTunneling(argument.value("tunnelId").toInt());
+		tcpIn_closeTunneling(argument.value("tunnelId").toInt(), argument.value("reason"));
 	else
 		return;
 
@@ -862,7 +862,7 @@ void Client::tcpIn_tunneling(int tunnelId, QHostAddress peerAddress, quint16 pee
 	emit tunnelStarted(tunnelId, tunnel.peerUserName, tunnel.peerAddress);
 }
 
-void Client::tcpIn_closeTunneling(int tunnelId)
+void Client::tcpIn_closeTunneling(int tunnelId, QString reason)
 {
 	if (tunnelId == 0)
 	{
@@ -873,12 +873,13 @@ void Client::tcpIn_closeTunneling(int tunnelId)
 	m_mapTunnelInfo.remove(tunnelId);
 	m_kcpManager.deleteKcpConnection(tunnelId);
 
-	emit tunnelClosed(tunnelId);
+	emit tunnelClosed(tunnelId, reason);
 }
 
-void Client::tcpOut_closeTunneling(int tunnelId)
+void Client::tcpOut_closeTunneling(int tunnelId, QString reason)
 {
 	QByteArrayMap argument;
 	argument["tunnelId"] = QByteArray::number(tunnelId);
+	argument["reason"] = reason.toUtf8();
 	sendTcp("closeTunneling", argument);
 }
