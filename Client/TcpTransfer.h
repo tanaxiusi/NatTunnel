@@ -39,6 +39,25 @@ private:
 		int peerWaitingSize = 0;
 	};
 
+	struct SocketIdentifier
+	{
+		union
+		{
+			qint64 socketDescriptor;
+			qint64 peerSocketDescriptor;
+		};
+		quint8 direction;
+		SocketIdentifier(qint64 socketDescriptor, quint8 direction)
+		{
+			this->socketDescriptor = socketDescriptor;
+			this->direction = direction;
+		}
+		bool operator == (const SocketIdentifier & other)
+		{
+			return (this->socketDescriptor == other.socketDescriptor) && (this->direction == other.direction);
+		}
+	};
+
 signals:
 	void dataOutput(QByteArray package);
 	bool isTunnelBusy();
@@ -95,11 +114,13 @@ private slots:
 
 private:
 	QByteArray m_buffer;
-	QMap<quint16, QTcpServer*> m_mapTcpServer;		// <localPort,...> 转出隧道监听
-	QMap<quint16, Peer> m_mapTransferOut;			// <localPort,...> 转出隧道本地端口-对面地址端口
-	QMap<quint16, Peer> m_mapTransferIn;			// <localPort,...> 转入隧道对面端口-本地地址端口
-	QMap<qint64, SocketOutInfo> m_mapSocketOut;		// <peerSocketDescriptor,...> 转出隧道的连接
-	QMap<qint64, SocketInInfo> m_mapSocketIn;		// <socketDescriptor,...> 转入隧道的连接
+	QMap<quint16, QTcpServer*> m_mapTcpServer;				// <localPort,...> 转出隧道监听
+	QMap<quint16, Peer> m_mapTransferOut;					// <localPort,...> 转出隧道本地端口-对面地址端口
+	QMap<quint16, Peer> m_mapTransferIn;					// <localPort,...> 转入隧道对面端口-本地地址端口
+	QMap<qint64, SocketOutInfo> m_mapSocketOut;				// <peerSocketDescriptor,...> 转出隧道的连接
+	QMap<qint64, SocketInInfo> m_mapSocketIn;				// <socketDescriptor,...> 转入隧道的连接
+	QList<SocketIdentifier> m_lstGlobalWaitingSocket;		// 由于全局流控被迫等待的Socket
+	int m_globalWaitingSize = 0;							// 全局流控等待字节数，DataStreamType实际字节数，不包含Frame
 	QTime m_lastOutTime;
 	QTimer m_timer15s;
 };

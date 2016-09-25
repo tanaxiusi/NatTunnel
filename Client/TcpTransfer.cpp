@@ -6,9 +6,11 @@ static const quint8 Direction_In = 1;
 static const quint8 Direction_Out = 2;
 
 static const int SocketMaxWaitingSize = 1024 * 1024;
-static const int SocketReadBufferSize = 512 * 1024;
+static const int SocketReadBufferSize = 128 * 1024;
 
-static const int MaxSendSize = 32768;
+static const int GlobalMaxWaitingSize = 2 * 1024 * 1024;
+
+static const int DataStreamMaxDataSize = 32768;
 
 static inline quint8 getOppositeDirection(quint8 direction)
 {
@@ -269,6 +271,7 @@ void TcpTransfer::input_DisconnectConnection(qint64 socketDescriptor, quint8 dir
 
 		if (SocketOutInfo * socketOut = findSocketOut(socketDescriptor))
 			delete socketOut->obj;
+		m_lstGlobalWaitingSocket.removeOne(SocketIdentifier(socketDescriptor, Direction_Out));
 	}
 	else if (direction == Direction_In)
 	{
@@ -278,6 +281,7 @@ void TcpTransfer::input_DisconnectConnection(qint64 socketDescriptor, quint8 dir
 
 		if (SocketInInfo * socketIn = findSocketIn(peerSocketDescriptor))
 			delete socketIn->obj;
+		m_lstGlobalWaitingSocket.removeOne(SocketIdentifier(socketDescriptor, Direction_In));
 	}
 }
 
@@ -300,38 +304,67 @@ void TcpTransfer::input_DataStream(qint64 socketDescriptor, quint8 direction, co
 				socketIn->cachedData.append(data, dataSize);
 		}
 	}
+	output_Ack(0, 0, dataSize);
 }
 
 void TcpTransfer::input_Ack(qint64 socketDescriptor, quint8 direction, int writtenSize)
 {
-	direction = getOppositeDirection(direction);
-	if (direction == Direction_Out)
+	if (direction == 0 && socketDescriptor == 0)
 	{
-		if (SocketOutInfo * socketOut = findSocketOut(socketDescriptor))
+		// 这是全局流控
+		m_globalWaitingSize -= writtenSize;
+		if (m_globalWaitingSize < 0)
 		{
-			socketOut->peerWaitingSize -= writtenSize;
-			if (socketOut->peerWaitingSize < 0)
-			{
-				socketOut->peerWaitingSize = 0;
-				qWarning() << QString("TcpTransfer::input_Ack out peerWaitingSize < 0, socketDescriptor=%1")
-					.arg(socketDescriptor);
+			m_globalWaitingSize = 0;
+			qWarning() << QString("TcpTransfer::input_Ack m_globalWaitingSize < 0");
+		}
+		while (m_globalWaitingSize < GlobalMaxWaitingSize && m_lstGlobalWaitingSocket.size() > 0)
+		{
+			const SocketIdentifier & socketIdentifier = m_lstGlobalWaitingSocket.first();
+			if(socketIdentifier.direction == Direction_In)
+			{ 
+				if (SocketInInfo * socketIn = findSocketIn(socketIdentifier.peerSocketDescriptor))
+					readAndSendSocketIn(*socketIn);
 			}
-			readAndSendSocketOut(*socketOut);
+			else if (socketIdentifier.direction == Direction_Out)
+			{
+				if (SocketOutInfo * socketOut = findSocketOut(socketIdentifier.socketDescriptor))
+					readAndSendSocketOut(*socketOut);
+			}
+			m_lstGlobalWaitingSocket.removeFirst();
 		}
 	}
-	else if (direction == Direction_In)
+	else
 	{
-		const qint64 & peerSocketDescriptor = socketDescriptor;
-		if (SocketInInfo * socketIn = findSocketIn(peerSocketDescriptor))
+		direction = getOppositeDirection(direction);
+		if (direction == Direction_Out)
 		{
-			socketIn->peerWaitingSize -= writtenSize;
-			if (socketIn->peerWaitingSize < 0)
+			if (SocketOutInfo * socketOut = findSocketOut(socketDescriptor))
 			{
-				socketIn->peerWaitingSize = 0;
-				qWarning() << QString("TcpTransfer::input_Ack in peerWaitingSize < 0, peerSocketDescriptor=%1")
-					.arg(peerSocketDescriptor);
+				socketOut->peerWaitingSize -= writtenSize;
+				if (socketOut->peerWaitingSize < 0)
+				{
+					socketOut->peerWaitingSize = 0;
+					qWarning() << QString("TcpTransfer::input_Ack out peerWaitingSize < 0, socketDescriptor=%1")
+						.arg(socketDescriptor);
+				}
+				readAndSendSocketOut(*socketOut);
 			}
-			readAndSendSocketIn(*socketIn);
+		}
+		else if (direction == Direction_In)
+		{
+			const qint64 & peerSocketDescriptor = socketDescriptor;
+			if (SocketInInfo * socketIn = findSocketIn(peerSocketDescriptor))
+			{
+				socketIn->peerWaitingSize -= writtenSize;
+				if (socketIn->peerWaitingSize < 0)
+				{
+					socketIn->peerWaitingSize = 0;
+					qWarning() << QString("TcpTransfer::input_Ack in peerWaitingSize < 0, peerSocketDescriptor=%1")
+						.arg(peerSocketDescriptor);
+				}
+				readAndSendSocketIn(*socketIn);
+			}
 		}
 	}
 }
@@ -418,28 +451,78 @@ void TcpTransfer::output_Ack(qint64 socketDescriptor, quint8 direction, int writ
 
 int TcpTransfer::readAndSendSocketOut(SocketOutInfo & socketOut)
 {
-	if (socketOut.obj->bytesAvailable() == 0)
-		return 0;
-	const int maxSendSize = qMin(SocketMaxWaitingSize - socketOut.peerWaitingSize, MaxSendSize);
-	if (maxSendSize < 0)
-		return 0;
-	QByteArray bytes = socketOut.obj->read(maxSendSize);
-	socketOut.peerWaitingSize += bytes.size();
-	output_DataStream(socketOut.socketDescriptor, Direction_Out, bytes.constData(), bytes.size());
-	return bytes.size();
+	int totalSendSize = 0;
+	while (1)
+	{
+		const int availableSize = socketOut.obj->bytesAvailable();
+		if (availableSize == 0)
+			break;
+		const int singleMaxSendSize = qMin(SocketMaxWaitingSize - socketOut.peerWaitingSize, DataStreamMaxDataSize);
+		if (singleMaxSendSize <= 0)
+			break;
+		const int globalMaxSendSize = GlobalMaxWaitingSize - m_globalWaitingSize;
+		// 如果全局流控允许发送的数量比自身流控更少，并且availableSize大于全局流控允许的数量，就认为这次的限制发送是全局流控导致的
+		if (globalMaxSendSize < singleMaxSendSize && availableSize > globalMaxSendSize)
+		{
+			SocketIdentifier socketIdentifier(socketOut.socketDescriptor, Direction_Out);
+			if (!m_lstGlobalWaitingSocket.contains(socketIdentifier))
+			{
+				m_lstGlobalWaitingSocket << socketIdentifier;
+				qWarning() << QString("TcpTransfer::readAndSendSocketOut %1 global waiting").arg(socketOut.socketDescriptor);
+			}
+		}
+		const int maxSendSize = qMin(globalMaxSendSize, singleMaxSendSize);
+		if (maxSendSize <= 0)
+			break;
+
+		QByteArray bytes = socketOut.obj->read(maxSendSize);
+		socketOut.peerWaitingSize += bytes.size();
+		m_globalWaitingSize += bytes.size();
+		output_DataStream(socketOut.socketDescriptor, Direction_Out, bytes.constData(), bytes.size());
+		totalSendSize += bytes.size();
+
+		// 发送数量小于单次最大，说明要么全部发完，要么受到了流控
+		if(bytes.size() < DataStreamMaxDataSize)
+			break;
+	}
+	return totalSendSize;
 }
 
 int TcpTransfer::readAndSendSocketIn(SocketInInfo & socketIn)
 {
-	if (socketIn.obj->bytesAvailable() == 0)
-		return 0;
-	const int maxSendSize = qMin(SocketMaxWaitingSize - socketIn.peerWaitingSize, MaxSendSize);
-	if (maxSendSize < 0)
-		return 0;
-	QByteArray bytes = socketIn.obj->read(maxSendSize);
-	socketIn.peerWaitingSize += bytes.size();
-	output_DataStream(socketIn.peerSocketDescriptor, Direction_In, bytes.constData(), bytes.size());
-	return bytes.size();
+	int totalSendSize = 0;
+	while (1)
+	{
+		const int availableSize = socketIn.obj->bytesAvailable();
+		if (availableSize == 0)
+			break;
+		const int singleMaxSendSize = qMin(SocketMaxWaitingSize - socketIn.peerWaitingSize, DataStreamMaxDataSize);
+		if (singleMaxSendSize <= 0)
+			break;
+		const int globalMaxSendSize = GlobalMaxWaitingSize - m_globalWaitingSize;
+		if (globalMaxSendSize < singleMaxSendSize && availableSize > globalMaxSendSize)
+		{
+			SocketIdentifier socketIdentifier(socketIn.peerSocketDescriptor, Direction_Out);
+			if (!m_lstGlobalWaitingSocket.contains(socketIdentifier))
+			{
+				m_lstGlobalWaitingSocket << socketIdentifier;
+				qWarning() << QString("TcpTransfer::readAndSendSocketIn %1 global waiting").arg(socketIn.peerSocketDescriptor);
+			}
+		}
+		const int maxSendSize = qMin(globalMaxSendSize, singleMaxSendSize);
+		if (maxSendSize <= 0)
+			break;
+
+		QByteArray bytes = socketIn.obj->read(maxSendSize);
+		socketIn.peerWaitingSize += bytes.size();
+		m_globalWaitingSize += bytes.size();
+		output_DataStream(socketIn.peerSocketDescriptor, Direction_In, bytes.constData(), bytes.size());
+		totalSendSize += bytes.size();
+
+		if (bytes.size() < DataStreamMaxDataSize)
+			break;
+	}
+	return totalSendSize;
 }
 
 void TcpTransfer::timerFunction15s()
@@ -464,6 +547,7 @@ void TcpTransfer::onSocketInStateChanged(QAbstractSocket::SocketState state)
 			m_mapSocketIn.remove(peerSocketDescriptor);
 			output_DisconnectConnection(peerSocketDescriptor, Direction_In);
 		}
+		m_lstGlobalWaitingSocket.removeOne(SocketIdentifier(peerSocketDescriptor, Direction_In));
 		qDebug() << QString("TcpTransfer::onSocketInStateChanged disconnected peerSocketDescriptor=%1").arg(peerSocketDescriptor);
 	}
 	else if (state == QAbstractSocket::ConnectedState)
@@ -495,6 +579,7 @@ void TcpTransfer::onSocketOutStateChanged(QAbstractSocket::SocketState state)
 			socketOut->deleteLater();
 			output_DisconnectConnection(socketDescriptor, Direction_Out);
 		}
+		m_lstGlobalWaitingSocket.removeOne(SocketIdentifier(socketDescriptor, Direction_Out));
 		qDebug() << QString("TcpTransfer::onSocketOutStateChanged disconnected socketDescriptor=%1").arg(socketDescriptor);
 	}
 }
@@ -573,6 +658,8 @@ void TcpTransfer::onSocketOutBytesWritten(qint64 size)
 	if (!socketOut)
 		return;
 	const qint64 socketDescriptor = socketOut->socketDescriptor();
+	if (socketDescriptor == 0)
+		return;
 	output_Ack(socketDescriptor, Direction_Out, size);
 }
 
@@ -581,7 +668,8 @@ void TcpTransfer::onSocketInBytesWritten(qint64 size)
 	QTcpSocket * socketIn = (QTcpSocket*)sender();
 	if (!socketIn)
 		return;
-
 	const qint64 peerSocketDescriptor = socketIn->property("peerSocketDescriptor").toLongLong();
+	if (peerSocketDescriptor == 0)
+		return;
 	output_Ack(peerSocketDescriptor, Direction_In, size);
 }
