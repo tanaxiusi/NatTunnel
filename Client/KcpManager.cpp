@@ -2,6 +2,8 @@
 #include <QDateTime>
 #include "Other.h"
 
+static const char ShakeHandHeader = 'H';
+
 static inline quint32 getCurrentTime()
 {
 	return (quint32)(QDateTime::currentMSecsSinceEpoch() & 0xfffffffful);
@@ -45,7 +47,7 @@ void KcpManager::createKcpConnection(int tunnelId, QHostAddress hostAddress, qui
 	m_mapTunnelId[tunnelId] = kcp;
 	m_map[kcp] = connection;
 
-	ikcp_send(kcp, "H", 1);
+	ikcp_send(kcp, &ShakeHandHeader, 1);
 	updateKcp(m_map[kcp], getCurrentTime());
 }
 
@@ -86,7 +88,7 @@ void KcpManager::lowLevelInput(QHostAddress hostAddress, quint16 port, QByteArra
 		if (!connection.handShaked)
 		{
 			// 用发来的第一个字节作为握手标记
-			if (buffer[0] != 'H')
+			if (buffer[0] != ShakeHandHeader)
 			{
 				deleteKcpConnection(connection.tunnelId);
 				return;

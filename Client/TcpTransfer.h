@@ -27,14 +27,14 @@ private:
 
 	struct SocketInInfo
 	{
-		qint64 peerSocketDescriptor = 0;		// 对面的socketDescriptor
+		quint32 peerSocketIndex = 0;		// 对面的socketIndex
 		QTcpSocket * obj = nullptr;
 		QByteArray cachedData;
 		int peerWaitingSize = 0;				// 等待对面写入的字节数
 	};
 	struct SocketOutInfo
 	{
-		qint64 socketDescriptor = 0;
+		quint32 socketIndex = 0;
 		QTcpSocket * obj = nullptr;
 		int peerWaitingSize = 0;
 	};
@@ -43,18 +43,18 @@ private:
 	{
 		union
 		{
-			qint64 socketDescriptor;
-			qint64 peerSocketDescriptor;
+			quint32 socketIndex;
+			quint32 peerSocketIndex;
 		};
 		quint8 direction;
-		SocketIdentifier(qint64 socketDescriptor, quint8 direction)
+		SocketIdentifier(quint32 socketIndex, quint8 direction)
 		{
-			this->socketDescriptor = socketDescriptor;
+			this->socketIndex = socketIndex;
 			this->direction = direction;
 		}
 		bool operator == (const SocketIdentifier & other)
 		{
-			return (this->socketDescriptor == other.socketDescriptor) && (this->direction == other.direction);
+			return (this->socketIndex == other.socketIndex) && (this->direction == other.direction);
 		}
 	};
 
@@ -75,28 +75,29 @@ private:
 	static bool isValidFrameType(FrameType frameType);
 
 private:
-	SocketInInfo * findSocketIn(const qint64 & peerSocketDescriptor);
-	SocketOutInfo * findSocketOut(const qint64 & socketDescriptor);
+	quint32 nextSocketIndex();
+	SocketInInfo * findSocketIn(const quint32 & peerSocketIndex);
+	SocketOutInfo * findSocketOut(const quint32 & socketIndex);
 
 private:
 	void dealFrame(FrameType type, const QByteArray & frameData);
 	void input_heartBeat();
 	void input_AddTransfer(quint16 localPort, quint16 remoteDestPort, QString remoteDestAddressText);
 	void input_DeleteTransfer(quint16 localPort);
-	void input_NewConnection(quint16 localPort, qint64 socketDescriptor);
-	void input_DisconnectConnection(qint64 socketDescriptor, quint8 direction);
-	void input_DataStream(qint64 socketDescriptor, quint8 direction, const char * data, int dataSize);
-	void input_Ack(qint64 socketDescriptor, quint8 direction, int writtenSize);
+	void input_NewConnection(quint16 localPort, quint32 socketIndex);
+	void input_DisconnectConnection(quint32 socketIndex, quint8 direction);
+	void input_DataStream(quint32 socketIndex, quint8 direction, const char * data, int dataSize);
+	void input_Ack(quint32 socketIndex, quint8 direction, int writtenSize);
 
 private:
 	void outputFrame(FrameType type, const QByteArray & frameData, const char * extraData = nullptr, int extraDataSize = 0);
 	void output_heartBeat();
 	void output_AddTransfer(quint16 localPort, quint16 remoteDestPort, QString remoteDestAddressText);
 	void output_DeleteTransfer(quint16 localPort);
-	void output_NewConnection(quint16 localPort, qint64 socketDescriptor);
-	void output_DisconnectConnection(qint64 socketDescriptor, quint8 direction);
-	void output_DataStream(qint64 socketDescriptor, quint8 direction, const char * data, int dataSize);
-	void output_Ack(qint64 socketDescriptor, quint8 direction, int writtenSize);
+	void output_NewConnection(quint16 localPort, quint32 socketIndex);
+	void output_DisconnectConnection(quint32 socketIndex, quint8 direction);
+	void output_DataStream(quint32 socketIndex, quint8 direction, const char * data, int dataSize);
+	void output_Ack(quint32 socketIndex, quint8 direction, int writtenSize);
 
 private:
 	int readAndSendSocketOut(SocketOutInfo & socketOut);
@@ -114,11 +115,12 @@ private slots:
 
 private:
 	QByteArray m_buffer;
+	quint32 m_nextSocketIndex = 1;
 	QMap<quint16, QTcpServer*> m_mapTcpServer;				// <localPort,...> 转出隧道监听
 	QMap<quint16, Peer> m_mapTransferOut;					// <localPort,...> 转出隧道本地端口-对面地址端口
 	QMap<quint16, Peer> m_mapTransferIn;					// <localPort,...> 转入隧道对面端口-本地地址端口
-	QMap<qint64, SocketOutInfo> m_mapSocketOut;				// <peerSocketDescriptor,...> 转出隧道的连接
-	QMap<qint64, SocketInInfo> m_mapSocketIn;				// <socketDescriptor,...> 转入隧道的连接
+	QMap<quint32, SocketOutInfo> m_mapSocketOut;				// <peerSocketIndex,...> 转出隧道的连接
+	QMap<quint32, SocketInInfo> m_mapSocketIn;				// <socketIndex,...> 转入隧道的连接
 	QList<SocketIdentifier> m_lstGlobalWaitingSocket;		// 由于全局流控被迫等待的Socket
 	int m_globalWaitingSize = 0;							// 全局流控等待字节数，DataStreamType实际字节数，不包含Frame
 	QTime m_lastOutTime;
