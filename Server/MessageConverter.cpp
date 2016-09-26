@@ -21,6 +21,9 @@ QByteArray MessageConverter::parse(QByteArray message, QByteArrayMap * outArgume
 		return QByteArray();
 	line = line.mid(1);
 
+	while (line.endsWith('\0'))
+		line.chop(1);
+
 	const int spacePos = line.indexOf(' ');
 	if (spacePos < 0)
 		return line;
