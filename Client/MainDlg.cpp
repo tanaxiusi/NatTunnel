@@ -82,6 +82,11 @@ void MainDlg::start()
 	const QString localPassword = setting.value("Client/LocalPassword").toString();
 	const QByteArray globalKey = setting.value("Other/GlobalKey").toByteArray();
 
+	if(setting.value("Other/ShowTunnelId").toInt() == 1)
+		ui.tableView->setColumnHidden(0, false);
+	if (setting.value("Other/ShowAddress").toInt() == 1)
+		ui.tableView->setColumnHidden(2, false);
+
 	setUserNameList(setting.value("Cache/UserNameList").toStringList());
 
 	ui.editUserName->setText(userName);
