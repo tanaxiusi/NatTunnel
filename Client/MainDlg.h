@@ -49,10 +49,16 @@ private slots:
 	void onBtnAddTransfer();
 
 private:
+	static QList<TransferInfo> parseTransferInfoList(QString text, QString * outErrorMsg);
+
+private:
 	void updateTableRow(int tunnelId, QString peerUsername, QString peerAddress, QString status);
 	void deleteTableRow(int tunnelId);
 
-	QList<TransferInfo> parseTransferInfoList(QString text, QString * outErrorMsg);
+	void insertTopUserName(QString userName);
+	QStringList getUserNameList();
+	void setUserNameList(QStringList userNameList);
+
 
 private:
 	Ui::MainDlgClass ui;

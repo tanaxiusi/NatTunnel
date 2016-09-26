@@ -82,6 +82,8 @@ void MainDlg::start()
 	const QString localPassword = setting.value("Client/LocalPassword").toString();
 	const QByteArray globalKey = setting.value("Other/GlobalKey").toByteArray();
 
+	setUserNameList(setting.value("Cache/UserNameList").toStringList());
+
 	ui.editUserName->setText(userName);
 	ui.editLocalPassword->setText(localPassword);
 
@@ -125,6 +127,7 @@ void MainDlg::closeEvent(QCloseEvent *event)
 {
 	QSettings setting("NatTunnelClient.ini", QSettings::IniFormat);
 	setting.setValue("Client/LocalPassword", ui.editLocalPassword->text());
+	setting.setValue("Cache/UserNameList", getUserNameList());
 }
 void MainDlg::connected()
 {
@@ -214,6 +217,8 @@ void MainDlg::onReplyTryTunneling(QString peerUserName, bool canTunnel, bool nee
 		ui.btnTunnel->setEnabled(true);
 		return;
 	}
+
+	insertTopUserName(peerUserName);
 	const QString peerLocalPassword = QInputDialog::getText(this, U16("连接"), U16("输入 %1 的本地密码").arg(peerUserName), QLineEdit::Password);
 	if (peerLocalPassword.isNull())
 	{
@@ -276,10 +281,9 @@ void MainDlg::onBtnAddTransfer()
 		return;
 
 	QString originalText;
-	QString inputText = QInputDialog::getMultiLineText(this, U16("添加转发"), U16("每行一个，格式：[本地端口号或范围] [远程IP地址] [远程端口号或范围]"), originalText);
+	QString inputText = QInputDialog::getMultiLineText(this, U16("添加转发"), U16("每行一个，格式：[本地端口号] [远程端口号] [远程IP地址](不填则默认为127.0.0.1)"), originalText);
 	if (inputText.isNull())
 		return;
-
 
 	QString errorMsg;
 	QList<TransferInfo> lstTransferInfo = parseTransferInfoList(inputText, &errorMsg);
@@ -307,6 +311,62 @@ void MainDlg::onBtnAddTransfer()
 		QMessageBox::warning(this, U16("添加转发"), lineList.join("\n") + U16("\n%1个添加失败").arg(lstFailed.size()));
 	}
 
+}
+
+QList<TransferInfo> MainDlg::parseTransferInfoList(QString text, QString * outErrorMsg)
+{
+	QString dummy;
+	if (!outErrorMsg)
+		outErrorMsg = &dummy;
+	outErrorMsg->clear();
+	QList<TransferInfo> result;
+	const QStringList lineList = text.split("\n", QString::KeepEmptyParts);
+	for (int i = 0; i < lineList.size(); ++i)
+	{
+		QString line = lineList.at(i);
+		line.trimmed();
+		if (line.isEmpty())
+			continue;
+
+		QStringList fieldList = line.split(" ", QString::SkipEmptyParts);
+		if (fieldList.size() != 2 && fieldList.size() != 3)
+		{
+			*outErrorMsg = U16("第%1行 无效的格式：'%2'").arg(i + 1).arg(line);
+			return QList<TransferInfo>();
+		}
+		const QString localPortText = fieldList[0];
+		const QString remotePortText = fieldList[1];
+		const QString remoteAddressText = fieldList.size() >= 3 ? fieldList[2] : QString("127.0.0.1");
+
+		bool localPortOk = false, remotePortOk = false;
+		const int localPort = localPortText.toInt(&localPortOk);
+		const QHostAddress remoteAddress = QHostAddress(remoteAddressText);
+		const int remotePort = remotePortText.toInt(&remotePortOk);
+
+		if (!localPortOk || localPort <= 0 || localPort > 65535)
+		{
+			*outErrorMsg = U16("第%1行 无效的本地端口号 '%2'：").arg(i + 1).arg(localPortText);
+			return QList<TransferInfo>();
+		}
+		if (!remotePortOk || remotePort <= 0 || remotePort > 65535)
+		{
+			*outErrorMsg = U16("第%1行 无效的远程端口号 '%2'：").arg(i + 1).arg(remotePortText);
+			return QList<TransferInfo>();
+		}
+		if (remoteAddressText.isNull())
+		{
+			*outErrorMsg = U16("第%1行 无效的远程IP地址 '%2'：").arg(i + 1).arg(remoteAddressText);
+			return QList<TransferInfo>();
+		}
+
+		TransferInfo transferInfo;
+		transferInfo.localPort = localPort;
+		transferInfo.remoteAddress = remoteAddress;
+		transferInfo.remotePort = remotePort;
+
+		result << transferInfo;
+	}
+	return result;
 }
 
 void MainDlg::updateTableRow(int tunnelId, QString peerUsername, QString peerAddress, QString status)
@@ -360,60 +420,42 @@ void MainDlg::deleteTableRow(int tunnelId)
 	m_tableModel->removeRow(lstItem.at(0)->row());
 }
 
-QList<TransferInfo> MainDlg::parseTransferInfoList(QString text, QString * outErrorMsg)
+void MainDlg::insertTopUserName(QString userName)
 {
-	QString dummy;
-	if (!outErrorMsg)
-		outErrorMsg = &dummy;
-	outErrorMsg->clear();
-	QList<TransferInfo> result;
-	const QStringList lineList = text.split("\n", QString::KeepEmptyParts);
-	for (int i = 0; i < lineList.size(); ++i)
+	bool noChange = false;
+	for (int i = 0; i < ui.comboBoxPeerUserName->count(); ++i)
 	{
-		QString line = lineList.at(i);
-		line.trimmed();
-		if (line.isEmpty())
-			continue;
-
-		QStringList fieldList = line.split(" ", QString::SkipEmptyParts);
-		if (fieldList.size() != 3)
+		if (ui.comboBoxPeerUserName->itemText(i) == userName)
 		{
-			*outErrorMsg = U16("第%1行 无效的格式：'%2'").arg(i + 1).arg(line);
-			return QList<TransferInfo>();
+			if (i > 0)
+				ui.comboBoxPeerUserName->removeItem(i);
+			else
+				noChange = true;
+			break;
 		}
-		const QString localPortText = fieldList[0];
-		const QString remoteAddressText = fieldList[1];
-		const QString remotePortText = fieldList[2];
-
-		bool localPortOk = false, remotePortOk = false;
-		const int localPort = localPortText.toInt(&localPortOk);
-		const QHostAddress remoteAddress = QHostAddress(remoteAddressText);
-		const int remotePort = remotePortText.toInt(&remotePortOk);
-
-		if (!localPortOk || localPort <= 0 || localPort > 65535)
-		{
-			*outErrorMsg = U16("第%1行 无效的本地端口号 '%2'：").arg(i + 1).arg(localPortText);
-			return QList<TransferInfo>();
-		}
-		if (!remotePortOk || remotePort <= 0 || remotePort > 65535)
-		{
-			*outErrorMsg = U16("第%1行 无效的远程端口号 '%2'：").arg(i + 1).arg(remotePortText);
-			return QList<TransferInfo>();
-		}
-		if (remoteAddressText.isNull())
-		{
-			*outErrorMsg = U16("第%1行 无效的远程IP地址 '%2'：").arg(i + 1).arg(remoteAddressText);
-			return QList<TransferInfo>();
-		}
-
-		TransferInfo transferInfo;
-		transferInfo.localPort = localPort;
-		transferInfo.remoteAddress = remoteAddress;
-		transferInfo.remotePort = remotePort;
-
-		result << transferInfo;
 	}
+	if (noChange)
+		return;
+	if (ui.comboBoxPeerUserName->count() >= 10)
+		ui.comboBoxPeerUserName->removeItem(ui.comboBoxPeerUserName->count() - 1);
+	ui.comboBoxPeerUserName->insertItem(0, userName);
+	ui.comboBoxPeerUserName->setCurrentIndex(0);
+}
+
+QStringList MainDlg::getUserNameList()
+{
+	QStringList result;
+	for (int i = 0; i < ui.comboBoxPeerUserName->count(); ++i)
+		result << ui.comboBoxPeerUserName->itemText(i);
 	return result;
 }
+
+void MainDlg::setUserNameList(QStringList userNameList)
+{
+	ui.comboBoxPeerUserName->clear();
+	for (QString userName : userNameList)
+		ui.comboBoxPeerUserName->addItem(userName);
+}
+
 
 
