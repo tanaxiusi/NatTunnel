@@ -258,7 +258,7 @@ void ClientManager::onUdpReadyRead(int index)
 		QHostAddress hostAddress;
 		quint16 port = 0;
 		const int bufferSize = udpServer->readDatagram(buffer, sizeof(buffer), &hostAddress, &port);
-		QByteArray package = checksumThenUnpackUdpPackage(QByteArray::fromRawData(buffer, bufferSize));
+		QByteArray package = checksumThenUnpackPackage(QByteArray::fromRawData(buffer, bufferSize));
 		if (package.isEmpty())
 			continue;
 		hostAddress = tryConvertToIpv4(hostAddress);

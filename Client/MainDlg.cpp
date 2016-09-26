@@ -25,13 +25,13 @@ MainDlg::MainDlg(QWidget *parent)
 
 	m_tableModel = new QStandardItemModel(ui.tableView);
 	ui.tableView->setModel(m_tableModel);
-	m_tableModel->setHorizontalHeaderLabels(U16("tunnelId,对方用户名,对方IP地址,状态,,").split(",", QString::SkipEmptyParts));
+	m_tableModel->setHorizontalHeaderLabels(U16("tunnelId,对方用户名,对方IP地址,状态,操作").split(",", QString::SkipEmptyParts));
 	ui.tableView->setColumnHidden(0, true);
-	ui.tableView->setColumnWidth(1, 80);
-	ui.tableView->setColumnWidth(2, 80);
-	ui.tableView->setColumnWidth(3, 80);
-	ui.tableView->setColumnWidth(4, 80);
-	ui.tableView->setColumnWidth(5, 80);
+	ui.tableView->setColumnHidden(2, true);
+	ui.tableView->setColumnWidth(1, 100);
+	ui.tableView->setColumnWidth(2, 100);
+	ui.tableView->setColumnWidth(3, 100);
+	ui.tableView->setColumnWidth(4, 160);
 
 	connect(ui.editLocalPassword, SIGNAL(textChanged(const QString &)), this, SLOT(onEditLocalPasswordChanged()));
 	connect(ui.btnTunnel, SIGNAL(clicked()), this, SLOT(onBtnTunnel()));
@@ -71,7 +71,7 @@ void MainDlg::start()
 	connect(m_client, SIGNAL(replyReadyTunneling(int, int, QString)), this, SLOT(onReplyReadyTunneling(int, int, QString)));
 	connect(m_client, SIGNAL(tunnelStarted(int, QString, QHostAddress)), this, SLOT(onTunnelStarted(int, QString, QHostAddress)));
 	connect(m_client, SIGNAL(tunnelHandShaked(int)), this, SLOT(onTunnelHandShaked(int)));
-	connect(m_client, SIGNAL(tunnelClosed(int,QString)), this, SLOT(onTunnelClosed(int,QString)));
+	connect(m_client, SIGNAL(tunnelClosed(int,QString,QString)), this, SLOT(onTunnelClosed(int,QString,QString)));
 
 	QSettings setting("NatTunnelClient.ini", QSettings::IniFormat);
 	const QHostAddress serverAddress = QHostAddress(setting.value("Server/Address").toString());
@@ -135,6 +135,7 @@ void MainDlg::disconnected()
 	m_labelNatType->clear();
 	m_labelUpnp->clear();
 	ui.btnTunnel->setEnabled(false);
+	m_tableModel->removeRows(0, m_tableModel->rowCount());
 }
 
 void MainDlg::logined()
@@ -245,10 +246,10 @@ void MainDlg::onTunnelHandShaked(int tunnelId)
 	updateTableRow(tunnelId, QString(), QString(), U16("连接成功"));
 }
 
-void MainDlg::onTunnelClosed(int tunnelId, QString reason)
+void MainDlg::onTunnelClosed(int tunnelId, QString peerUserName, QString reason)
 {
 	deleteTableRow(tunnelId);
-	ui.statusBar->showMessage(U16("连接断开 ") + reason);
+	ui.statusBar->showMessage(peerUserName + U16(" 连接断开 ") + reason);
 }
 
 void MainDlg::onBtnCloseTunneling()
@@ -313,8 +314,9 @@ void MainDlg::updateTableRow(int tunnelId, QString peerUsername, QString peerAdd
 	if (lstItem.isEmpty())
 	{
 		lstItem << new QStandardItem(key) << new QStandardItem(peerUsername) << new QStandardItem(peerAddress)
-			<< new QStandardItem(status) << new QStandardItem() << new QStandardItem();
+			<< new QStandardItem(status) << new QStandardItem();
 		m_tableModel->appendRow(lstItem);
+
 		QPushButton * btnCloseTunneling = new QPushButton(U16("断开"));
 		QPushButton * btnAddTransfer = new QPushButton(U16("添加转发"));
 		btnCloseTunneling->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding));
@@ -325,8 +327,15 @@ void MainDlg::updateTableRow(int tunnelId, QString peerUsername, QString peerAdd
 		connect(btnCloseTunneling, SIGNAL(clicked()), this, SLOT(onBtnCloseTunneling()));
 		connect(btnAddTransfer, SIGNAL(clicked()), this, SLOT(onBtnAddTransfer()));
 
-		ui.tableView->setIndexWidget(m_tableModel->index(m_tableModel->rowCount() - 1, m_tableModel->columnCount() - 2), btnCloseTunneling);
-		ui.tableView->setIndexWidget(m_tableModel->index(m_tableModel->rowCount() - 1, m_tableModel->columnCount() - 1), btnAddTransfer);
+		QHBoxLayout * horizontalLayout = new QHBoxLayout();
+		QWidget * containerWidget = new QWidget();
+		containerWidget->setLayout(horizontalLayout);
+		horizontalLayout->setMargin(0);
+		horizontalLayout->setSpacing(0);
+		horizontalLayout->addWidget(btnCloseTunneling);
+		horizontalLayout->addWidget(btnAddTransfer);
+
+		ui.tableView->setIndexWidget(m_tableModel->index(m_tableModel->rowCount() - 1, m_tableModel->columnCount() - 1), containerWidget);
 	}
 	else
 	{

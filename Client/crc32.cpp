@@ -78,3 +78,12 @@ uint32_t crc32(const char *buf, uint32_t size)
 		crc = crc32tab[(crc ^ newBuf[i]) & 0xff] ^ (crc >> 8);
 	return crc ^ 0xFFFFFFFF;
 }
+
+uint32_t crc32(uint32_t crc, const char *buf, uint32_t size)
+{
+	const unsigned char * newBuf = (const unsigned char *)buf;
+	uint32_t i;
+	for (i = 0; i < size; i++)
+		crc = crc32tab[(crc ^ newBuf[i]) & 0xff] ^ (crc >> 8);
+	return crc ^ 0xFFFFFFFF;
+}

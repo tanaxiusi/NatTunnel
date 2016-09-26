@@ -77,7 +77,7 @@ QString argumentToString(QByteArrayMap argument)
 	return line;
 }
 
-QByteArray checksumThenUnpackUdpPackage(QByteArray package)
+QByteArray checksumThenUnpackPackage(QByteArray package)
 {
 	if (package.size() < 4)
 		return QByteArray();

@@ -73,15 +73,15 @@ struct AckFrame
 TcpTransfer::TcpTransfer(QObject *parent)
 	: QObject(parent)
 {
-	m_timer15s.setParent(this);
-	connect(&m_timer15s, SIGNAL(timeout()), this, SLOT(timerFunction15s()));
+	m_timer5s.setParent(this);
+	connect(&m_timer5s, SIGNAL(timeout()), this, SLOT(timerFunction5s()));
 	m_lastOutTime = QTime::currentTime();
-	m_timer15s.start(15 * 1000);
+	m_timer5s.start(5 * 1000);
 }
 
 TcpTransfer::~TcpTransfer()
 {
-	m_timer15s.stop();
+	m_timer5s.stop();
 	for (SocketOutInfo socketOut : m_mapSocketOut.values())
 		delete socketOut.obj;
 	m_mapSocketOut.clear();
@@ -539,9 +539,9 @@ int TcpTransfer::readAndSendSocketIn(SocketInInfo & socketIn)
 	return totalSendSize;
 }
 
-void TcpTransfer::timerFunction15s()
+void TcpTransfer::timerFunction5s()
 {
-	if (!m_lastOutTime.isValid() || m_lastOutTime.elapsed() > 30 * 1000)
+	if (!m_lastOutTime.isValid() || m_lastOutTime.elapsed() > 10 * 1000)
 		output_heartBeat();
 }
 

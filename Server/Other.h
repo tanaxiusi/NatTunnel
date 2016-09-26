@@ -27,7 +27,7 @@ typedef QMap<QByteArray, QByteArray> QByteArrayMap;
 QByteArray parseRequest(QByteArray line, QByteArrayMap * outArgument);
 QByteArray serializeResponse(QByteArray type, QByteArrayMap argument);
 QString argumentToString(QByteArrayMap argument);
-QByteArray checksumThenUnpackUdpPackage(QByteArray package);
+QByteArray checksumThenUnpackPackage(QByteArray package);
 
 QHostAddress tryConvertToIpv4(const QHostAddress & hostAddress);
 QString getSocketPeerDescription(const QAbstractSocket * socket);

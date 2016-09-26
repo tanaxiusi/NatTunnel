@@ -29,6 +29,7 @@ Client::Client(QObject *parent)
 	connect(&m_kcpManager, SIGNAL(highLevelOutput(int, QByteArray)), this,
 		SLOT(onKcpHighLevelOutput(int, QByteArray)));
 	connect(&m_kcpManager, SIGNAL(handShaked(int)), this, SIGNAL(tunnelHandShaked(int)));
+	connect(&m_kcpManager, SIGNAL(disconnected(int)), this, SLOT(onKcpConnectionDisconnected(int)));
 	connect(&m_upnpPortMapper, SIGNAL(discoverFinished(bool)),
 		this, SLOT(onUpnpDiscoverFinished(bool)));
 	connect(&m_upnpPortMapper, SIGNAL(queryExternalAddressFinished(QHostAddress, bool, QString)),
@@ -56,6 +57,7 @@ void Client::setUserInfo(QString userName, QString password)
 	m_password = password;
 
 	m_passwordHash = QCryptographicHash::hash(m_password.toUtf8(), QCryptographicHash::Md5).toHex();
+	m_kcpManager.setUserName(userName);
 }
 
 void Client::setLocalPassword(QString localPassword)
@@ -120,6 +122,16 @@ void Client::tryTunneling(QString peerUserName)
 {
 	if (!m_running || !checkStatus(LoginedStatus, NatCheckFinished))
 		return;
+	if (peerUserName == m_userName)
+	{
+		emit replyTryTunneling(peerUserName, false, false, U16("不能连接自己"));
+		return;
+	}
+	if (m_kcpManager.haveUnconfirmedKcpConnection())
+	{
+		emit replyTryTunneling(peerUserName, false, false, U16("与其他用户尝试连接中"));
+		return;
+	}
 	udpOut_updateAddress();
 	tcpOut_tryTunneling(peerUserName);
 }
@@ -175,6 +187,8 @@ void Client::onTcpConnected()
 
 void Client::onTcpDisconnected()
 {
+	if (!m_running)
+		return;
 	clear();
 	emit disconnected();
 }
@@ -263,12 +277,23 @@ void Client::onKcpLowLevelOutput(int tunnelId, QHostAddress hostAddress, quint16
 	if (!udpSocket)
 		return;
 
-	udpSocket->writeDatagram(addChecksumInfo(package), hostAddress, port);
+	udpSocket->writeDatagram(package, hostAddress, port);
 }
 
 void Client::onKcpHighLevelOutput(int tunnelId, QByteArray package)
 {
 	emit tunnelData(tunnelId, package);
+}
+
+void Client::onKcpConnectionDisconnected(int tunnelId)
+{
+	auto iter = m_mapTunnelInfo.find(tunnelId);
+	if (iter == m_mapTunnelInfo.end())
+		return;
+
+	m_mapTunnelInfo.erase(iter);
+
+	tcpOut_closeTunneling(tunnelId, U16("等待超时"));
 }
 
 void Client::onUpnpDiscoverFinished(bool ok)
@@ -341,11 +366,11 @@ int Client::getServerIndexFromUdpPort(quint16 serverUdpPort)
 
 void Client::clear()
 {
+	m_kcpManager.clear();
+
 	m_tcpSocket.close();
 	m_udpSocket1.close();
 	m_udpSocket2.close();
-
-	m_kcpManager.clear();
 
 	deleteUpnpPortMapping();
 
@@ -439,11 +464,11 @@ void Client::onUdpReadyRead(int localIndex)
 		hostAddress = tryConvertToIpv4(hostAddress);
 		const bool isServerAddress = (hostAddress == m_serverHostAddress);
 		const int serverIndex = isServerAddress ? getServerIndexFromUdpPort(port) : 0;
-		QByteArray package = checksumThenUnpackPackage(QByteArray::fromRawData(buffer, bufferSize));
-		if (package.isEmpty())
-			continue;
 		if (serverIndex != 0)
 		{
+			QByteArray package = checksumThenUnpackPackage(QByteArray::fromRawData(buffer, bufferSize));
+			if (package.isEmpty())
+				continue;
 			if (package.endsWith('\n'))
 				package.chop(1);
 			if (!package.contains('\n'))
@@ -451,7 +476,7 @@ void Client::onUdpReadyRead(int localIndex)
 		}
 		else
 		{
-			dealUdpIn_p2p(localIndex, hostAddress, port, package);
+			dealUdpIn_p2p(localIndex, hostAddress, port, QByteArray::fromRawData(buffer, bufferSize));
 		}
 	}
 }
@@ -566,7 +591,8 @@ void Client::createKcpConnection(int tunnelId, TunnelInfo & tunnel)
 		if (udpSocket)
 			udpSocket->writeDatagram("~", tunnel.peerAddress, 25000 + rand());
 	}
-	m_kcpManager.createKcpConnection(tunnelId, tunnel.peerAddress, tunnel.peerPort, getKcpMagicNumber(tunnel.peerUserName));
+	m_kcpManager.createKcpConnection(tunnelId, tunnel.peerAddress, tunnel.peerPort,
+		tunnel.peerUserName, getKcpMagicNumber(tunnel.peerUserName));
 }
 
 void Client::tcpOut_heartbeat()
@@ -805,8 +831,9 @@ void Client::tcpIn_startTunneling(int tunnelId, QString localPassword, QString p
 
 	const bool localPasswordError = (localPassword != m_localPassword);
 	const bool upnpError = needUpnp && !m_upnpAvailability;
+	const bool haveUnconfirmedKcpConnection = m_kcpManager.haveUnconfirmedKcpConnection();
 
-	if (!localPasswordError && !upnpError)
+	if (!localPasswordError && !upnpError && !haveUnconfirmedKcpConnection)
 	{
 		if (tunnelId == 0 || m_mapTunnelInfo.contains(tunnelId))
 		{
@@ -836,6 +863,8 @@ void Client::tcpIn_startTunneling(int tunnelId, QString localPassword, QString p
 			errorString = U16("本地密码错误");
 		else if (upnpError)
 			errorString = U16("对方不支持upnp");
+		else if (haveUnconfirmedKcpConnection)
+			errorString = U16("对方与其他用户尝试连接中");
 		
 		tcpOut_startTunneling(tunnelId, false, 0, errorString);
 	}
@@ -884,10 +913,12 @@ void Client::tcpIn_closeTunneling(int tunnelId, QString reason)
 		return;
 	}
 
+	const QString peerUserName = m_mapTunnelInfo.value(tunnelId).peerUserName;
+
 	m_mapTunnelInfo.remove(tunnelId);
 	m_kcpManager.deleteKcpConnection(tunnelId);
 
-	emit tunnelClosed(tunnelId, reason);
+	emit tunnelClosed(tunnelId, peerUserName, reason);
 }
 
 void Client::tcpOut_closeTunneling(int tunnelId, QString reason)

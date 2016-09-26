@@ -104,7 +104,7 @@ private:
 	int readAndSendSocketIn(SocketInInfo & socketIn);
 
 private slots:
-	void timerFunction15s();
+	void timerFunction5s();
 	void onSocketInStateChanged(QAbstractSocket::SocketState state);
 	void onSocketOutStateChanged(QAbstractSocket::SocketState state);
 	void onTcpNewConnection();
@@ -124,5 +124,5 @@ private:
 	QList<SocketIdentifier> m_lstGlobalWaitingSocket;		// 由于全局流控被迫等待的Socket
 	int m_globalWaitingSize = 0;							// 全局流控等待字节数，DataStreamType实际字节数，不包含Frame
 	QTime m_lastOutTime;
-	QTimer m_timer15s;
+	QTimer m_timer5s;
 };

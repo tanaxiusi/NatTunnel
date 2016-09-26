@@ -10,7 +10,7 @@ TransferManager::TransferManager(QObject *parent, Client * client)
 	connect(client, SIGNAL(disconnected()), this, SLOT(onClientDisconnected()));
 	connect(client, SIGNAL(tunnelHandShaked(int)), this, SLOT(onTunnelHandShaked(int)));
 	connect(client, SIGNAL(tunnelData(int, QByteArray)), this, SLOT(onTunnelData(int, QByteArray)));
-	connect(client, SIGNAL(tunnelClosed(int,QString)), this, SLOT(onTunnelClosed(int)));
+	connect(client, SIGNAL(tunnelClosed(int,QString,QString)), this, SLOT(onTunnelClosed(int)));
 }
 
 TransferManager::~TransferManager()

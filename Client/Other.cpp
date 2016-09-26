@@ -99,9 +99,30 @@ QByteArray checksumThenUnpackPackage(QByteArray package)
 	return content;
 }
 
+QByteArray checksumThenUnpackPackage(QByteArray package, QByteArray userName)
+{
+	if (package.size() < 4)
+		return QByteArray();
+	const QByteArray content = QByteArray::fromRawData(package.constData() + 4, package.size() - 4);
+	const uint32_t receivedCrc = *(uint32_t*)package.constData();
+	uint32_t actualCrc = crc32(content.constData(), content.size());
+	actualCrc = crc32(actualCrc, userName.constData(), userName.size());
+	if (receivedCrc != actualCrc)
+		return QByteArray();
+	return content;
+}
+
 QByteArray addChecksumInfo(QByteArray package)
 {
 	uint32_t crc = crc32(package.constData(), package.size());
+	package.insert(0, (const char*)&crc, 4);
+	return package;
+}
+
+QByteArray addChecksumInfo(QByteArray package, QByteArray userName)
+{
+	uint32_t crc = crc32(package.constData(), package.size());
+	crc = crc32(crc, userName.constData(), userName.size());
 	package.insert(0, (const char*)&crc, 4);
 	return package;
 }

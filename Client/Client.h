@@ -28,7 +28,7 @@ signals:
 	void tunnelStarted(int tunnelId, QString peerUserName, QHostAddress peerAddress);
 	void tunnelHandShaked(int tunnelId);
 	void tunnelData(int tunnelId, QByteArray package);
-	void tunnelClosed(int tunnelId, QString reason);
+	void tunnelClosed(int tunnelId, QString peerUserName, QString reason);
 
 private:
 	enum ClientStatus
@@ -102,6 +102,7 @@ private slots:
 	void timerFunction10s();
 	void onKcpLowLevelOutput(int tunnelId, QHostAddress hostAddress, quint16 port, QByteArray package);
 	void onKcpHighLevelOutput(int tunnelId, QByteArray package);
+	void onKcpConnectionDisconnected(int tunnelId);
 	void onUpnpDiscoverFinished(bool ok);
 	void onUpnpQueryExternalAddressFinished(QHostAddress address, bool ok, QString errorString);
 
