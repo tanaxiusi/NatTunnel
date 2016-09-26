@@ -17,7 +17,7 @@ signals :
 	void highLevelOutput(int tunnelId, QByteArray package);
 	void wannaLowLevelOutput(int tunnelId, QHostAddress hostAddress, quint16 port, QByteArray package);
 	void handShaked(int tunnelId);
-	void disconnected(int tunnelId);
+	void disconnected(int tunnelId, QString reason);
 
 private:
 	struct KcpConnection
@@ -43,7 +43,7 @@ public:
 	bool haveUnconfirmedKcpConnection();
 
 	bool createKcpConnection(int tunnelId, QHostAddress hostAddress, quint16 port, QString userName, quint32 magicNumber);
-	bool deleteKcpConnection(int tunnelId);
+	bool deleteKcpConnection(int tunnelId, QString reason);
 
 	void lowLevelInput(QHostAddress hostAddress, quint16 port, QByteArray package);
 	int highLevelInput(int tunnelId, QByteArray package);

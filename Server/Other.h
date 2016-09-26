@@ -22,15 +22,9 @@ enum NatType
 
 quint32 rand_u32();
 
-typedef QMap<QByteArray, QByteArray> QByteArrayMap;
-
-QByteArray parseRequest(QByteArray line, QByteArrayMap * outArgument);
-QByteArray serializeResponse(QByteArray type, QByteArrayMap argument);
-QString argumentToString(QByteArrayMap argument);
 QByteArray checksumThenUnpackPackage(QByteArray package);
 
 QHostAddress tryConvertToIpv4(const QHostAddress & hostAddress);
 QString getSocketPeerDescription(const QAbstractSocket * socket);
-QString serializeQByteArrayMap(const QByteArrayMap & theMap);
 
 QString getNatDescription(NatType natType);

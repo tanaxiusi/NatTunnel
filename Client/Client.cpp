@@ -29,7 +29,7 @@ Client::Client(QObject *parent)
 	connect(&m_kcpManager, SIGNAL(highLevelOutput(int, QByteArray)), this,
 		SLOT(onKcpHighLevelOutput(int, QByteArray)));
 	connect(&m_kcpManager, SIGNAL(handShaked(int)), this, SIGNAL(tunnelHandShaked(int)));
-	connect(&m_kcpManager, SIGNAL(disconnected(int)), this, SLOT(onKcpConnectionDisconnected(int)));
+	connect(&m_kcpManager, SIGNAL(disconnected(int, QString)), this, SLOT(onKcpConnectionDisconnected(int, QString)));
 	connect(&m_upnpPortMapper, SIGNAL(discoverFinished(bool)),
 		this, SLOT(onUpnpDiscoverFinished(bool)));
 	connect(&m_upnpPortMapper, SIGNAL(queryExternalAddressFinished(QHostAddress, bool, QString)),
@@ -47,6 +47,13 @@ Client::Client(QObject *parent)
 Client::~Client()
 {
 	stop();
+}
+
+void Client::setGlobalKey(QByteArray key)
+{
+	if (key.size() < 16)
+		key.append(QByteArray(16 - key.size(), 0));
+	m_messageConverter.setKey((const quint8*)key.constData());
 }
 
 void Client::setUserInfo(QString userName, QString password)
@@ -225,15 +232,13 @@ void Client::timerFunction300ms()
 		QByteArrayMap argument;
 		argument["userName"] = m_userName.toUtf8();
 		argument["passwordHash"] = m_passwordHash;
-		QByteArray line = serializeResponse("checkNatStep1", argument);
-		sendUdp(1, 1, line);
+		sendUdp(1, 1, "checkNatStep1", argument);
 	}else if(m_natStatus == Step2_Type2_1SendingToServer2)
 	{
 		QByteArrayMap argument;
 		argument["userName"] = m_userName.toUtf8();
 		argument["passwordHash"] = m_passwordHash;
-		QByteArray line = serializeResponse("checkNatStep2Type2", argument);
-		sendUdp(1, 2, line);
+		sendUdp(1, 2, "checkNatStep2Type2", argument);
 	}
 	else if (m_natStatus == Step1_1WaitingForServer2)
 	{
@@ -285,7 +290,7 @@ void Client::onKcpHighLevelOutput(int tunnelId, QByteArray package)
 	emit tunnelData(tunnelId, package);
 }
 
-void Client::onKcpConnectionDisconnected(int tunnelId)
+void Client::onKcpConnectionDisconnected(int tunnelId, QString reason)
 {
 	auto iter = m_mapTunnelInfo.find(tunnelId);
 	if (iter == m_mapTunnelInfo.end())
@@ -323,7 +328,8 @@ void Client::onUpnpQueryExternalAddressFinished(QHostAddress address, bool ok, Q
 		{
 			m_upnpStatus = UpnpOk;
 			setUpnpAvailable(true);
-			if (!isSameHostAddress(address, getLocalPublicAddress()))
+			const QHostAddress localPublicAddress = getLocalPublicAddress();
+			if (!localPublicAddress.isNull() && !isSameHostAddress(address, localPublicAddress))
 				emit warning(U16("服务器端返回的IP地址 %1 和upnp返回的地址 %2 不同").arg(getLocalPublicAddress().toString()).arg(address.toString()));
 		}
 	}
@@ -437,9 +443,9 @@ void Client::disconnectServer(QString reason)
 
 void Client::sendTcp(QByteArray type, QByteArrayMap argument)
 {
-	qDebug() << QString("tcpOut %1 %2").arg((QString)type).arg(argumentToString(argument));
+	qDebug() << QString("tcpOut %1 %2").arg((QString)type).arg(m_messageConverter.argumentToString(argument));
 	m_lastOutTime = QTime::currentTime();
-	m_tcpSocket.write(serializeResponse(type, argument));
+	m_tcpSocket.write(m_messageConverter.serialize(type, argument));
 }
 
 void Client::sendUdp(int localIndex, int serverIndex, QByteArray package)
@@ -450,6 +456,11 @@ void Client::sendUdp(int localIndex, int serverIndex, QByteArray package)
 	quint16 port = getServerUdpPort(serverIndex);
 
 	udpSocket->writeDatagram(addChecksumInfo(package), m_serverHostAddress, port);
+}
+
+void Client::sendUdp(int localIndex, int serverIndex, QByteArray type, QByteArrayMap argument)
+{
+	sendUdp(localIndex, serverIndex, m_messageConverter.serialize(type, argument));
 }
 
 void Client::onUdpReadyRead(int localIndex)
@@ -484,14 +495,14 @@ void Client::onUdpReadyRead(int localIndex)
 void Client::dealTcpIn(QByteArray line)
 {
 	QByteArrayMap argument;
-	QByteArray type = parseRequest(line, &argument);
+	QByteArray type = m_messageConverter.parse(line, &argument);
 	if (type.isEmpty())
 	{
 		disconnectServer("dealTcpIn invalid data format");
 		return;
 	}
 
-	qDebug() << QString("tcpIn %1 %2").arg((QString)type).arg(argumentToString(argument));
+	qDebug() << QString("tcpIn %1 %2").arg((QString)type).arg(m_messageConverter.argumentToString(argument));
 
 	if (type == "heartbeat")
 		tcpIn_heartbeat();
@@ -526,7 +537,7 @@ void Client::dealTcpIn(QByteArray line)
 void Client::dealUdpIn_server(int localIndex, int serverIndex, const QByteArray & line)
 {
 	QByteArrayMap argument;
-	QByteArray type = parseRequest(line, &argument);
+	QByteArray type = m_messageConverter.parse(line, &argument);
 	if (type.isEmpty())
 		return;
 
@@ -760,8 +771,7 @@ void Client::udpOut_updateAddress()
 	QByteArrayMap argument;
 	argument["userName"] = m_userName.toUtf8();
 	argument["passwordHash"] = m_passwordHash;
-	QByteArray line = serializeResponse("updateAddress", argument);
-	sendUdp(1, 1, line);
+	sendUdp(1, 1, "updateAddress", argument);
 }
 
 void Client::tcpOut_tryTunneling(QString peerUserName)
@@ -916,7 +926,7 @@ void Client::tcpIn_closeTunneling(int tunnelId, QString reason)
 	const QString peerUserName = m_mapTunnelInfo.value(tunnelId).peerUserName;
 
 	m_mapTunnelInfo.remove(tunnelId);
-	m_kcpManager.deleteKcpConnection(tunnelId);
+	m_kcpManager.deleteKcpConnection(tunnelId, reason);
 
 	emit tunnelClosed(tunnelId, peerUserName, reason);
 }

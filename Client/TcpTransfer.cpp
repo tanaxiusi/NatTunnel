@@ -58,6 +58,7 @@ struct DataStreamFrame
 {
 	quint32 socketIndex;
 	quint8 direction;
+	quint8 isCompressed;
 	char data[0];
 };
 
@@ -451,6 +452,7 @@ void TcpTransfer::output_DataStream(quint32 socketIndex, quint8 direction, const
 	DataStreamFrame frame;
 	frame.socketIndex = socketIndex;
 	frame.direction = direction;
+	frame.isCompressed = 0;
 	outputFrame(DataStreamType, QByteArray::fromRawData((const char*)&frame, sizeof(frame)), data, dataSize);
 }
 

@@ -80,10 +80,12 @@ void MainDlg::start()
 	const QString userName = setting.value("Client/UserName").toString();
 	const QString password = setting.value("Client/Password").toString();
 	const QString localPassword = setting.value("Client/LocalPassword").toString();
+	const QByteArray globalKey = setting.value("Other/GlobalKey").toByteArray();
 
 	ui.editUserName->setText(userName);
 	ui.editLocalPassword->setText(localPassword);
 
+	m_client->setGlobalKey(globalKey);
 	m_client->setUserInfo(userName, password);
 	m_client->setServerInfo(serverAddress, serverPort);
 	QMetaObject::invokeMethod(m_client, "start");

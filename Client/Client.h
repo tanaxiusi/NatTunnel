@@ -8,6 +8,7 @@
 #include "Other.h"
 #include "KcpManager.h"
 #include "QUpnpPortMapper.h"
+#include "MessageConverter.h"
 
 class Client : public QObject
 {
@@ -74,6 +75,7 @@ public:
 	~Client();
 
 public slots:
+	void setGlobalKey(QByteArray key);
 	void setUserInfo(QString userName, QString password);
 	void setLocalPassword(QString localPassword);
 	void setServerInfo(QHostAddress hostAddress, quint16 tcpPort);
@@ -102,7 +104,7 @@ private slots:
 	void timerFunction10s();
 	void onKcpLowLevelOutput(int tunnelId, QHostAddress hostAddress, quint16 port, QByteArray package);
 	void onKcpHighLevelOutput(int tunnelId, QByteArray package);
-	void onKcpConnectionDisconnected(int tunnelId);
+	void onKcpConnectionDisconnected(int tunnelId, QString reason);
 	void onUpnpDiscoverFinished(bool ok);
 	void onUpnpQueryExternalAddressFinished(QHostAddress address, bool ok, QString errorString);
 
@@ -120,6 +122,7 @@ private:
 	void disconnectServer(QString reason);
 	void sendTcp(QByteArray type, QByteArrayMap argument);
 	void sendUdp(int localIndex, int serverIndex, QByteArray package);
+	void sendUdp(int localIndex, int serverIndex, QByteArray type, QByteArrayMap argument);
 	void onUdpReadyRead(int localIndex);
 
 	void dealTcpIn(QByteArray line);
@@ -172,6 +175,7 @@ private:
 private:
 	bool m_running = false;
 
+	MessageConverter m_messageConverter;
 	QTcpSocket m_tcpSocket;
 	QUdpSocket m_udpSocket1;
 	QUdpSocket m_udpSocket2;

@@ -26,6 +26,13 @@ ClientManager::~ClientManager()
 
 }
 
+void ClientManager::setGlobalKey(QByteArray key)
+{
+	if (key.size() < 16)
+		key.append(QByteArray(16 - key.size(), 0));
+	m_messageConverter.setKey((const quint8*)key.constData());
+}
+
 void ClientManager::setUserList(QMap<QString, QString> mapUserPassword)
 {
 	if (m_running)
@@ -232,9 +239,9 @@ void ClientManager::sendTcp(QTcpSocket & tcpSocket, ClientInfo & client, QByteAr
 {
 	qDebug() << QString("%1 %2 tcpOut %3 %4")
 		.arg(getSocketPeerDescription(&tcpSocket)).arg(client.userName)
-		.arg((QString)type).arg(argumentToString(argument));
+		.arg((QString)type).arg(m_messageConverter.argumentToString(argument));
 	client.lastOutTime = QTime::currentTime();
-	tcpSocket.write(serializeResponse(type, argument));
+	tcpSocket.write(m_messageConverter.serialize(type, argument));
 }
 
 void ClientManager::sendUdp(int index, QByteArray type, QByteArrayMap argument, QHostAddress hostAddress, quint16 port)
@@ -243,7 +250,7 @@ void ClientManager::sendUdp(int index, QByteArray type, QByteArrayMap argument, 
 	if (!udpServer)
 		return;
 
-	QByteArray package = serializeResponse(type, argument);
+	QByteArray package = m_messageConverter.serialize(type, argument);
 	uint32_t crc = crc32(package.constData(), package.size());
 	package.insert(0, (const char*)&crc, 4);
 	udpServer->writeDatagram(package, hostAddress, port);
@@ -431,13 +438,13 @@ void ClientManager::clearUserTunnel(QString userName, QString reason)
 void ClientManager::dealTcpIn(QByteArray line, QTcpSocket & tcpSocket, ClientInfo & client)
 {
 	QByteArrayMap argument;
-	QByteArray type = parseRequest(line, &argument);
+	QByteArray type = m_messageConverter.parse(line, &argument);
 	if (type.isEmpty())
 		return;
 
 	qDebug() << QString("%1 %2 tcpIn %3 %4")
 		.arg(getSocketPeerDescription(&tcpSocket)).arg(client.userName)
-		.arg((QString)type).arg(argumentToString(argument));
+		.arg((QString)type).arg(m_messageConverter.argumentToString(argument));
 
 	if (type == "heartbeat")
 		tcpIn_heartbeat(tcpSocket, client);
@@ -468,7 +475,7 @@ void ClientManager::dealTcpIn(QByteArray line, QTcpSocket & tcpSocket, ClientInf
 void ClientManager::dealUdpIn(int index, const QByteArray & line, QHostAddress hostAddress, quint16 port)
 {
 	QByteArrayMap argument;
-	QByteArray type = parseRequest(line, &argument);
+	QByteArray type = m_messageConverter.parse(line, &argument);
 	if (type.isEmpty())
 		return;
 

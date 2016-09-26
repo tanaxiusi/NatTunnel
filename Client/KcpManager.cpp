@@ -41,7 +41,7 @@ void KcpManager::setUserName(QString userName)
 void KcpManager::clear()
 {
 	for (int tunnelId : m_mapTunnelId.keys())
-		deleteKcpConnection(tunnelId);
+		deleteKcpConnection(tunnelId, "clear");
 }
 
 bool KcpManager::haveUnconfirmedKcpConnection()
@@ -81,7 +81,7 @@ bool KcpManager::createKcpConnection(int tunnelId, QHostAddress hostAddress, qui
 	return true;
 }
 
-bool KcpManager::deleteKcpConnection(int tunnelId)
+bool KcpManager::deleteKcpConnection(int tunnelId, QString reason)
 {
 	if (!m_mapTunnelId.contains(tunnelId))
 		return false;
@@ -92,7 +92,7 @@ bool KcpManager::deleteKcpConnection(int tunnelId)
 
 	ikcp_release(kcp);
 
-	emit disconnected(tunnelId);
+	emit disconnected(tunnelId, reason);
 	return true;
 }
 
@@ -144,7 +144,7 @@ void KcpManager::lowLevelInput(QHostAddress hostAddress, quint16 port, QByteArra
 				}
 				else
 				{
-					deleteKcpConnection(connection.tunnelId);
+					deleteKcpConnection(connection.tunnelId, U16("握手信息错误"));
 					return;
 				}
 			}
@@ -164,7 +164,7 @@ void KcpManager::lowLevelInput(QHostAddress hostAddress, quint16 port, QByteArra
 				}
 				else
 				{
-					deleteKcpConnection(connection.tunnelId);
+					deleteKcpConnection(connection.tunnelId, U16("握手信息错误"));
 					return;
 				}
 			}
@@ -239,7 +239,7 @@ void KcpManager::timerFunction5s()
 	if (timeoutConnections.isEmpty())
 		return;
 	for (int tunnelId : timeoutConnections)
-		deleteKcpConnection(tunnelId);
+		deleteKcpConnection(tunnelId, U16("心跳超时"));
 }
 
 int KcpManager::kcp_write(const char *buf, int len, ikcpcb *kcp, void *user)

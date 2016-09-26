@@ -139,6 +139,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="aes.c" />
     <ClCompile Include="Client.cpp" />
     <ClCompile Include="crc32.cpp" />
     <ClCompile Include="GeneratedFiles\Debug\moc_Client.cpp">
@@ -203,6 +204,7 @@
     <ClCompile Include="KcpManager.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MainDlg.cpp" />
+    <ClCompile Include="MessageConverter.cpp" />
     <ClCompile Include="Other.cpp" />
     <ClCompile Include="Peer.cpp" />
     <ClCompile Include="QUpnpPortMapper.cpp" />
@@ -250,6 +252,7 @@
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="aes.h" />
     <ClInclude Include="crc32.h" />
     <ClInclude Include="ikcp.h" />
     <CustomBuild Include="TransferManager.h">
@@ -306,6 +309,7 @@
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">.\GeneratedFiles\$(ConfigurationName)\moc_%(Filename).cpp</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">"$(QTDIR)\bin\moc.exe"  "%(FullPath)" -o ".\GeneratedFiles\$(ConfigurationName)\moc_%(Filename).cpp"  -DUNICODE -DWIN32 -DQT_NO_DEBUG -DNDEBUG -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NETWORK_LIB -DQT_WIDGETS_LIB -DQT_DLL -DQT_XML_LIB "-I.\GeneratedFiles" "-I." "-I$(QTDIR)\include" "-I.\GeneratedFiles\$(ConfigurationName)\." "-I$(QTDIR)\include\QtCore" "-I$(QTDIR)\include\QtGui" "-I$(QTDIR)\include\QtNetwork" "-I$(QTDIR)\include\QtWidgets" "-I$(QTDIR)\include\QtXml"</Command>
     </CustomBuild>
+    <ClInclude Include="MessageConverter.h" />
     <ClInclude Include="Other.h" />
     <CustomBuild Include="QUpnpPortMapper.h">
       <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(QTDIR)\bin\moc.exe;%(FullPath)</AdditionalInputs>

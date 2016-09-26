@@ -33,11 +33,6 @@ enum UpnpStatus
 #define strcpy_(dest,src)			strcopy((dest),sizeof(dest),(src))
 char * strcopy(char * dst, size_t SizeInBytes, const char * src);
 
-typedef QMap<QByteArray, QByteArray> QByteArrayMap;
-
-QByteArray parseRequest(QByteArray line, QByteArrayMap * outArgument);
-QByteArray serializeResponse(QByteArray type, QByteArrayMap argument);
-QString argumentToString(QByteArrayMap argument);
 QByteArray checksumThenUnpackPackage(QByteArray package);
 QByteArray checksumThenUnpackPackage(QByteArray package, QByteArray userName);
 QByteArray addChecksumInfo(QByteArray package);

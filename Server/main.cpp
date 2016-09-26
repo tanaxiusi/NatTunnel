@@ -62,7 +62,12 @@ int main(int argc, char *argv[])
 	const int udp1Port = setting.value("Port/Udp1").toInt();
 	const int udp2Port = setting.value("Port/Udp2").toInt();
 
+	const QByteArray globalKey = setting.value("Other/GlobalKey").toByteArray();
+	if (globalKey.isEmpty())
+		qWarning() << QString("Empty GlobalKey");
+
 	ClientManager clientManager;
+	clientManager.setGlobalKey(globalKey);
 	clientManager.setUserList(mapUser);
 	if (!clientManager.start(tcpPort, udp1Port, udp2Port))
 		return 0;

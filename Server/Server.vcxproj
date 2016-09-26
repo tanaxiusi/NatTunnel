@@ -139,6 +139,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="aes.c" />
     <ClCompile Include="ClientManager.cpp" />
     <ClCompile Include="crc32.cpp" />
     <ClCompile Include="GeneratedFiles\Debug\moc_ClientManager.cpp">
@@ -150,6 +151,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="MessageConverter.cpp" />
     <ClCompile Include="Other.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -173,7 +175,9 @@
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="aes.h" />
     <ClInclude Include="crc32.h" />
+    <ClInclude Include="MessageConverter.h" />
     <ClInclude Include="Other.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

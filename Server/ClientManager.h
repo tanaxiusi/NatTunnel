@@ -7,6 +7,7 @@
 #include <QTimer>
 #include <QTime>
 #include "Other.h"
+#include "MessageConverter.h"
 
 class ClientManager : public QObject
 {
@@ -62,6 +63,7 @@ public:
 	ClientManager(QObject *parent = 0);
 	~ClientManager();
 
+	void setGlobalKey(QByteArray key);
 	void setUserList(QMap<QString, QString> mapUserPassword);
 
 	bool start(quint16 tcpPort, quint16 udpPort1, quint16 udpPort2);
@@ -136,6 +138,7 @@ private:
 
 private:
 	bool m_running = false;
+	MessageConverter m_messageConverter;
 	QTcpServer m_tcpServer;
 	QUdpSocket m_udpServer1;
 	QUdpSocket m_udpServer2;
