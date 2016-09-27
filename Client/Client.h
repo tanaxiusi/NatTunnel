@@ -76,12 +76,15 @@ public:
 
 public slots:
 	void setGlobalKey(QByteArray key);
-	void setUserInfo(QString userName, QString password);
+	void setRandomIdentifierSuffix(QString randomIdentifierSuffix);
+	void setUserName(QString userName);
 	void setLocalPassword(QString localPassword);
 	void setServerInfo(QHostAddress hostAddress, quint16 tcpPort);
 
 	bool start();
 	bool stop();
+
+	bool tryLogin();
 
 	QHostAddress getLocalAddress();
 	QHostAddress getLocalPublicAddress();
@@ -116,6 +119,7 @@ private:
 
 	void clear();
 	void startConnect();
+	bool refreshIdentifier();
 
 	bool checkStatus(ClientStatus correctStatus, NatCheckStatus correctNatStatus);
 	bool checkStatusAndDisconnect(QString functionName, ClientStatus correctStatus, NatCheckStatus correctNatStatus);
@@ -142,7 +146,7 @@ private:
 
 	void tcpIn_hello(QString serverName, QHostAddress clientAddress);
 
-	void tcpOut_login(QString userName, QString password);
+	void tcpOut_login(QString identifier, QString userName);
 	void tcpIn_login(bool loginOk, QString msg, quint16 serverUdpPort1, quint16 serverUdpPort2);
 
 	void tcpOut_localNetwork(QHostAddress localAddress, quint16 clientUdp1LocalPort, QString gatewayInfo);
@@ -188,11 +192,11 @@ private:
 	KcpManager m_kcpManager;
 	QUpnpPortMapper m_upnpPortMapper;
 
-	QString m_userName;
-	QString m_password;
-	QString m_localPassword;
+	QString m_randomIdentifierSuffix;
+	QString m_identifier;
 
-	QByteArray m_passwordHash;
+	QString m_userName;
+	QString m_localPassword;
 
 	QHostAddress m_serverHostAddress;
 	quint16 m_serverTcpPort = 0;

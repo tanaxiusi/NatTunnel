@@ -95,7 +95,7 @@ private:
 	void sendUdp(int index, QByteArray type, QByteArrayMap argument, QHostAddress hostAddress, quint16 port);
 	void onUdpReadyRead(int index);
 
-	QString getSavedUserName(QString localIdentifier);
+	QString getBoundUserName(QString identifier);
 	bool checkCanTunnel(ClientInfo & localClient, QString peerUserName, bool * outLocalNeedUpnp, bool * outPeerNeedUpnp, QString * outFailReason);
 	bool isExistTunnel(QString userName1, QString userName2);
 	// 根据Client类型和可能可用的upnp端口来确定外部连接端口，
@@ -119,7 +119,7 @@ private:
 
 	void tcpIn_login(QTcpSocket & tcpSocket, ClientInfo & client, QString identifier, QString userName);
 	void tcpOut_login(QTcpSocket & tcpSocket, ClientInfo & client, bool loginOk, QString msg, quint16 serverUdpPort1 = 0, quint16 serverUdpPort2 = 0);
-	bool login(QTcpSocket & tcpSocket, ClientInfo & client, QString localIdentifier, QString userName, QString * outMsg);
+	bool login(QTcpSocket & tcpSocket, ClientInfo & client, QString identifier, QString userName, QString * outMsg);
 
 	void tcpIn_localNetwork(QTcpSocket & tcpSocket, ClientInfo & client, QHostAddress localAddress, quint16 clientUdp1LocalPort, QString gatewayInfo);
 

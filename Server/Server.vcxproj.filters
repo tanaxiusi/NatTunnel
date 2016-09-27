@@ -81,4 +81,7 @@
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <Library Include="QJson\Win32\QJson.lib" />
+  </ItemGroup>
 </Project>

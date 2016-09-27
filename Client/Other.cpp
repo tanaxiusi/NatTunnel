@@ -1,5 +1,6 @@
 #include "Other.h"
 #include "crc32.h"
+#include <QNetworkInterface>
 #include <Windows.h>
 #include <iphlpapi.h>
 
@@ -21,6 +22,12 @@ char * strcopy(char * dst, size_t SizeInBytes, const char * src)
 		}
 
 	return(dst);
+}
+
+quint32 rand_u32()
+{
+	quint32 randValueList[] = { (quint32)rand() & 0x7FFF, (quint32)rand() & 0x7FFF, (quint32)rand() & 3 };
+	return randValueList[0] | (randValueList[1] << 15) | (randValueList[2] << 30);
 }
 
 QByteArray checksumThenUnpackPackage(QByteArray package)
@@ -136,6 +143,16 @@ bool isNatAddress(const QHostAddress & hostAddress)
 	return false;
 }
 
+QString getNetworkInterfaceHardwareAddress(QHostAddress localAddress)
+{
+	for (QNetworkInterface card : QNetworkInterface::allInterfaces())
+	{
+		for (QNetworkAddressEntry entry : card.addressEntries())
+			if (entry.ip() == localAddress)
+				return card.hardwareAddress();
+	}
+	return QString();
+}
 
 QStringList getGatewayAddress(QString localAddress)
 {

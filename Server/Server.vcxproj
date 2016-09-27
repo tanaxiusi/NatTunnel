@@ -182,6 +182,9 @@
     <ClInclude Include="Other.h" />
     <ClInclude Include="QStringMap.h" />
   </ItemGroup>
+  <ItemGroup>
+    <Library Include="QJson\Win32\QJson.lib" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

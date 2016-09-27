@@ -195,7 +195,7 @@ void ClientManager::timerFunction15s()
 	{
 		QTcpSocket * tcpSocket = iter.key();
 		ClientInfo & client = iter.value();
-		const int inTimeout = (client.status == LoginedStatus && client.natStatus == NatCheckFinished) ? (120 * 1000) : (30 * 1000);
+		const int inTimeout = 120 * 1000;
 		if (client.lastInTime.elapsed() > inTimeout)
 			timeoutSockets << qMakePair(tcpSocket, &client);
 		else if (client.lastOutTime.elapsed() > 70 * 1000)
@@ -308,11 +308,11 @@ void ClientManager::onUdpReadyRead(int index)
 	}
 }
 
-QString ClientManager::getSavedUserName(QString localIdentifier)
+QString ClientManager::getBoundUserName(QString identifier)
 {
 	for (auto iter = m_mapUserNameIdentifier.begin(); iter != m_mapUserNameIdentifier.end(); ++iter)
 	{
-		if (iter.value() == localIdentifier)
+		if (iter.value() == identifier)
 			return iter.key();
 	}
 	return QString();
@@ -516,7 +516,7 @@ void ClientManager::dealTcpIn(QByteArray line, QTcpSocket & tcpSocket, ClientInf
 	if (type == "heartbeat")
 		tcpIn_heartbeat(tcpSocket, client);
 	else if (type == "login")
-		tcpIn_login(tcpSocket, client, argument.value("localIdentifier"), argument.value("userName"));
+		tcpIn_login(tcpSocket, client, argument.value("identifier"), argument.value("userName"));
 	else if (type == "localNetwork")
 		tcpIn_localNetwork(tcpSocket, client, QHostAddress((QString)argument.value("localAddress")),
 			argument.value("clientUdp1LocalPort").toInt(), argument.value("gatewayInfo"));
@@ -648,10 +648,11 @@ bool ClientManager::login(QTcpSocket & tcpSocket, ClientInfo & client, QString i
 	
 	if (boundIdentifier.isEmpty())			// userName原绑定identifier为空，说明是新或老identifier期望使用这个新的userName
 	{
-		QString boundUserName = getSavedUserName(identifier);
+		QString boundUserName = getBoundUserName(identifier);
 		if (boundUserName != userName)			// 这个identifier原来还绑定了一个userName，说明这是个老identifier
 			m_mapUserNameIdentifier.remove(boundUserName);
 		m_mapUserNameIdentifier[userName] = identifier;
+		saveUserCache();
 	}
 	else if (boundIdentifier == identifier)			// 还是按原绑定关系，不变
 	{

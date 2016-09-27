@@ -3,6 +3,7 @@
 #include <QSettings>
 #include <QMessageBox>
 #include <QInputDialog>
+#include "Other.h"
 
 MainDlg::MainDlg(QWidget *parent)
 	: QMainWindow(parent)
@@ -78,9 +79,15 @@ void MainDlg::start()
 	const int serverPort = setting.value("Server/Port").toInt();
 
 	const QString userName = setting.value("Client/UserName").toString();
-	const QString password = setting.value("Client/Password").toString();
 	const QString localPassword = setting.value("Client/LocalPassword").toString();
 	const QByteArray globalKey = setting.value("Other/GlobalKey").toByteArray();
+	QString randomIdentifierSuffix = setting.value("Client/randomIdentifierSuffix").toString();
+	if (randomIdentifierSuffix.isEmpty())
+	{
+		randomIdentifierSuffix = QString::number(rand_u32());
+		setting.setValue("Client/randomIdentifierSuffix", randomIdentifierSuffix);
+	}
+
 
 	if(setting.value("Other/ShowTunnelId").toInt() == 1)
 		ui.tableView->setColumnHidden(0, false);
@@ -92,8 +99,9 @@ void MainDlg::start()
 	ui.editUserName->setText(userName);
 	ui.editLocalPassword->setText(localPassword);
 
+	m_client->setRandomIdentifierSuffix(randomIdentifierSuffix);
+	m_client->setUserName(userName);
 	m_client->setGlobalKey(globalKey);
-	m_client->setUserInfo(userName, password);
 	m_client->setServerInfo(serverAddress, serverPort);
 	QMetaObject::invokeMethod(m_client, "start");
 }

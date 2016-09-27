@@ -56,14 +56,18 @@ void Client::setGlobalKey(QByteArray key)
 	m_messageConverter.setKey((const quint8*)key.constData());
 }
 
-void Client::setUserInfo(QString userName, QString password)
+void Client::setRandomIdentifierSuffix(QString randomIdentifierSuffix)
 {
 	if (m_running)
 		return;
-	m_userName = userName;
-	m_password = password;
+	m_randomIdentifierSuffix = randomIdentifierSuffix;
+}
 
-	m_passwordHash = QCryptographicHash::hash(m_password.toUtf8(), QCryptographicHash::Md5).toHex();
+void Client::setUserName(QString userName)
+{
+	if (m_running && (m_status == LoginingStatus || m_status == LoginedStatus))
+		return;
+	m_userName = userName;
 	m_kcpManager.setUserName(userName);
 }
 
@@ -100,6 +104,17 @@ bool Client::stop()
 	clear();
 
 	m_running = false;
+	return true;
+}
+
+bool Client::tryLogin()
+{
+	if (!m_running || m_status == LoginedStatus || m_status == LoginingStatus)
+		return false;
+	if(m_userName.isEmpty())
+		emit loginFailed(U16("用户名为空"));
+	else
+		tcpOut_login(m_identifier, m_userName);
 	return true;
 }
 
@@ -240,13 +255,13 @@ void Client::timerFunction300ms()
 	{
 		QByteArrayMap argument;
 		argument["userName"] = m_userName.toUtf8();
-		argument["passwordHash"] = m_passwordHash;
+		argument["identifier"] = m_identifier.toUtf8();
 		sendUdp(1, 1, "checkNatStep1", argument);
 	}else if(m_natStatus == Step2_Type2_1SendingToServer2)
 	{
 		QByteArrayMap argument;
 		argument["userName"] = m_userName.toUtf8();
-		argument["passwordHash"] = m_passwordHash;
+		argument["identifier"] = m_identifier.toUtf8();
 		sendUdp(1, 2, "checkNatStep2Type2", argument);
 	}
 	else if (m_natStatus == Step1_1WaitingForServer2)
@@ -430,6 +445,16 @@ void Client::startConnect()
 
 	m_lastInTime = QTime::currentTime();
 	m_lastOutTime = QTime::currentTime();
+}
+
+bool Client::refreshIdentifier()
+{
+	if (m_status == UnknownClientStatus || m_status == ConnectingStatus)
+		return false;
+	QString hardwareAddress = getNetworkInterfaceHardwareAddress(getLocalAddress()).toLower();
+	hardwareAddress.remove('-');
+	m_identifier = hardwareAddress + "-" + m_randomIdentifierSuffix;
+	return true;
 }
 
 bool Client::checkStatus(ClientStatus correctStatus, NatCheckStatus correctNatStatus)
@@ -639,15 +664,16 @@ void Client::tcpIn_hello(QString serverName, QHostAddress clientAddress)
 		m_isPublicNetwork = true;
 
 	m_localPublicAddress = clientAddress;
+	refreshIdentifier();
 
-	tcpOut_login(m_userName, m_password);
+	tryLogin();
 }
 
-void Client::tcpOut_login(QString userName, QString password)
+void Client::tcpOut_login(QString identifier, QString userName)
 {
 	QByteArrayMap argument;
+	argument["identifier"] = identifier.toUtf8();
 	argument["userName"] = userName.toUtf8();
-	argument["password"] = password.toUtf8();
 	sendTcp("login", argument);
 
 	m_status = LoginingStatus;
@@ -798,7 +824,7 @@ void Client::udpOut_updateAddress()
 {
 	QByteArrayMap argument;
 	argument["userName"] = m_userName.toUtf8();
-	argument["passwordHash"] = m_passwordHash;
+	argument["identifier"] = m_identifier.toUtf8();
 	sendUdp(1, 1, "updateAddress", argument);
 }
 
