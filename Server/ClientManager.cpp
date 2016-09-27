@@ -1,8 +1,12 @@
 #include "ClientManager.h"
 #include <QtDebug>
 #include <QCryptographicHash>
+#include <QFile>
+#include "QJson/Parser"
+#include "QJson/Serializer"
 #include "Other.h"
 #include "crc32.h"
+#include "QStringMap.h"
 
 ClientManager::ClientManager(QObject *parent)
 	: QObject(parent)
@@ -33,17 +37,20 @@ void ClientManager::setGlobalKey(QByteArray key)
 	m_messageConverter.setKey((const quint8*)key.constData());
 }
 
-void ClientManager::setUserList(QMap<QString, QString> mapUserPassword)
+void ClientManager::setUserCacheFileName(QString fileName)
 {
 	if (m_running)
 		return;
-	m_mapUserPassword = mapUserPassword;
+	m_userCacheFileName = fileName;
 }
 
 bool ClientManager::start(quint16 tcpPort, quint16 udpPort1, quint16 udpPort2)
 {
 	if (m_running)
 		return false;
+
+	if (!loadUserCache())
+		qWarning() << QString("ClientManager::start loadUserCache failed");
 
 	const bool tcpOk = m_tcpServer.listen(QHostAddress::Any, tcpPort);
 	const bool udp1Ok = m_udpServer1.bind(udpPort1);
@@ -209,6 +216,31 @@ QUdpSocket * ClientManager::getUdpServer(int index)
 		return nullptr;
 }
 
+bool ClientManager::loadUserCache()
+{
+	QFile file(m_userCacheFileName);
+	if (!file.open(QIODevice::ReadOnly))
+		return false;
+	bool ok = false;
+	const QVariantMap root = QJson::Parser().parse(&file, &ok).toMap();
+	if (!ok)
+		return false;
+	m_mapUserNameIdentifier = toStringMap(root);
+	return true;
+}
+
+bool ClientManager::saveUserCache()
+{
+	QFile file(m_userCacheFileName);
+	if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text))
+		return false;
+	QJson::Serializer serializer;
+	serializer.setIndentMode(QJson::IndentFull);
+	bool ok = false;
+	serializer.serialize(toVariantMap(m_mapUserNameIdentifier), &file, &ok);
+	return true;
+}
+
 bool ClientManager::checkStatus(QTcpSocket & tcpSocket, ClientInfo & client, ClientStatus correctStatus, NatCheckStatus correctNatStatus)
 {
 	return client.status == correctStatus && client.natStatus == correctNatStatus;
@@ -274,6 +306,16 @@ void ClientManager::onUdpReadyRead(int index)
 		if (!package.contains('\n'))
 			dealUdpIn(index, package, hostAddress, port);
 	}
+}
+
+QString ClientManager::getSavedUserName(QString localIdentifier)
+{
+	for (auto iter = m_mapUserNameIdentifier.begin(); iter != m_mapUserNameIdentifier.end(); ++iter)
+	{
+		if (iter.value() == localIdentifier)
+			return iter.key();
+	}
+	return QString();
 }
 
 bool ClientManager::checkCanTunnel(ClientInfo & localClient, QString peerUserName, bool * outLocalNeedUpnp, bool * outPeerNeedUpnp, QString * outFailReason)
@@ -346,7 +388,6 @@ bool ClientManager::checkCanTunnel(ClientInfo & localClient, QString peerUserNam
 	}
 	return true;
 }
-
 
 bool ClientManager::isExistTunnel(QString userName1, QString userName2)
 {
@@ -475,7 +516,7 @@ void ClientManager::dealTcpIn(QByteArray line, QTcpSocket & tcpSocket, ClientInf
 	if (type == "heartbeat")
 		tcpIn_heartbeat(tcpSocket, client);
 	else if (type == "login")
-		tcpIn_login(tcpSocket, client, argument.value("userName"), argument.value("password"));
+		tcpIn_login(tcpSocket, client, argument.value("localIdentifier"), argument.value("userName"));
 	else if (type == "localNetwork")
 		tcpIn_localNetwork(tcpSocket, client, QHostAddress((QString)argument.value("localAddress")),
 			argument.value("clientUdp1LocalPort").toInt(), argument.value("gatewayInfo"));
@@ -509,7 +550,7 @@ void ClientManager::dealUdpIn(int index, const QByteArray & line, QHostAddress h
 		return;
 
 	const QString userName = argument.value("userName");
-	const QByteArray passwordHash = argument.value("passwordHash");
+	const QByteArray identifier = argument.value("identifier");
 	QTcpSocket * tcpSocket = m_mapUserTcpSocket.value(userName);
 	if (!tcpSocket)
 		return;
@@ -517,8 +558,7 @@ void ClientManager::dealUdpIn(int index, const QByteArray & line, QHostAddress h
 	if (iter == m_mapClientInfo.end())
 		return;
 
-	const QString password = m_mapUserPassword.value(userName);
-	if (QCryptographicHash::hash(password.toUtf8(), QCryptographicHash::Md5).toHex() != passwordHash)
+	if (identifier != m_mapUserNameIdentifier.value(userName))
 		return;
 
 	ClientInfo & client = *iter;
@@ -555,10 +595,10 @@ void ClientManager::tcpOut_hello(QTcpSocket & tcpSocket, ClientInfo & client)
 	sendTcp(tcpSocket, client, "hello", argument);
 }
 
-void ClientManager::tcpIn_login(QTcpSocket & tcpSocket, ClientInfo & client, QString userName, QString password)
+void ClientManager::tcpIn_login(QTcpSocket & tcpSocket, ClientInfo & client, QString identifier, QString userName)
 {
 	QString msg;
-	if (login(tcpSocket, client, userName, password, &msg))
+	if (login(tcpSocket, client, identifier, userName, &msg))
 	{
 		tcpOut_login(tcpSocket, client, true, msg, m_udpServer1.localPort(), m_udpServer2.localPort());
 		client.natStatus = Step1_1WaitingForClient1;
@@ -585,31 +625,46 @@ void ClientManager::tcpOut_login(QTcpSocket & tcpSocket, ClientInfo & client, bo
 	sendTcp(tcpSocket, client, "login", argument);
 }
 
-bool ClientManager::login(QTcpSocket & tcpSocket, ClientInfo & client, QString userName, QString password, QString * outMsg)
+bool ClientManager::login(QTcpSocket & tcpSocket, ClientInfo & client, QString identifier, QString userName, QString * outMsg)
 {
 	if (client.status != ConnectedStatus)
 	{
-		*outMsg = U16("用户已经登录");
+		*outMsg = U16("已经登录");
 		return false;
 	}
-	if (m_mapUserTcpSocket.contains(userName))
+	const bool validUserName = (userName.length() >= 4 && userName.length() <= 20 && generalNameCheck(userName));
+	if (!validUserName)
 	{
-		*outMsg = U16("用户已经登录");
+		*outMsg = U16("指定的用户名不合法");
 		return false;
 	}
-	if (m_mapUserPassword.value(userName) == password)
+	// 如果期望用户名已经绑定了其他identifier，就不允许使用
+	const QString boundIdentifier = m_mapUserNameIdentifier.value(userName);
+	if (boundIdentifier.length() > 0 && boundIdentifier != identifier)
 	{
-		client.status = LoginedStatus;
-		client.userName = userName;
-		m_mapUserTcpSocket[userName] = &tcpSocket;
-		*outMsg = U16("登录成功");
-		return true;
-	}
-	else
-	{
-		*outMsg = U16("用户名与密码不匹配");
+		*outMsg = U16("指定的用户名已经被使用");
 		return false;
 	}
+	
+	if (boundIdentifier.isEmpty())			// userName原绑定identifier为空，说明是新或老identifier期望使用这个新的userName
+	{
+		QString boundUserName = getSavedUserName(identifier);
+		if (boundUserName != userName)			// 这个identifier原来还绑定了一个userName，说明这是个老identifier
+			m_mapUserNameIdentifier.remove(boundUserName);
+		m_mapUserNameIdentifier[userName] = identifier;
+	}
+	else if (boundIdentifier == identifier)			// 还是按原绑定关系，不变
+	{
+		
+	}
+
+	Q_ASSERT(m_mapUserNameIdentifier.value(userName) == identifier);
+
+	client.status = LoginedStatus;
+	client.userName = userName;
+	m_mapUserTcpSocket[userName] = &tcpSocket;
+	*outMsg = U16("登录成功");
+	return true;
 }
 
 void ClientManager::tcpIn_localNetwork(QTcpSocket & tcpSocket, ClientInfo & client, QHostAddress localAddress, quint16 clientUdp1LocalPort, QString gatewayInfo)
@@ -909,3 +964,4 @@ void ClientManager::tcpOut_closeTunneling(QTcpSocket & tcpSocket, ClientInfo & c
 	argument["reason"] = reason.toUtf8();
 	sendTcp(tcpSocket, client, "closeTunneling", argument);
 }
+

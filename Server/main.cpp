@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
 
 	ClientManager clientManager;
 	clientManager.setGlobalKey(globalKey);
-	clientManager.setUserList(mapUser);
+	//clientManager.setUserList(mapUser);
 	if (!clientManager.start(tcpPort, udp1Port, udp2Port))
 		return 0;
 

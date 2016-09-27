@@ -28,3 +28,4 @@ QHostAddress tryConvertToIpv4(const QHostAddress & hostAddress);
 QString getSocketPeerDescription(const QAbstractSocket * socket);
 
 QString getNatDescription(NatType natType);
+bool generalNameCheck(const QString & name);

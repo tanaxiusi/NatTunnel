@@ -55,6 +55,9 @@
     <ClCompile Include="MessageConverter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="QStringMap.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="ClientManager.h">
@@ -72,6 +75,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="MessageConverter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="QStringMap.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

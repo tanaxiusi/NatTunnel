@@ -67,7 +67,7 @@ public:
 	~ClientManager();
 
 	void setGlobalKey(QByteArray key);
-	void setUserList(QMap<QString, QString> mapUserPassword);
+	void setUserCacheFileName(QString fileName);
 
 	bool start(quint16 tcpPort, quint16 udpPort1, quint16 udpPort2);
 	bool stop();
@@ -84,6 +84,9 @@ private slots:
 private:
 	QUdpSocket * getUdpServer(int index);
 
+	bool loadUserCache();
+	bool saveUserCache();
+
 	bool checkStatus(QTcpSocket & tcpSocket, ClientInfo & client, ClientStatus correctStatus, NatCheckStatus correctNatStatus);
 	bool checkStatusAndDisconnect(QTcpSocket & tcpSocket, ClientInfo & client, QString functionName, ClientStatus correctStatus, NatCheckStatus correctNatStatus);
 
@@ -92,6 +95,7 @@ private:
 	void sendUdp(int index, QByteArray type, QByteArrayMap argument, QHostAddress hostAddress, quint16 port);
 	void onUdpReadyRead(int index);
 
+	QString getSavedUserName(QString localIdentifier);
 	bool checkCanTunnel(ClientInfo & localClient, QString peerUserName, bool * outLocalNeedUpnp, bool * outPeerNeedUpnp, QString * outFailReason);
 	bool isExistTunnel(QString userName1, QString userName2);
 	// 根据Client类型和可能可用的upnp端口来确定外部连接端口，
@@ -113,9 +117,9 @@ private:
 
 	void tcpOut_hello(QTcpSocket & tcpSocket, ClientInfo & client);
 
-	void tcpIn_login(QTcpSocket & tcpSocket, ClientInfo & client, QString userName, QString password);
+	void tcpIn_login(QTcpSocket & tcpSocket, ClientInfo & client, QString identifier, QString userName);
 	void tcpOut_login(QTcpSocket & tcpSocket, ClientInfo & client, bool loginOk, QString msg, quint16 serverUdpPort1 = 0, quint16 serverUdpPort2 = 0);
-	bool login(QTcpSocket & tcpSocket, ClientInfo & client, QString userName, QString password, QString * outMsg);
+	bool login(QTcpSocket & tcpSocket, ClientInfo & client, QString localIdentifier, QString userName, QString * outMsg);
 
 	void tcpIn_localNetwork(QTcpSocket & tcpSocket, ClientInfo & client, QHostAddress localAddress, quint16 clientUdp1LocalPort, QString gatewayInfo);
 
@@ -150,8 +154,9 @@ private:
 	QTcpServer m_tcpServer;
 	QUdpSocket m_udpServer1;
 	QUdpSocket m_udpServer2;
+	QString m_userCacheFileName;
 	int m_lastTunnelId = 0;
-	QMap<QString, QString> m_mapUserPassword;
+	QMap<QString, QString> m_mapUserNameIdentifier;
 	QMap<QTcpSocket*, ClientInfo> m_mapClientInfo;
 	QMap<QString, QTcpSocket*> m_mapUserTcpSocket;
 	QMap<int, TunnelInfo> m_mapTunnelInfo;

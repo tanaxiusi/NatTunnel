@@ -57,3 +57,17 @@ QString getNatDescription(NatType natType)
 		return "Error";
 	}
 }
+
+bool generalNameCheck(const QString & name)
+{
+	if (name.length() == 0)
+		return false;
+
+	static QString forbiddenChar = "\\/:?*\"<>| ,";
+	for (int i = 0; i < forbiddenChar.length(); ++i)
+	{
+		if (name.indexOf(forbiddenChar.at(i)) >= 0)
+			return false;
+	}
+	return true;
+}

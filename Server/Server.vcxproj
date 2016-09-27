@@ -153,6 +153,7 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MessageConverter.cpp" />
     <ClCompile Include="Other.cpp" />
+    <ClCompile Include="QStringMap.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="ClientManager.h">
@@ -179,6 +180,7 @@
     <ClInclude Include="crc32.h" />
     <ClInclude Include="MessageConverter.h" />
     <ClInclude Include="Other.h" />
+    <ClInclude Include="QStringMap.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
