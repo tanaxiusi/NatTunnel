@@ -1,5 +1,10 @@
 #include "Other.h"
 #include "crc32.h"
+#include <Windows.h>
+#include <iphlpapi.h>
+
+#pragma comment(lib,"ws2_32")
+#pragma comment(lib,"Iphlpapi")
 
 static const int _typeId_NatType = qRegisterMetaType<NatType>("NatType");
 static const int _typeId_UpnpStatus = qRegisterMetaType<UpnpStatus>("UpnpStatus");
@@ -132,3 +137,55 @@ bool isNatAddress(const QHostAddress & hostAddress)
 }
 
 
+QStringList getGatewayAddress(QString localAddress)
+{
+	ULONG neededSize = 0;
+	QByteArray buffer;
+	if (ERROR_BUFFER_OVERFLOW != GetAdaptersInfo(NULL, &neededSize))
+		return QStringList();
+
+	buffer.resize(neededSize);
+	if (ERROR_SUCCESS != GetAdaptersInfo((IP_ADAPTER_INFO*)buffer.data(), &neededSize))
+		return QStringList();
+
+	localAddress.trimmed();
+
+	for (const IP_ADAPTER_INFO * info = (const IP_ADAPTER_INFO*)buffer.constData();
+		info; info = info->Next)
+	{
+		const IP_ADDR_STRING * ip = NULL;
+		for (ip = &info->IpAddressList; ip; ip = ip->Next)
+			if (localAddress == ip->IpAddress.String)
+				break;
+		if (ip)
+		{
+			QStringList result;
+			for (const IP_ADDR_STRING * gateway = &info->GatewayList; gateway; gateway = gateway->Next)
+				result << gateway->IpAddress.String;
+			return result;
+		}
+	}
+
+	return QStringList();
+}
+
+QString arpGetHardwareAddress(QString targetAddress, QString localAddress)
+{
+	ULONG targetIP = inet_addr(targetAddress.toUtf8().constData());
+	if (targetIP == INADDR_NONE)
+		return QString();
+	UCHAR mac[6] = { 0 };
+	ULONG macLen = 6;
+	ULONG localIP = inet_addr(localAddress.toUtf8().constData());
+	DWORD retValue = SendARP(targetIP, localIP, &mac, &macLen);
+	if (retValue != NO_ERROR)
+		return QString();
+	QString result;
+	for (int i = 0; i < macLen; i++)
+	{
+		if (result.length() > 0)
+			result += "-";
+		result += QByteArray(1, mac[i]).toHex();
+	}
+	return result;
+}

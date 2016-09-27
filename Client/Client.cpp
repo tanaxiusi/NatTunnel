@@ -28,7 +28,7 @@ Client::Client(QObject *parent)
 		this, SLOT(onKcpLowLevelOutput(int, QHostAddress, quint16, QByteArray)));
 	connect(&m_kcpManager, SIGNAL(highLevelOutput(int, QByteArray)), this,
 		SLOT(onKcpHighLevelOutput(int, QByteArray)));
-	connect(&m_kcpManager, SIGNAL(handShaked(int)), this, SIGNAL(tunnelHandShaked(int)));
+	connect(&m_kcpManager, SIGNAL(handShaked(int)), this, SLOT(onKcpConnectionHandShaked(int)));
 	connect(&m_kcpManager, SIGNAL(disconnected(int, QString)), this, SLOT(onKcpConnectionDisconnected(int, QString)));
 	connect(&m_upnpPortMapper, SIGNAL(discoverFinished(bool)),
 		this, SLOT(onUpnpDiscoverFinished(bool)));
@@ -107,7 +107,7 @@ QHostAddress Client::getLocalAddress()
 {
 	if (!m_running)
 		return QHostAddress();
-	return m_tcpSocket.localAddress();
+	return tryConvertToIpv4(m_tcpSocket.localAddress());
 }
 
 QHostAddress Client::getLocalPublicAddress()
@@ -179,9 +179,18 @@ void Client::onTcpConnected()
 	const QHostAddress localAddress = getLocalAddress();
 	if (isNatAddress(localAddress))
 	{
+		m_upnpPortMapper.close();
 		m_upnpPortMapper.open(localAddress);
 		m_upnpPortMapper.discover();
 		m_upnpStatus = UpnpDiscovering;
+
+		const QString localAddressText = localAddress.toString();
+		for (QString gatewayAddress : getGatewayAddress(localAddressText))
+		{
+			const QString gatewayHardwareAddress = arpGetHardwareAddress(gatewayAddress, localAddressText);
+			m_lstGatewayInfo.append(gatewayAddress + " " + gatewayHardwareAddress);
+		}
+		m_lstGatewayInfo.sort();
 	}
 	else
 	{
@@ -290,6 +299,12 @@ void Client::onKcpHighLevelOutput(int tunnelId, QByteArray package)
 	emit tunnelData(tunnelId, package);
 }
 
+void Client::onKcpConnectionHandShaked(int tunnelId)
+{
+	tcpOut_tunnelHandeShaked(tunnelId);
+	emit tunnelHandShaked(tunnelId);
+}
+
 void Client::onKcpConnectionDisconnected(int tunnelId, QString reason)
 {
 	auto iter = m_mapTunnelInfo.find(tunnelId);
@@ -396,6 +411,7 @@ void Client::clear()
 	m_upnpAvailability = false;
 	m_isPublicNetwork = false;
 	m_localPublicAddress = QHostAddress();
+	m_lstGatewayInfo.clear();
 	m_udp2UpnpPort = 0;
 
 	m_waitingRequestId.clear();
@@ -624,14 +640,14 @@ void Client::tcpIn_hello(QString serverName, QHostAddress clientAddress)
 
 	m_localPublicAddress = clientAddress;
 
-	tcpOut_login();
+	tcpOut_login(m_userName, m_password);
 }
 
-void Client::tcpOut_login()
+void Client::tcpOut_login(QString userName, QString password)
 {
 	QByteArrayMap argument;
-	argument["userName"] = m_userName.toUtf8();
-	argument["password"] = m_password.toUtf8();
+	argument["userName"] = userName.toUtf8();
+	argument["password"] = password.toUtf8();
 	sendTcp("login", argument);
 
 	m_status = LoginingStatus;
@@ -647,6 +663,9 @@ void Client::tcpIn_login(bool loginOk, QString msg, quint16 serverUdpPort1, quin
 		m_serverUdpPort1 = serverUdpPort1;
 		m_serverUdpPort2 = serverUdpPort2;
 		m_natStatus = Step1_1SendingToServer1;
+
+		tcpOut_localNetwork(getLocalAddress(), m_udpSocket1.localPort(), m_lstGatewayInfo.join(" "));;
+
 		emit logined();
 	}
 	else
@@ -654,6 +673,15 @@ void Client::tcpIn_login(bool loginOk, QString msg, quint16 serverUdpPort1, quin
 		m_status = LoginFailedStatus;
 		emit loginFailed(msg);
 	}
+}
+
+void Client::tcpOut_localNetwork(QHostAddress localAddress, quint16 clientUdp1LocalPort, QString gatewayInfo)
+{
+	QByteArrayMap argument;
+	argument["localAddress"] = localAddress.toString().toUtf8();
+	argument["clientUdp1LocalPort"] = QByteArray::number(clientUdp1LocalPort);
+	argument["gatewayInfo"] = gatewayInfo.toUtf8();
+	sendTcp("localNetwork", argument);
 }
 
 void Client::udpIn_checkNatStep1(int localIndex, int serverIndex)
@@ -913,6 +941,13 @@ void Client::tcpIn_tunneling(int tunnelId, QHostAddress peerAddress, quint16 pee
 	createKcpConnection(tunnelId, tunnel);
 
 	emit tunnelStarted(tunnelId, tunnel.peerUserName, tunnel.peerAddress);
+}
+
+void Client::tcpOut_tunnelHandeShaked(int tunnelId)
+{
+	QByteArrayMap argument;
+	argument["tunnelId"] = QByteArray::number(tunnelId);
+	sendTcp("tunnelHandeShaked", argument);
 }
 
 void Client::tcpIn_closeTunneling(int tunnelId, QString reason)

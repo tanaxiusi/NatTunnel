@@ -104,6 +104,7 @@ private slots:
 	void timerFunction10s();
 	void onKcpLowLevelOutput(int tunnelId, QHostAddress hostAddress, quint16 port, QByteArray package);
 	void onKcpHighLevelOutput(int tunnelId, QByteArray package);
+	void onKcpConnectionHandShaked(int tunnelId);
 	void onKcpConnectionDisconnected(int tunnelId, QString reason);
 	void onUpnpDiscoverFinished(bool ok);
 	void onUpnpQueryExternalAddressFinished(QHostAddress address, bool ok, QString errorString);
@@ -141,8 +142,10 @@ private:
 
 	void tcpIn_hello(QString serverName, QHostAddress clientAddress);
 
-	void tcpOut_login();
+	void tcpOut_login(QString userName, QString password);
 	void tcpIn_login(bool loginOk, QString msg, quint16 serverUdpPort1, quint16 serverUdpPort2);
+
+	void tcpOut_localNetwork(QHostAddress localAddress, quint16 clientUdp1LocalPort, QString gatewayInfo);
 
 	void udpIn_checkNatStep1(int localIndex, int serverIndex);
 	void timeout_checkNatStep1();
@@ -168,6 +171,7 @@ private:
 	void tcpOut_startTunneling(int tunnelId, bool canTunnel, quint16 udp2UpnpPort, QString errorString);
 
 	void tcpIn_tunneling(int tunnelId, QHostAddress peerAddress, quint16 peerPort);
+	void tcpOut_tunnelHandeShaked(int tunnelId);
 
 	void tcpIn_closeTunneling(int tunnelId, QString reason);
 	void tcpOut_closeTunneling(int tunnelId, QString reason);
@@ -208,6 +212,8 @@ private:
 	bool m_upnpAvailability = false;
 	bool m_isPublicNetwork = false;
 	QHostAddress m_localPublicAddress;
+
+	QStringList m_lstGatewayInfo;		// 内网情况下，存储网关信息，List<"网关IP 网关MAC">
 
 	quint16 m_udp2UpnpPort = 0;
 

@@ -41,3 +41,5 @@ bool isSameHostAddress(const QHostAddress & a, const QHostAddress & b);
 QHostAddress tryConvertToIpv4(const QHostAddress & hostAddress);
 QString getNatDescription(NatType natType);
 bool isNatAddress(const QHostAddress & hostAddress);
+QStringList getGatewayAddress(QString localAddress);
+QString arpGetHardwareAddress(QString targetAddress, QString localAddress);

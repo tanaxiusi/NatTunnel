@@ -37,7 +37,10 @@ class ClientManager : public QObject
 		NatCheckStatus natStatus = UnknownNatCheckStatus;
 		QHostAddress udpHostAddress;
 		quint16 udp1Port1 = 0;
+		quint16 udp1LocalPort = 0;
 		quint16 udp2LocalPort = 0;
+		QHostAddress localAddress;
+		QString gatewayInfo;
 		bool upnpAvailable = false;
 		QTime lastInTime;
 		QTime lastOutTime;
@@ -91,7 +94,10 @@ private:
 
 	bool checkCanTunnel(ClientInfo & localClient, QString peerUserName, bool * outLocalNeedUpnp, bool * outPeerNeedUpnp, QString * outFailReason);
 	bool isExistTunnel(QString userName1, QString userName2);
-	quint16 getTunnelPort(ClientInfo & client, quint16 orginalPort, quint16 upnpPort);
+	// 根据Client类型和可能可用的upnp端口来确定外部连接端口，
+	quint16 getExternalTunnelPort(ClientInfo & client, quint16 upnpPort);
+	// 根据和对面的内网/公网类型来获取Client最优的连接端口
+	void getBetterTunnelAddressPort(ClientInfo & client, ClientInfo & peerClient, quint16 clientUpnpPort, QHostAddress * outAddress, quint16 * outPort);
 	int getNextTunnelId();
 
 	bool getTcpSocketAndClientInfoByUserName(QString userName, QTcpSocket ** outTcpSocket, ClientInfo ** outClientInfo);
@@ -110,6 +116,8 @@ private:
 	void tcpIn_login(QTcpSocket & tcpSocket, ClientInfo & client, QString userName, QString password);
 	void tcpOut_login(QTcpSocket & tcpSocket, ClientInfo & client, bool loginOk, QString msg, quint16 serverUdpPort1 = 0, quint16 serverUdpPort2 = 0);
 	bool login(QTcpSocket & tcpSocket, ClientInfo & client, QString userName, QString password, QString * outMsg);
+
+	void tcpIn_localNetwork(QTcpSocket & tcpSocket, ClientInfo & client, QHostAddress localAddress, quint16 clientUdp1LocalPort, QString gatewayInfo);
 
 	void udpIn_checkNatStep1(int index, QTcpSocket & tcpSocket, ClientInfo & client, QHostAddress clientUdp1HostAddress, quint16 clientUdp1Port1);
 	void tcpIn_checkNatStep1(QTcpSocket & tcpSocket, ClientInfo & client, int partlyType, quint16 clientUdp2LocalPort);

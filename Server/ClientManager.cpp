@@ -362,8 +362,7 @@ bool ClientManager::isExistTunnel(QString userName1, QString userName2)
 	return false;
 }
 
-
-quint16 ClientManager::getTunnelPort(ClientInfo & client, quint16 orginalPort, quint16 upnpPort)
+quint16 ClientManager::getExternalTunnelPort(ClientInfo & client, quint16 upnpPort)
 {
 	// 如果开启了upnp，就用upnp映射的端口
 	if (upnpPort)
@@ -372,7 +371,34 @@ quint16 ClientManager::getTunnelPort(ClientInfo & client, quint16 orginalPort, q
 	if (client.natType == SymmetricNat)
 		return 0;
 	// 其他情况下，用原端口
-	return orginalPort;
+	return client.udp1Port1;
+}
+
+void ClientManager::getBetterTunnelAddressPort(ClientInfo & client, ClientInfo & peerClient, quint16 upnpPort, QHostAddress * outAddress, quint16 * outPort)
+{
+	// 外网IP+端口
+	const QHostAddress externalTunnelAddress = client.udpHostAddress;
+	const quint16 externalTunnelPort = getExternalTunnelPort(client, upnpPort);
+
+	// 内网IP+端口
+	const QHostAddress internalTunnelAddress = client.localAddress;
+	const quint16 internalTunnelPort = client.udp1LocalPort;
+
+	const bool isSamePrivateNetwork = (client.natType != PublicNetwork && peerClient.natType != PublicNetwork) &&
+		(client.gatewayInfo.length() > 0 && client.gatewayInfo == peerClient.gatewayInfo);
+	QHostAddress tunnelAddress = isSamePrivateNetwork ? internalTunnelAddress : externalTunnelAddress;
+	quint16 tunnelPort = isSamePrivateNetwork ? internalTunnelPort : externalTunnelPort;
+
+	if (isSamePrivateNetwork && client.localAddress == peerClient.localAddress)
+		tunnelAddress = QHostAddress("127.0.0.1");		// 同一台内网机
+	else if (client.natType == PublicNetwork && peerClient.natType == PublicNetwork &&
+		client.udpHostAddress == peerClient.udpHostAddress)
+		tunnelAddress = QHostAddress("127.0.0.1");		// 同一台公网机
+
+	if (outAddress)
+		*outAddress = tunnelAddress;
+	if (outPort)
+		*outPort = tunnelPort;
 }
 
 int ClientManager::getNextTunnelId()
@@ -450,6 +476,9 @@ void ClientManager::dealTcpIn(QByteArray line, QTcpSocket & tcpSocket, ClientInf
 		tcpIn_heartbeat(tcpSocket, client);
 	else if (type == "login")
 		tcpIn_login(tcpSocket, client, argument.value("userName"), argument.value("password"));
+	else if (type == "localNetwork")
+		tcpIn_localNetwork(tcpSocket, client, QHostAddress((QString)argument.value("localAddress")),
+			argument.value("clientUdp1LocalPort").toInt(), argument.value("gatewayInfo"));
 	else if (type == "checkNatStep1")
 		tcpIn_checkNatStep1(tcpSocket, client, argument.value("partlyType").toInt(), argument.value("clientUdp2LocalPort").toInt());
 	else if (type == "checkNatStep2Type1")
@@ -581,6 +610,18 @@ bool ClientManager::login(QTcpSocket & tcpSocket, ClientInfo & client, QString u
 		*outMsg = U16("用户名与密码不匹配");
 		return false;
 	}
+}
+
+void ClientManager::tcpIn_localNetwork(QTcpSocket & tcpSocket, ClientInfo & client, QHostAddress localAddress, quint16 clientUdp1LocalPort, QString gatewayInfo)
+{
+	if (client.status != LoginedStatus)
+	{
+		disconnectClient(tcpSocket, client, "tcpIn_localNetwork error status");
+		return;
+	}
+	client.localAddress = localAddress;
+	client.udp1LocalPort = clientUdp1LocalPort;
+	client.gatewayInfo = gatewayInfo;
 }
 
 void ClientManager::udpIn_checkNatStep1(int index, QTcpSocket & tcpSocket, ClientInfo & client, QHostAddress clientUdp1HostAddress, quint16 clientUdp1Port1)
@@ -735,11 +776,14 @@ void ClientManager::tcpIn_readyTunneling(QTcpSocket & tcpSocket, ClientInfo & cl
 		tunnel.status = ReadyTunnelingStatus;
 		tcpOut_readyTunneling(tcpSocket, client, requestId, tunnelId, peerUserName);
 
-		const quint16 tunnelPort = getTunnelPort(client, client.udp1Port1, udp2UpnpPort);
-
 		QTcpSocket & peerTcpSocket = *m_mapUserTcpSocket.value(peerUserName);
 		ClientInfo & peerClient = m_mapClientInfo[&peerTcpSocket];
-		tcpOut_startTunneling(peerTcpSocket, peerClient, tunnelId, peerLocalPassword, client.userName, client.udpHostAddress,
+
+		QHostAddress tunnelAddress;
+		quint16 tunnelPort = 0;
+		getBetterTunnelAddressPort(client, peerClient, udp2UpnpPort, &tunnelAddress, &tunnelPort);
+
+		tcpOut_startTunneling(peerTcpSocket, peerClient, tunnelId, peerLocalPassword, client.userName, tunnelAddress,
 			tunnelPort, peerNeedUpnp);
 	}
 	else
@@ -799,8 +843,10 @@ void ClientManager::tcpIn_startTunneling(QTcpSocket & tcpSocket, ClientInfo & cl
 		tunnel.clientBUdp2UpnpPort = udp2UpnpPort;
 		tunnel.status = TunnelingStatus;
 
-		quint16 tunnelPort = getTunnelPort(client, client.udp1Port1, udp2UpnpPort);
-		tcpOut_tunneling(peerTcpSocket, peerClient, tunnelId, client.udpHostAddress, tunnelPort);
+		QHostAddress tunnelAddress;
+		quint16 tunnelPort = 0;
+		getBetterTunnelAddressPort(client, peerClient, udp2UpnpPort, &tunnelAddress, &tunnelPort);
+		tcpOut_tunneling(peerTcpSocket, peerClient, tunnelId, tunnelAddress, tunnelPort);
 	}else
 	{
 		m_mapTunnelInfo.remove(tunnelId);
