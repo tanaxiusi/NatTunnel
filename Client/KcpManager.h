@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 #include <QObject>
 #include <QPair>
@@ -28,7 +28,7 @@ private:
 		ikcpcb * kcp = nullptr;
 		bool peerConfirmed = false;
 		int shakeHandStep = 0;
-		QByteArray buffer;	// ½öÎÕÊÖÊ±ÓÃµ½
+		QByteArray buffer;	// ä»…æ¡æ‰‹æ—¶ç”¨åˆ°
 		quint32 nextUpdateTime;
 		QTime lastInTime;
 	};
@@ -64,5 +64,5 @@ private:
 	QMap<ikcpcb*, KcpConnection> m_map;
 	QTimer m_timer10ms;
 	QTimer m_timer5s;
-	QTime m_cachedCurrentTime;		// Ëæ×ÅtimerË¢ĞÂµÄµ±Ç°Ê±¼ä£¬ÎªÁË¼õÉÙlowLevelInputÖĞµÄcurrentTimeÏµÍ³µ÷ÓÃ
+	QTime m_cachedCurrentTime;		// éšç€timeråˆ·æ–°çš„å½“å‰æ—¶é—´ï¼Œä¸ºäº†å‡å°‘lowLevelInputä¸­çš„currentTimeç³»ç»Ÿè°ƒç”¨
 };

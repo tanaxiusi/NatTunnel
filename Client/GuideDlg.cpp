@@ -1,4 +1,4 @@
-#include "GuideDlg.h"
+﻿#include "GuideDlg.h"
 #include <QMessageBox>
 #include "../Server/Other.h"
 

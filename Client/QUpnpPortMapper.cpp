@@ -1,4 +1,4 @@
-#include "QUpnpPortMapper.h"
+﻿#include "QUpnpPortMapper.h"
 #include <QtDebug>
 #include <QNetworkInterface>
 #include <QDomDocument>

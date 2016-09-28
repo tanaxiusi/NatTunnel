@@ -1,4 +1,4 @@
-#include "ClientManager.h"
+ï»¿#include "ClientManager.h"
 #include <QtDebug>
 #include <QCryptographicHash>
 #include <QFile>
@@ -120,7 +120,7 @@ void ClientManager::onTcpDisconnected()
 	const QString userName = client.userName;
 	const QString identifier = client.identifier;
 
-	clearUserTunnel(userName, U16("¶Ô·½ÏÂÏß"));
+	clearUserTunnel(userName, U16("å¯¹æ–¹ä¸‹çº¿"));
 
 	if (userName.length() > 0)
 		m_mapUserTcpSocket.remove(userName);
@@ -364,7 +364,7 @@ bool ClientManager::checkCanTunnel(ClientInfo & localClient, QString peerUserNam
 
 	if (peerUserName == localClient.userName)
 	{
-		*outFailReason = U16("²»ÄÜÁ¬½Ó×Ô¼º");
+		*outFailReason = U16("ä¸èƒ½è¿æ¥è‡ªå·±");
 		return false;
 	}
 
@@ -372,7 +372,7 @@ bool ClientManager::checkCanTunnel(ClientInfo & localClient, QString peerUserNam
 	ClientInfo * ptrPeerClient = nullptr;
 	if (!getTcpSocketAndClientInfoByUserName(peerUserName, &ptrPeerTcpSocket, &ptrPeerClient))
 	{
-		*outFailReason = U16("¶Ô·½Î´ÉÏÏß");
+		*outFailReason = U16("å¯¹æ–¹æœªä¸Šçº¿");
 		return false;
 	}
 
@@ -381,13 +381,13 @@ bool ClientManager::checkCanTunnel(ClientInfo & localClient, QString peerUserNam
 	const bool peerStatusCorrect = (peerClient.status == LoginedStatus && peerClient.natStatus == NatCheckFinished);
 	if (!peerStatusCorrect)
 	{
-		*outFailReason = U16("¶Ô·½»¹ÔÚ³õÊ¼»¯");
+		*outFailReason = U16("å¯¹æ–¹è¿˜åœ¨åˆå§‹åŒ–");
 		return false;
 	}
 	
 	const bool localNatPartlyTypeIs1 = (localClient.natType == PublicNetwork || localClient.natType == FullOrRestrictedConeNat);
 	const bool peerNatPartlyTypeIs1 = (peerClient.natType == PublicNetwork || peerClient.natType == FullOrRestrictedConeNat);
-	// Ö»ÒªÒ»±ß´ïµ½RestrictedConeNatµÈ¼¶£¬»òÕßÁ½±ß¶¼ÊÇPortRestrictedConeNat£¬¶¼¿ÉÒÔÎŞĞèupnp
+	// åªè¦ä¸€è¾¹è¾¾åˆ°RestrictedConeNatç­‰çº§ï¼Œæˆ–è€…ä¸¤è¾¹éƒ½æ˜¯PortRestrictedConeNatï¼Œéƒ½å¯ä»¥æ— éœ€upnp
 	const bool unneedUpnp = (localNatPartlyTypeIs1 || peerNatPartlyTypeIs1 || (localClient.natType == PortRestrictedConeNat && peerClient.natType == PortRestrictedConeNat));
 	const bool needUpnp = !unneedUpnp;
 
@@ -395,25 +395,25 @@ bool ClientManager::checkCanTunnel(ClientInfo & localClient, QString peerUserNam
 	{
 		if (!localClient.upnpAvailable && !peerClient.upnpAvailable)
 		{
-			*outFailReason = U16("±¾µØNATÀàĞÍ=%1 ¶Ô·½NATÀàĞÍ=%2 ¶¼²»Ö§³Öupnp ÎŞ·¨Á¬½Ó")
+			*outFailReason = U16("æœ¬åœ°NATç±»å‹=%1 å¯¹æ–¹NATç±»å‹=%2 éƒ½ä¸æ”¯æŒupnp æ— æ³•è¿æ¥")
 				.arg(getNatDescription(localClient.natType)).arg(getNatDescription(peerClient.natType));
 			return false;
 		}
-		// Ê£ÏÂµÄÇé¿öÊÇPortRestrictedConeNat+SymmetricNat»òÕßÁ½±ß¶¼ÊÇSymmetricNat
+		// å‰©ä¸‹çš„æƒ…å†µæ˜¯PortRestrictedConeNat+SymmetricNatæˆ–è€…ä¸¤è¾¹éƒ½æ˜¯SymmetricNat
 		if (localClient.upnpAvailable)
 		{
 			*outLocalNeedUpnp = true;
 		}
 		else if (peerClient.upnpAvailable)
 		{
-			// ÕâÖÖÇé¿öÏÂ¶ÔÃæ¿ªupnp
+			// è¿™ç§æƒ…å†µä¸‹å¯¹é¢å¼€upnp
 			*outPeerNeedUpnp = true;
 		}
 	}
 
 	if(isExistTunnel(localClient.userName, peerClient.userName))
 	{
-		*outFailReason = U16("ÒÑ¾­´æÔÚµ½ %1 µÄÁ¬½Ó").arg(peerUserName);
+		*outFailReason = U16("å·²ç»å­˜åœ¨åˆ° %1 çš„è¿æ¥").arg(peerUserName);
 		return false;
 	}
 	return true;
@@ -435,23 +435,23 @@ bool ClientManager::isExistTunnel(QString userName1, QString userName2)
 
 quint16 ClientManager::getExternalTunnelPort(ClientInfo & client, quint16 upnpPort)
 {
-	// Èç¹û¿ªÆôÁËupnp£¬¾ÍÓÃupnpÓ³ÉäµÄ¶Ë¿Ú
+	// å¦‚æœå¼€å¯äº†upnpï¼Œå°±ç”¨upnpæ˜ å°„çš„ç«¯å£
 	if (upnpPort)
 		return upnpPort;
-	// Èç¹ûÊÇSymmetricNat£¬ĞÂ¶Ë¿ÚºÅ²»ÄÜÈ·¶¨£¬·µ»Ø0ÈÃ¶Ô·½¿Í»§¶ËµÈ´ıÁ¬½Ó
+	// å¦‚æœæ˜¯SymmetricNatï¼Œæ–°ç«¯å£å·ä¸èƒ½ç¡®å®šï¼Œè¿”å›0è®©å¯¹æ–¹å®¢æˆ·ç«¯ç­‰å¾…è¿æ¥
 	if (client.natType == SymmetricNat)
 		return 0;
-	// ÆäËûÇé¿öÏÂ£¬ÓÃÔ­¶Ë¿Ú
+	// å…¶ä»–æƒ…å†µä¸‹ï¼Œç”¨åŸç«¯å£
 	return client.udp1Port1;
 }
 
 void ClientManager::getBetterTunnelAddressPort(ClientInfo & client, ClientInfo & peerClient, quint16 upnpPort, QHostAddress * outAddress, quint16 * outPort)
 {
-	// ÍâÍøIP+¶Ë¿Ú
+	// å¤–ç½‘IP+ç«¯å£
 	const QHostAddress externalTunnelAddress = client.udpHostAddress;
 	const quint16 externalTunnelPort = getExternalTunnelPort(client, upnpPort);
 
-	// ÄÚÍøIP+¶Ë¿Ú
+	// å†…ç½‘IP+ç«¯å£
 	const QHostAddress internalTunnelAddress = client.localAddress;
 	const quint16 internalTunnelPort = client.udp1LocalPort;
 
@@ -461,10 +461,10 @@ void ClientManager::getBetterTunnelAddressPort(ClientInfo & client, ClientInfo &
 	quint16 tunnelPort = isSamePrivateNetwork ? internalTunnelPort : externalTunnelPort;
 
 	if (isSamePrivateNetwork && client.localAddress == peerClient.localAddress)
-		tunnelAddress = QHostAddress("127.0.0.1");		// Í¬Ò»Ì¨ÄÚÍø»ú
+		tunnelAddress = QHostAddress("127.0.0.1");		// åŒä¸€å°å†…ç½‘æœº
 	else if (client.natType == PublicNetwork && peerClient.natType == PublicNetwork &&
 		client.udpHostAddress == peerClient.udpHostAddress)
-		tunnelAddress = QHostAddress("127.0.0.1");		// Í¬Ò»Ì¨¹«Íø»ú
+		tunnelAddress = QHostAddress("127.0.0.1");		// åŒä¸€å°å…¬ç½‘æœº
 
 	if (outAddress)
 		*outAddress = tunnelAddress;
@@ -662,43 +662,43 @@ bool ClientManager::login(QTcpSocket & tcpSocket, ClientInfo & client, QString i
 {
 	if (client.status != ConnectedStatus)
 	{
-		*outMsg = U16("ÒÑ¾­µÇÂ¼");
+		*outMsg = U16("å·²ç»ç™»å½•");
 		return false;
 	}
 	if (m_lstLoginedIdentifier.contains(identifier))
 	{
-		*outMsg = U16("¸ÃÊ¶±ğÂëÒÑ¾­µÇÂ¼");
+		*outMsg = U16("è¯¥è¯†åˆ«ç å·²ç»ç™»å½•");
 		return false;
 	}
 	const bool validUserNameLength = (userName.length() >= 4 && userName.length() <= 20);
 	if (!validUserNameLength)
 	{
-		*outMsg = U16("ÓÃ»§Ãû³¤¶È±ØĞëÊÇ4-20¸ö×Ö·û");
+		*outMsg = U16("ç”¨æˆ·åé•¿åº¦å¿…é¡»æ˜¯4-20ä¸ªå­—ç¬¦");
 		return false;
 	}
 	const bool validUserName = generalNameCheck(userName);
 	if (!validUserName)
 	{
-		*outMsg = U16("ÓÃ»§Ãû²»µÃ°üº¬ÌØÊâ·ûºÅ");
+		*outMsg = U16("ç”¨æˆ·åä¸å¾—åŒ…å«ç‰¹æ®Šç¬¦å·");
 		return false;
 	}
-	// Èç¹ûÆÚÍûÓÃ»§ÃûÒÑ¾­°ó¶¨ÁËÆäËûidentifier£¬¾Í²»ÔÊĞíÊ¹ÓÃ
+	// å¦‚æœæœŸæœ›ç”¨æˆ·åå·²ç»ç»‘å®šäº†å…¶ä»–identifierï¼Œå°±ä¸å…è®¸ä½¿ç”¨
 	const QString boundIdentifier = getBoundIdentifier(userName);
 	if (boundIdentifier.length() > 0 && boundIdentifier != identifier)
 	{
-		*outMsg = U16("Ö¸¶¨µÄÓÃ»§ÃûÒÑ¾­±»Ê¹ÓÃ");
+		*outMsg = U16("æŒ‡å®šçš„ç”¨æˆ·åå·²ç»è¢«ä½¿ç”¨");
 		return false;
 	}
 	
-	if (boundIdentifier.isEmpty())			// userNameÔ­°ó¶¨identifierÎª¿Õ£¬ËµÃ÷ÊÇĞÂ»òÀÏidentifierÆÚÍûÊ¹ÓÃÕâ¸öĞÂµÄuserName
+	if (boundIdentifier.isEmpty())			// userNameåŸç»‘å®šidentifierä¸ºç©ºï¼Œè¯´æ˜æ˜¯æ–°æˆ–è€identifieræœŸæœ›ä½¿ç”¨è¿™ä¸ªæ–°çš„userName
 	{
 		QString boundUserName = getBoundUserName(identifier);
-		if (boundUserName != userName)			// Õâ¸öidentifierÔ­À´»¹°ó¶¨ÁËÒ»¸öuserName£¬ËµÃ÷ÕâÊÇ¸öÀÏidentifier
+		if (boundUserName != userName)			// è¿™ä¸ªidentifieråŸæ¥è¿˜ç»‘å®šäº†ä¸€ä¸ªuserNameï¼Œè¯´æ˜è¿™æ˜¯ä¸ªè€identifier
 			m_mapUserNameIdentifier.remove(boundUserName);
 		m_mapUserNameIdentifier[userName] = identifier;
 		saveUserCache();
 	}
-	else if (boundIdentifier == identifier)			// »¹ÊÇ°´Ô­°ó¶¨¹ØÏµ£¬²»±ä
+	else if (boundIdentifier == identifier)			// è¿˜æ˜¯æŒ‰åŸç»‘å®šå…³ç³»ï¼Œä¸å˜
 	{
 		
 	}
@@ -710,7 +710,7 @@ bool ClientManager::login(QTcpSocket & tcpSocket, ClientInfo & client, QString i
 	client.userName = userName;
 	m_mapUserTcpSocket[userName] = &tcpSocket;
 	m_lstLoginedIdentifier.insert(identifier);
-	*outMsg = U16("µÇÂ¼³É¹¦");
+	*outMsg = U16("ç™»å½•æˆåŠŸ");
 	return true;
 }
 
@@ -937,7 +937,7 @@ void ClientManager::tcpIn_startTunneling(QTcpSocket & tcpSocket, ClientInfo & cl
 	TunnelInfo & tunnel = *getTunnelInfo(tunnelId);
 	if (&tunnel == nullptr)
 	{
-		// Èç¹ûÔÚBÏìÓ¦Ç°£¬AÒÑ¾­È¡ÏûÁËÁ¬½Ó£¬»á³öÏÖÕÒ²»µ½tunnelIdµÄÇé¿ö
+		// å¦‚æœåœ¨Bå“åº”å‰ï¼ŒAå·²ç»å–æ¶ˆäº†è¿æ¥ï¼Œä¼šå‡ºç°æ‰¾ä¸åˆ°tunnelIdçš„æƒ…å†µ
 		return;
 	}
 
@@ -945,9 +945,9 @@ void ClientManager::tcpIn_startTunneling(QTcpSocket & tcpSocket, ClientInfo & cl
 	ClientInfo * ptrPeerClient = nullptr;
 	if (!getTcpSocketAndClientInfoByUserName(tunnel.clientAUserName, &ptrPeerTcpSocket, &ptrPeerClient))
 	{
-		// AÕÒ²»µ½£¬¿ÉÄÜÏÂÏßÁË
+		// Aæ‰¾ä¸åˆ°ï¼Œå¯èƒ½ä¸‹çº¿äº†
 		m_mapTunnelInfo.remove(tunnelId);
-		tcpOut_closeTunneling(tcpSocket, client, tunnelId, U16("¶Ô·½ÒÑ¾­ÏÂÏß"));
+		tcpOut_closeTunneling(tcpSocket, client, tunnelId, U16("å¯¹æ–¹å·²ç»ä¸‹çº¿"));
 		return;
 	}
 

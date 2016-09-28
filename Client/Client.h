@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 #include <QObject>
 #include <QTcpSocket>
@@ -65,7 +65,7 @@ private:
 	struct TunnelInfo
 	{
 		TunnelStatus status = UnknownTunnelStatus;
-		int localIndex = 0;		// ±¾µØudp¶Ë¿Ú±àºÅ(1»ò2)
+		int localIndex = 0;		// æœ¬åœ°udpç«¯å£ç¼–å·(1æˆ–2)
 		QString peerUserName;
 		QHostAddress peerAddress;
 		quint16 peerPort = 0;
@@ -226,7 +226,7 @@ private:
 	bool m_isPublicNetwork = false;
 	QHostAddress m_localPublicAddress;
 
-	QStringList m_lstGatewayInfo;		// ÄÚÍøÇé¿öÏÂ£¬´æ´¢Íø¹ØĞÅÏ¢£¬List<"Íø¹ØIP Íø¹ØMAC">
+	QStringList m_lstGatewayInfo;		// å†…ç½‘æƒ…å†µä¸‹ï¼Œå­˜å‚¨ç½‘å…³ä¿¡æ¯ï¼ŒList<"ç½‘å…³IP ç½‘å…³MAC">
 
 	quint16 m_udp2UpnpPort = 0;
 

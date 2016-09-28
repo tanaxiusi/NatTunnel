@@ -1,4 +1,4 @@
-/*
+﻿/*
 
 This is an implementation of the AES128 algorithm, specifically ECB and CBC mode.
 

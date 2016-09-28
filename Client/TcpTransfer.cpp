@@ -1,4 +1,4 @@
-#include "TcpTransfer.h"
+ï»¿#include "TcpTransfer.h"
 #include <QCryptographicHash>
 #include "Other.h"
 
@@ -326,7 +326,7 @@ void TcpTransfer::input_Ack(quint32 socketIndex, quint8 direction, int writtenSi
 {
 	if (direction == 0 && socketIndex == 0)
 	{
-		// ÕâÊÇÈ«¾ÖÁ÷¿Ø
+		// è¿™æ˜¯å…¨å±€æµæ§
 		m_globalWaitingSize -= writtenSize;
 		if (m_globalWaitingSize < 0)
 		{
@@ -477,7 +477,7 @@ int TcpTransfer::readAndSendSocketOut(SocketOutInfo & socketOut)
 		if (singleMaxSendSize <= 0)
 			break;
 		const int globalMaxSendSize = GlobalMaxWaitingSize - m_globalWaitingSize;
-		// Èç¹ûÈ«¾ÖÁ÷¿ØÔÊĞí·¢ËÍµÄÊıÁ¿±È×ÔÉíÁ÷¿Ø¸üÉÙ£¬²¢ÇÒavailableSize´óÓÚÈ«¾ÖÁ÷¿ØÔÊĞíµÄÊıÁ¿£¬¾ÍÈÏÎªÕâ´ÎµÄÏŞÖÆ·¢ËÍÊÇÈ«¾ÖÁ÷¿Øµ¼ÖÂµÄ
+		// å¦‚æœå…¨å±€æµæ§å…è®¸å‘é€çš„æ•°é‡æ¯”è‡ªèº«æµæ§æ›´å°‘ï¼Œå¹¶ä¸”availableSizeå¤§äºå…¨å±€æµæ§å…è®¸çš„æ•°é‡ï¼Œå°±è®¤ä¸ºè¿™æ¬¡çš„é™åˆ¶å‘é€æ˜¯å…¨å±€æµæ§å¯¼è‡´çš„
 		if (globalMaxSendSize < singleMaxSendSize && availableSize > globalMaxSendSize)
 		{
 			SocketIdentifier socketIdentifier(socketOut.socketIndex, Direction_Out);
@@ -497,7 +497,7 @@ int TcpTransfer::readAndSendSocketOut(SocketOutInfo & socketOut)
 		output_DataStream(socketOut.socketIndex, Direction_Out, bytes.constData(), bytes.size());
 		totalSendSize += bytes.size();
 
-		// ·¢ËÍÊıÁ¿Ğ¡ÓÚµ¥´Î×î´ó£¬ËµÃ÷ÒªÃ´È«²¿·¢Íê£¬ÒªÃ´ÊÜµ½ÁËÁ÷¿Ø
+		// å‘é€æ•°é‡å°äºå•æ¬¡æœ€å¤§ï¼Œè¯´æ˜è¦ä¹ˆå…¨éƒ¨å‘å®Œï¼Œè¦ä¹ˆå—åˆ°äº†æµæ§
 		if(bytes.size() < DataStreamMaxDataSize)
 			break;
 	}
@@ -554,7 +554,7 @@ void TcpTransfer::onSocketInStateChanged(QAbstractSocket::SocketState state)
 		return;
 	if (state == QAbstractSocket::UnconnectedState)
 	{
-		// UnconnectedState×´Ì¬±íÊ¾Á¬½ÓÊ§°Ü»ò¶Ï¿ªÁ¬½Ó
+		// UnconnectedStateçŠ¶æ€è¡¨ç¤ºè¿æ¥å¤±è´¥æˆ–æ–­å¼€è¿æ¥
 		const quint32 peerSocketIndex = tcpSocket->property("peerSocketIndex").toLongLong();
 		if (SocketInInfo * socketIn = findSocketIn(peerSocketIndex))
 		{

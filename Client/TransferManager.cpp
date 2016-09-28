@@ -1,4 +1,4 @@
-#include "TransferManager.h"
+﻿#include "TransferManager.h"
 
 static const int _typeId_QListTransferInfo = qRegisterMetaType<QList<TransferInfo> >("QList<TransferInfo>");
 

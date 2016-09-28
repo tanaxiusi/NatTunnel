@@ -1,4 +1,4 @@
-#include "MainDlg.h"
+ï»¿#include "MainDlg.h"
 #include <QTcpServer>
 #include <QSettings>
 #include <QMessageBox>
@@ -11,7 +11,7 @@ MainDlg::MainDlg(QWidget *parent)
 {
 	ui.setupUi(this);
 
-	m_labelStatus = new QLabel(U16("Î´Á¬½Ó"));
+	m_labelStatus = new QLabel(U16("æœªè¿æ¥"));
 	m_labelNatType = new QLabel(U16(" "));
 	m_labelUpnp = new QLabel(U16(" "));
 
@@ -25,7 +25,7 @@ MainDlg::MainDlg(QWidget *parent)
 
 	m_tableModel = new QStandardItemModel(ui.tableView);
 	ui.tableView->setModel(m_tableModel);
-	m_tableModel->setHorizontalHeaderLabels(U16("tunnelId,¶Ô·½ÓÃ»§Ãû,¶Ô·½IPµØÖ·,×´Ì¬,²Ù×÷").split(",", QString::SkipEmptyParts));
+	m_tableModel->setHorizontalHeaderLabels(U16("tunnelId,å¯¹æ–¹ç”¨æˆ·å,å¯¹æ–¹IPåœ°å€,çŠ¶æ€,æ“ä½œ").split(",", QString::SkipEmptyParts));
 	ui.tableView->setColumnHidden(0, true);
 	ui.tableView->setColumnHidden(2, true);
 	ui.tableView->setColumnWidth(1, 100);
@@ -129,8 +129,8 @@ void MainDlg::stop()
 void MainDlg::leadWindowsFirewallPopup()
 {
 #if defined(Q_OS_WIN)
-	// ´´½¨Ò»¸öTcpServer£¬ÕâÑùWindows·À»ğÇ½»áµ¯³öÌáÊ¾£¬Òıµ¼ÓÃ»§µã»÷¼ÓÈë°×Ãûµ¥
-	// Èç¹û²»¼ÓÈë°×Ãûµ¥£¬UdpÊÕ²»µ½Î´·¢¹ıµØÖ·´«À´µÄÊı¾İ°ü
+	// åˆ›å»ºä¸€ä¸ªTcpServerï¼Œè¿™æ ·Windowsé˜²ç«å¢™ä¼šå¼¹å‡ºæç¤ºï¼Œå¼•å¯¼ç”¨æˆ·ç‚¹å‡»åŠ å…¥ç™½åå•
+	// å¦‚æœä¸åŠ å…¥ç™½åå•ï¼ŒUdpæ”¶ä¸åˆ°æœªå‘è¿‡åœ°å€ä¼ æ¥çš„æ•°æ®åŒ…
 	static bool invoked = false;
 	if (invoked)
 		return;
@@ -148,12 +148,12 @@ void MainDlg::closeEvent(QCloseEvent *event)
 }
 void MainDlg::onConnected()
 {
-	m_labelStatus->setText(U16("ÕıÔÚµÇÂ¼"));
+	m_labelStatus->setText(U16("æ­£åœ¨ç™»å½•"));
 }
 
 void MainDlg::onDisconnected()
 {	
-	m_labelStatus->setText(U16("¶Ï¿ª"));
+	m_labelStatus->setText(U16("æ–­å¼€"));
 	m_labelNatType->clear();
 	m_labelUpnp->clear();
 	ui.btnTunnel->setEnabled(false);
@@ -163,18 +163,18 @@ void MainDlg::onDisconnected()
 void MainDlg::onLogined()
 {
 	onBtnRefreshOnlineUser();
-	m_labelStatus->setText(U16("µÇÂ¼³É¹¦"));
-	m_labelNatType->setText(U16("ÕıÔÚ¼ì²âNATÀàĞÍ"));
+	m_labelStatus->setText(U16("ç™»å½•æˆåŠŸ"));
+	m_labelNatType->setText(U16("æ­£åœ¨æ£€æµ‹NATç±»å‹"));
 }
 
 void MainDlg::onLoginFailed(QString userName, QString msg)
 {
 	QString tipText;
 	if (userName.isEmpty())
-		tipText = U16("ÌîĞ´Ò»¸öÓÃ»§Ãû");
+		tipText = U16("å¡«å†™ä¸€ä¸ªç”¨æˆ·å");
 	else
-		tipText = U16("%1µÇÂ¼Ê§°Ü£º%2£¬ÌîĞ´Ò»¸öĞÂÓÃ»§Ãû").arg(userName).arg(msg);
-	const QString newUserName = QInputDialog::getText(this, U16("ÌîĞ´ÓÃ»§Ãû"), tipText);
+		tipText = U16("%1ç™»å½•å¤±è´¥ï¼š%2ï¼Œå¡«å†™ä¸€ä¸ªæ–°ç”¨æˆ·å").arg(userName).arg(msg);
+	const QString newUserName = QInputDialog::getText(this, U16("å¡«å†™ç”¨æˆ·å"), tipText);
 	if (newUserName.isNull())
 	{
 		this->close();
@@ -201,22 +201,22 @@ void MainDlg::onClientUpnpStatusChanged(UpnpStatus upnpStatus)
 	switch (upnpStatus)
 	{
 	case UpnpUnknownStatus:
-		text = U16("UpnpÎ´Öª×´Ì¬");
+		text = U16("UpnpæœªçŸ¥çŠ¶æ€");
 		break;
 	case UpnpDiscovering:
-		text = U16("ÕıÔÚ¼ì²âupnpÖ§³Ö");
+		text = U16("æ­£åœ¨æ£€æµ‹upnpæ”¯æŒ");
 		break;
 	case UpnpUnneeded:
-		text = U16("µ±Ç°ÍøÂç»·¾³ÎŞĞèUpnp");
+		text = U16("å½“å‰ç½‘ç»œç¯å¢ƒæ— éœ€Upnp");
 		break;
 	case UpnpQueryingExternalAddress:
-		text = U16("UpnpÕıÔÚ²éÑ¯¹«ÍøµØÖ·");
+		text = U16("Upnpæ­£åœ¨æŸ¥è¯¢å…¬ç½‘åœ°å€");
 		break;
 	case UpnpOk:
-		text = U16("Upnp¿ÉÓÃ");
+		text = U16("Upnpå¯ç”¨");
 		break;
 	case UpnpFailed:
-		text = U16("Upnp²»¿ÉÓÃ");
+		text = U16("Upnpä¸å¯ç”¨");
 		break;
 	default:
 		break;
@@ -263,13 +263,13 @@ void MainDlg::onReplyTryTunneling(QString peerUserName, bool canTunnel, bool nee
 {
 	if (!canTunnel)
 	{
-		QMessageBox::warning(this, U16("Á¬½ÓÊ§°Ü"), failReason);
+		QMessageBox::warning(this, U16("è¿æ¥å¤±è´¥"), failReason);
 		ui.btnTunnel->setEnabled(true);
 		return;
 	}
 
 	insertTopUserName(peerUserName);
-	const QString peerLocalPassword = QInputDialog::getText(this, U16("Á¬½Ó"), U16("ÊäÈë %1 µÄ±¾µØÃÜÂë").arg(peerUserName), QLineEdit::Password);
+	const QString peerLocalPassword = QInputDialog::getText(this, U16("è¿æ¥"), U16("è¾“å…¥ %1 çš„æœ¬åœ°å¯†ç ").arg(peerUserName), QLineEdit::Password);
 	if (peerLocalPassword.isNull())
 	{
 		ui.btnTunnel->setEnabled(true);
@@ -284,29 +284,29 @@ void MainDlg::onReplyReadyTunneling(int requestId, int tunnelId, QString peerUse
 {
 	if (tunnelId == 0)
 	{
-		QMessageBox::warning(this, U16("Á¬½ÓÊ§°Ü"), U16("Á¬½ÓÊ§°Ü"));
+		QMessageBox::warning(this, U16("è¿æ¥å¤±è´¥"), U16("è¿æ¥å¤±è´¥"));
 		return;
 	}
 
 	ui.btnTunnel->setEnabled(true);
-	updateTableRow(tunnelId, peerUserName, "", U16("×¼±¸ÖĞ"));
+	updateTableRow(tunnelId, peerUserName, "", U16("å‡†å¤‡ä¸­"));
 }
 
 void MainDlg::onTunnelStarted(int tunnelId, QString peerUserName, QHostAddress peerAddress)
 {
-	updateTableRow(tunnelId, peerUserName, peerAddress.toString(), U16("¿ªÊ¼Á¬½Ó"));
+	updateTableRow(tunnelId, peerUserName, peerAddress.toString(), U16("å¼€å§‹è¿æ¥"));
 	ui.statusBar->showMessage("");
 }
 
 void MainDlg::onTunnelHandShaked(int tunnelId)
 {
-	updateTableRow(tunnelId, QString(), QString(), U16("Á¬½Ó³É¹¦"));
+	updateTableRow(tunnelId, QString(), QString(), U16("è¿æ¥æˆåŠŸ"));
 }
 
 void MainDlg::onTunnelClosed(int tunnelId, QString peerUserName, QString reason)
 {
 	deleteTableRow(tunnelId);
-	ui.statusBar->showMessage(peerUserName + U16(" Á¬½Ó¶Ï¿ª ") + reason);
+	ui.statusBar->showMessage(peerUserName + U16(" è¿æ¥æ–­å¼€ ") + reason);
 }
 
 void MainDlg::onBtnCloseTunneling()
@@ -331,7 +331,7 @@ void MainDlg::onBtnAddTransfer()
 		return;
 
 	QString originalText;
-	QString inputText = QInputDialog::getMultiLineText(this, U16("Ìí¼Ó×ª·¢"), U16("Ã¿ĞĞÒ»¸ö£¬¸ñÊ½£º[±¾µØ¶Ë¿ÚºÅ] [Ô¶³Ì¶Ë¿ÚºÅ] [Ô¶³ÌIPµØÖ·](²»ÌîÔòÄ¬ÈÏÎª127.0.0.1)"), originalText);
+	QString inputText = QInputDialog::getMultiLineText(this, U16("æ·»åŠ è½¬å‘"), U16("æ¯è¡Œä¸€ä¸ªï¼Œæ ¼å¼ï¼š[æœ¬åœ°ç«¯å£å·] [è¿œç¨‹ç«¯å£å·] [è¿œç¨‹IPåœ°å€](ä¸å¡«åˆ™é»˜è®¤ä¸º127.0.0.1)"), originalText);
 	if (inputText.isNull())
 		return;
 
@@ -339,7 +339,7 @@ void MainDlg::onBtnAddTransfer()
 	QList<TransferInfo> lstTransferInfo = parseTransferInfoList(inputText, &errorMsg);
 	if (errorMsg.length() > 0)
 	{
-		QMessageBox::warning(this, U16("Ìí¼Ó×ª·¢"), errorMsg);
+		QMessageBox::warning(this, U16("æ·»åŠ è½¬å‘"), errorMsg);
 		return;
 	}
 
@@ -358,7 +358,7 @@ void MainDlg::onBtnAddTransfer()
 		for (TransferInfo & transferInfo : lstFailed)
 			lineList << QString("%1 %2 %3").arg(transferInfo.localPort).arg(transferInfo.remoteAddress.toString()).arg(transferInfo.remotePort);
 
-		QMessageBox::warning(this, U16("Ìí¼Ó×ª·¢"), lineList.join("\n") + U16("\n%1¸öÌí¼ÓÊ§°Ü").arg(lstFailed.size()));
+		QMessageBox::warning(this, U16("æ·»åŠ è½¬å‘"), lineList.join("\n") + U16("\n%1ä¸ªæ·»åŠ å¤±è´¥").arg(lstFailed.size()));
 	}
 
 }
@@ -381,7 +381,7 @@ QList<TransferInfo> MainDlg::parseTransferInfoList(QString text, QString * outEr
 		QStringList fieldList = line.split(" ", QString::SkipEmptyParts);
 		if (fieldList.size() != 2 && fieldList.size() != 3)
 		{
-			*outErrorMsg = U16("µÚ%1ĞĞ ÎŞĞ§µÄ¸ñÊ½£º'%2'").arg(i + 1).arg(line);
+			*outErrorMsg = U16("ç¬¬%1è¡Œ æ— æ•ˆçš„æ ¼å¼ï¼š'%2'").arg(i + 1).arg(line);
 			return QList<TransferInfo>();
 		}
 		const QString localPortText = fieldList[0];
@@ -395,17 +395,17 @@ QList<TransferInfo> MainDlg::parseTransferInfoList(QString text, QString * outEr
 
 		if (!localPortOk || localPort <= 0 || localPort > 65535)
 		{
-			*outErrorMsg = U16("µÚ%1ĞĞ ÎŞĞ§µÄ±¾µØ¶Ë¿ÚºÅ '%2'£º").arg(i + 1).arg(localPortText);
+			*outErrorMsg = U16("ç¬¬%1è¡Œ æ— æ•ˆçš„æœ¬åœ°ç«¯å£å· '%2'ï¼š").arg(i + 1).arg(localPortText);
 			return QList<TransferInfo>();
 		}
 		if (!remotePortOk || remotePort <= 0 || remotePort > 65535)
 		{
-			*outErrorMsg = U16("µÚ%1ĞĞ ÎŞĞ§µÄÔ¶³Ì¶Ë¿ÚºÅ '%2'£º").arg(i + 1).arg(remotePortText);
+			*outErrorMsg = U16("ç¬¬%1è¡Œ æ— æ•ˆçš„è¿œç¨‹ç«¯å£å· '%2'ï¼š").arg(i + 1).arg(remotePortText);
 			return QList<TransferInfo>();
 		}
 		if (remoteAddressText.isNull())
 		{
-			*outErrorMsg = U16("µÚ%1ĞĞ ÎŞĞ§µÄÔ¶³ÌIPµØÖ· '%2'£º").arg(i + 1).arg(remoteAddressText);
+			*outErrorMsg = U16("ç¬¬%1è¡Œ æ— æ•ˆçš„è¿œç¨‹IPåœ°å€ '%2'ï¼š").arg(i + 1).arg(remoteAddressText);
 			return QList<TransferInfo>();
 		}
 
@@ -429,8 +429,8 @@ void MainDlg::updateTableRow(int tunnelId, QString peerUsername, QString peerAdd
 			<< new QStandardItem(status) << new QStandardItem();
 		m_tableModel->appendRow(lstItem);
 
-		QPushButton * btnCloseTunneling = new QPushButton(U16("¶Ï¿ª"));
-		QPushButton * btnAddTransfer = new QPushButton(U16("Ìí¼Ó×ª·¢"));
+		QPushButton * btnCloseTunneling = new QPushButton(U16("æ–­å¼€"));
+		QPushButton * btnAddTransfer = new QPushButton(U16("æ·»åŠ è½¬å‘"));
 		btnCloseTunneling->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding));
 		btnCloseTunneling->setProperty("tunnelId", tunnelId);
 		btnAddTransfer->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding));

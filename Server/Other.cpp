@@ -1,4 +1,4 @@
-#include "Other.h"
+﻿#include "Other.h"
 #include "crc32.h"
 
 

@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 #include <QObject>
 #include <QTcpSocket>
@@ -27,10 +27,10 @@ private:
 
 	struct SocketInInfo
 	{
-		quint32 peerSocketIndex = 0;		// ¶ÔÃæµÄsocketIndex
+		quint32 peerSocketIndex = 0;		// å¯¹é¢çš„socketIndex
 		QTcpSocket * obj = nullptr;
 		QByteArray cachedData;
-		int peerWaitingSize = 0;				// µÈ´ı¶ÔÃæĞ´ÈëµÄ×Ö½ÚÊı
+		int peerWaitingSize = 0;				// ç­‰å¾…å¯¹é¢å†™å…¥çš„å­—èŠ‚æ•°
 	};
 	struct SocketOutInfo
 	{
@@ -116,13 +116,13 @@ private slots:
 private:
 	QByteArray m_buffer;
 	quint32 m_nextSocketIndex = 1;
-	QMap<quint16, QTcpServer*> m_mapTcpServer;				// <localPort,...> ×ª³öËíµÀ¼àÌı
-	QMap<quint16, Peer> m_mapTransferOut;					// <localPort,...> ×ª³öËíµÀ±¾µØ¶Ë¿Ú-¶ÔÃæµØÖ·¶Ë¿Ú
-	QMap<quint16, Peer> m_mapTransferIn;					// <localPort,...> ×ªÈëËíµÀ¶ÔÃæ¶Ë¿Ú-±¾µØµØÖ·¶Ë¿Ú
-	QMap<quint32, SocketOutInfo> m_mapSocketOut;				// <peerSocketIndex,...> ×ª³öËíµÀµÄÁ¬½Ó
-	QMap<quint32, SocketInInfo> m_mapSocketIn;				// <socketIndex,...> ×ªÈëËíµÀµÄÁ¬½Ó
-	QList<SocketIdentifier> m_lstGlobalWaitingSocket;		// ÓÉÓÚÈ«¾ÖÁ÷¿Ø±»ÆÈµÈ´ıµÄSocket
-	int m_globalWaitingSize = 0;							// È«¾ÖÁ÷¿ØµÈ´ı×Ö½ÚÊı£¬DataStreamTypeÊµ¼Ê×Ö½ÚÊı£¬²»°üº¬Frame
+	QMap<quint16, QTcpServer*> m_mapTcpServer;				// <localPort,...> è½¬å‡ºéš§é“ç›‘å¬
+	QMap<quint16, Peer> m_mapTransferOut;					// <localPort,...> è½¬å‡ºéš§é“æœ¬åœ°ç«¯å£-å¯¹é¢åœ°å€ç«¯å£
+	QMap<quint16, Peer> m_mapTransferIn;					// <localPort,...> è½¬å…¥éš§é“å¯¹é¢ç«¯å£-æœ¬åœ°åœ°å€ç«¯å£
+	QMap<quint32, SocketOutInfo> m_mapSocketOut;				// <peerSocketIndex,...> è½¬å‡ºéš§é“çš„è¿æ¥
+	QMap<quint32, SocketInInfo> m_mapSocketIn;				// <socketIndex,...> è½¬å…¥éš§é“çš„è¿æ¥
+	QList<SocketIdentifier> m_lstGlobalWaitingSocket;		// ç”±äºå…¨å±€æµæ§è¢«è¿«ç­‰å¾…çš„Socket
+	int m_globalWaitingSize = 0;							// å…¨å±€æµæ§ç­‰å¾…å­—èŠ‚æ•°ï¼ŒDataStreamTypeå®é™…å­—èŠ‚æ•°ï¼Œä¸åŒ…å«Frame
 	QTime m_lastOutTime;
 	QTimer m_timer5s;
 };

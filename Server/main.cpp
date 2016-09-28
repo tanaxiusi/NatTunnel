@@ -1,4 +1,4 @@
-
+﻿
 #include <QCoreApplication>
 #include <QFile>
 #include <QMutex>

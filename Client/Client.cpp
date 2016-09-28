@@ -1,4 +1,4 @@
-#include "Client.h"
+ï»¿#include "Client.h"
 #include <QTcpServer>
 #include "Other.h"
 #include "crc32.h"
@@ -112,7 +112,7 @@ bool Client::tryLogin()
 	if (!m_running || m_status == LoginedStatus || m_status == LoginingStatus)
 		return false;
 	if(m_userName.isEmpty())
-		emit loginFailed(m_userName, U16("ÓÃ»§ÃûÎª¿Õ"));
+		emit loginFailed(m_userName, U16("ç”¨æˆ·åä¸ºç©º"));
 	else
 		tcpOut_login(m_identifier, m_userName);
 	return true;
@@ -153,12 +153,12 @@ void Client::tryTunneling(QString peerUserName)
 		return;
 	if (peerUserName == m_userName)
 	{
-		emit replyTryTunneling(peerUserName, false, false, U16("²»ÄÜÁ¬½Ó×Ô¼º"));
+		emit replyTryTunneling(peerUserName, false, false, U16("ä¸èƒ½è¿æ¥è‡ªå·±"));
 		return;
 	}
 	if (m_kcpManager.haveUnconfirmedKcpConnection())
 	{
-		emit replyTryTunneling(peerUserName, false, false, U16("ÓëÆäËûÓÃ»§³¢ÊÔÁ¬½ÓÖĞ"));
+		emit replyTryTunneling(peerUserName, false, false, U16("ä¸å…¶ä»–ç”¨æˆ·å°è¯•è¿æ¥ä¸­"));
 		return;
 	}
 	udpOut_updateAddress();
@@ -170,7 +170,7 @@ int Client::readyTunneling(QString peerUserName, QString peerLocalPassword, bool
 	if (!m_running || !checkStatus(LoginedStatus, NatCheckFinished))
 		return 0;
 	int requestId = qrand() * 2;
-	// Ê¹ÓÃupnpÊ±£¬requestIdÎªÆæÊı£¬ÔÚ·µ»ØµÄÊ±ºò¿ÉÒÔ×òÇø·Ö
+	// ä½¿ç”¨upnpæ—¶ï¼ŒrequestIdä¸ºå¥‡æ•°ï¼Œåœ¨è¿”å›çš„æ—¶å€™å¯ä»¥æ˜¨åŒºåˆ†
 	if (useUpnp)
 		requestId++;
 	if(useUpnp)
@@ -183,7 +183,7 @@ int Client::readyTunneling(QString peerUserName, QString peerLocalPassword, bool
 
 void Client::closeTunneling(int tunnelId)
 {
-	tcpOut_closeTunneling(tunnelId, U16("Ö÷¶¯¹Ø±Õ"));
+	tcpOut_closeTunneling(tunnelId, U16("ä¸»åŠ¨å…³é—­"));
 }
 
 int Client::tunnelWrite(int tunnelId, QByteArray package)
@@ -335,7 +335,7 @@ void Client::onKcpConnectionDisconnected(int tunnelId, QString reason)
 
 	m_mapTunnelInfo.erase(iter);
 
-	tcpOut_closeTunneling(tunnelId, U16("µÈ´ı³¬Ê±"));
+	tcpOut_closeTunneling(tunnelId, U16("ç­‰å¾…è¶…æ—¶"));
 }
 
 void Client::onUpnpDiscoverFinished(bool ok)
@@ -359,7 +359,7 @@ void Client::onUpnpQueryExternalAddressFinished(QHostAddress address, bool ok, Q
 		if (isNatAddress(address))
 		{
 			m_upnpStatus = UpnpFailed;
-			emit warning(U16("Upnp·µ»ØµÄµØÖ· %2 ÈÔÈ»ÊÇÄÚÍøµØÖ·").arg(address.toString()));
+			emit warning(U16("Upnpè¿”å›çš„åœ°å€ %2 ä»ç„¶æ˜¯å†…ç½‘åœ°å€").arg(address.toString()));
 		}
 		else
 		{
@@ -367,7 +367,7 @@ void Client::onUpnpQueryExternalAddressFinished(QHostAddress address, bool ok, Q
 			setUpnpAvailable(true);
 			const QHostAddress localPublicAddress = getLocalPublicAddress();
 			if (!localPublicAddress.isNull() && !isSameHostAddress(address, localPublicAddress))
-				emit warning(U16("·şÎñÆ÷¶Ë·µ»ØµÄIPµØÖ· %1 ºÍupnp·µ»ØµÄµØÖ· %2 ²»Í¬").arg(getLocalPublicAddress().toString()).arg(address.toString()));
+				emit warning(U16("æœåŠ¡å™¨ç«¯è¿”å›çš„IPåœ°å€ %1 å’Œupnpè¿”å›çš„åœ°å€ %2 ä¸åŒ").arg(getLocalPublicAddress().toString()).arg(address.toString()));
 		}
 	}
 	else
@@ -628,9 +628,9 @@ void Client::dealUdpIn_p2p(int localIndex, QHostAddress peerAddress, quint16 pee
 
 void Client::checkFirewall()
 {
-	// Èç¹ûIP¼ì²â·¢ÏÖÊÇ¹«Íø£¬µ«ÊÇÁ÷³Ì×ßÏÂÀ´µÃ³öµÄ½áÂÛ²»ÊÇ£¬ËµÃ÷ÆäÖĞµÄudp°ü±»·À»ğÇ½À¹½ØÁË
+	// å¦‚æœIPæ£€æµ‹å‘ç°æ˜¯å…¬ç½‘ï¼Œä½†æ˜¯æµç¨‹èµ°ä¸‹æ¥å¾—å‡ºçš„ç»“è®ºä¸æ˜¯ï¼Œè¯´æ˜å…¶ä¸­çš„udpåŒ…è¢«é˜²ç«å¢™æ‹¦æˆªäº†
 	if (m_isPublicNetwork && m_natType != PublicNetwork)
-		emit warning(U16("µ±Ç°´¦ÓÚ¹«Íø»·¾³£¬µ«ÊÇ·À»ğÇ½¿ÉÄÜÀ¹½ØÁË±¾³ÌĞò"));
+		emit warning(U16("å½“å‰å¤„äºå…¬ç½‘ç¯å¢ƒï¼Œä½†æ˜¯é˜²ç«å¢™å¯èƒ½æ‹¦æˆªäº†æœ¬ç¨‹åº"));
 }
 
 void Client::addUpnpPortMapping()
@@ -655,7 +655,7 @@ void Client::deleteUpnpPortMapping()
 
 quint32 Client::getKcpMagicNumber(QString peerUserName)
 {
-	// È·±£²»Í¬ÓÃ»§¼äÁ¬½ÓµÄkcpÌØÕ÷Âë²»Í¬
+	// ç¡®ä¿ä¸åŒç”¨æˆ·é—´è¿æ¥çš„kcpç‰¹å¾ç ä¸åŒ
 	QStringList lst = { m_userName, peerUserName };
 	if (lst[0] > lst[1])
 		qSwap(lst[0], lst[1]);
@@ -667,7 +667,7 @@ void Client::createKcpConnection(int tunnelId, TunnelInfo & tunnel)
 {
 	if (tunnel.peerPort == 0 && m_natType == FullOrRestrictedConeNat)
 	{
-		// peerPort==0ËµÃ÷¶Ô·½ÊÇSymmetricNat£¬Èç¹û×Ô¼ºÊÇRestrictedConeNat£¬ĞèÒªÏÈ·¢¸ö°ü¸ø¶Ô·½IPËæ»ú¶Ë¿Ú
+		// peerPort==0è¯´æ˜å¯¹æ–¹æ˜¯SymmetricNatï¼Œå¦‚æœè‡ªå·±æ˜¯RestrictedConeNatï¼Œéœ€è¦å…ˆå‘ä¸ªåŒ…ç»™å¯¹æ–¹IPéšæœºç«¯å£
 		QUdpSocket * udpSocket = getUdpSocket(tunnel.localIndex);
 		if (udpSocket)
 			udpSocket->writeDatagram("~", tunnel.peerAddress, 25000 + rand());
@@ -968,11 +968,11 @@ void Client::tcpIn_startTunneling(int tunnelId, QString localPassword, QString p
 	{
 		QString errorString;
 		if (localPasswordError)
-			errorString = U16("±¾µØÃÜÂë´íÎó");
+			errorString = U16("æœ¬åœ°å¯†ç é”™è¯¯");
 		else if (upnpError)
-			errorString = U16("¶Ô·½²»Ö§³Öupnp");
+			errorString = U16("å¯¹æ–¹ä¸æ”¯æŒupnp");
 		else if (haveUnconfirmedKcpConnection)
-			errorString = U16("¶Ô·½ÓëÆäËûÓÃ»§³¢ÊÔÁ¬½ÓÖĞ");
+			errorString = U16("å¯¹æ–¹ä¸å…¶ä»–ç”¨æˆ·å°è¯•è¿æ¥ä¸­");
 		
 		tcpOut_startTunneling(tunnelId, false, 0, errorString);
 	}

@@ -1,4 +1,4 @@
-#include "Peer.h"
+﻿#include "Peer.h"
 
 Peer::Peer(QHostAddress address, quint16 port)
 {

@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 #include <QObject>
 #include <QTcpServer>
@@ -57,9 +57,9 @@ class ClientManager : public QObject
 	struct TunnelInfo
 	{
 		TunnelStatus status = UnknownTunnelStatus;
-		QString clientAUserName;		// AÎª·¢Æğ·½£¬BÎª½ÓÊÕ·½£¬ËäÈ»ÓĞËùÇø·Ö£¬µ«¹¦ÄÜÉÏ¶ÔµÈ
+		QString clientAUserName;		// Aä¸ºå‘èµ·æ–¹ï¼ŒBä¸ºæ¥æ”¶æ–¹ï¼Œè™½ç„¶æœ‰æ‰€åŒºåˆ†ï¼Œä½†åŠŸèƒ½ä¸Šå¯¹ç­‰
 		QString clientBUserName;
-		quint16 clientAUdp2UpnpPort = 0;	// Èç¹û¿ªÆôÁËupnp£¬Õâ¸ö¶Ë¿ÚºÅ·Ç0
+		quint16 clientAUdp2UpnpPort = 0;	// å¦‚æœå¼€å¯äº†upnpï¼Œè¿™ä¸ªç«¯å£å·é0
 		quint16 clientBUdp2UpnpPort = 0;
 	};
 
@@ -102,9 +102,9 @@ private:
 	QString getBoundIdentifier(QString userName);
 	bool checkCanTunnel(ClientInfo & localClient, QString peerUserName, bool * outLocalNeedUpnp, bool * outPeerNeedUpnp, QString * outFailReason);
 	bool isExistTunnel(QString userName1, QString userName2);
-	// ¸ù¾İClientÀàĞÍºÍ¿ÉÄÜ¿ÉÓÃµÄupnp¶Ë¿ÚÀ´È·¶¨Íâ²¿Á¬½Ó¶Ë¿Ú£¬
+	// æ ¹æ®Clientç±»å‹å’Œå¯èƒ½å¯ç”¨çš„upnpç«¯å£æ¥ç¡®å®šå¤–éƒ¨è¿æ¥ç«¯å£ï¼Œ
 	quint16 getExternalTunnelPort(ClientInfo & client, quint16 upnpPort);
-	// ¸ù¾İºÍ¶ÔÃæµÄÄÚÍø/¹«ÍøÀàĞÍÀ´»ñÈ¡Client×îÓÅµÄÁ¬½Ó¶Ë¿Ú
+	// æ ¹æ®å’Œå¯¹é¢çš„å†…ç½‘/å…¬ç½‘ç±»å‹æ¥è·å–Clientæœ€ä¼˜çš„è¿æ¥ç«¯å£
 	void getBetterTunnelAddressPort(ClientInfo & client, ClientInfo & peerClient, quint16 clientUpnpPort, QHostAddress * outAddress, quint16 * outPort);
 	int getNextTunnelId();
 

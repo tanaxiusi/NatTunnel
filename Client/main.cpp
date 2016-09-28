@@ -1,4 +1,4 @@
-#include "MainDlg.h"
+﻿#include "MainDlg.h"
 #include <QApplication>
 #include <QFile>
 #include <QMutex>
