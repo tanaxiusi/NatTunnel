@@ -114,12 +114,19 @@ void ClientManager::onTcpDisconnected()
 	QTcpSocket * tcpSocket = (QTcpSocket*)sender();
 	if (!tcpSocket)
 		return;
+
+	ClientInfo & client = m_mapClientInfo[tcpSocket];
 	
-	const QString userName = m_mapClientInfo.value(tcpSocket).userName;
+	const QString userName = client.userName;
+	const QString identifier = client.identifier;
+
 	clearUserTunnel(userName, U16("对方下线"));
 
 	if (userName.length() > 0)
 		m_mapUserTcpSocket.remove(userName);
+	if (identifier.length() > 0)
+		m_lstLoginedIdentifier.remove(identifier);
+
 	m_mapClientInfo.remove(tcpSocket);
 	m_lstNeedSendUdp.remove(tcpSocket);
 
@@ -246,9 +253,27 @@ bool ClientManager::checkStatus(QTcpSocket & tcpSocket, ClientInfo & client, Cli
 	return client.status == correctStatus && client.natStatus == correctNatStatus;
 }
 
+bool ClientManager::checkStatus(QTcpSocket & tcpSocket, ClientInfo & client, ClientStatus correctStatus)
+{
+	return client.status == correctStatus;
+}
+
 bool ClientManager::checkStatusAndDisconnect(QTcpSocket & tcpSocket, ClientInfo & client, QString functionName, ClientStatus correctStatus, NatCheckStatus correctNatStatus)
 {
 	if (checkStatus(tcpSocket, client, correctStatus, correctNatStatus))
+	{
+		return true;
+	}
+	else
+	{
+		disconnectClient(tcpSocket, client, functionName + " status error");
+		return false;
+	}
+}
+
+bool ClientManager::checkStatusAndDisconnect(QTcpSocket & tcpSocket, ClientInfo & client, QString functionName, ClientStatus correctStatus)
+{
+	if (checkStatus(tcpSocket, client, correctStatus))
 	{
 		return true;
 	}
@@ -316,6 +341,11 @@ QString ClientManager::getBoundUserName(QString identifier)
 			return iter.key();
 	}
 	return QString();
+}
+
+QString ClientManager::getBoundIdentifier(QString userName)
+{
+	return m_mapUserNameIdentifier.value(userName);
 }
 
 bool ClientManager::checkCanTunnel(ClientInfo & localClient, QString peerUserName, bool * outLocalNeedUpnp, bool * outPeerNeedUpnp, QString * outFailReason)
@@ -526,6 +556,8 @@ void ClientManager::dealTcpIn(QByteArray line, QTcpSocket & tcpSocket, ClientInf
 		tcpIn_checkNatStep2Type1(tcpSocket, client, (NatType)argument.value("natType").toInt());
 	else if (type == "upnpAvailability")
 		tcpIn_upnpAvailability(tcpSocket, client, argument.value("on").toInt() == 1);
+	else if (type == "refreshOnlineUser")
+		tcpIn_refreshOnlineUser(tcpSocket, client);
 	else if (type == "tryTunneling")
 		tcpIn_tryTunneling(tcpSocket, client, argument.value("peerUserName"));
 	else if (type == "readyTunneling")
@@ -558,7 +590,7 @@ void ClientManager::dealUdpIn(int index, const QByteArray & line, QHostAddress h
 	if (iter == m_mapClientInfo.end())
 		return;
 
-	if (identifier != m_mapUserNameIdentifier.value(userName))
+	if (identifier != getBoundIdentifier(userName))
 		return;
 
 	ClientInfo & client = *iter;
@@ -600,22 +632,23 @@ void ClientManager::tcpIn_login(QTcpSocket & tcpSocket, ClientInfo & client, QSt
 	QString msg;
 	if (login(tcpSocket, client, identifier, userName, &msg))
 	{
-		tcpOut_login(tcpSocket, client, true, msg, m_udpServer1.localPort(), m_udpServer2.localPort());
+		tcpOut_login(tcpSocket, client, true, userName, msg, m_udpServer1.localPort(), m_udpServer2.localPort());
 		client.natStatus = Step1_1WaitingForClient1;
 		qDebug() << QString("login ok, userName=%1, from %2").arg(userName).arg(getSocketPeerDescription(&tcpSocket));
 	}
 	else
 	{
-		tcpOut_login(tcpSocket, client, false, msg);
+		tcpOut_login(tcpSocket, client, false, userName, msg);
 		qDebug() << QString("login failed, userName=%1, from %2, reason=%3")
 			.arg(userName).arg(getSocketPeerDescription(&tcpSocket)).arg(msg);
 	}
 }
 
-void ClientManager::tcpOut_login(QTcpSocket & tcpSocket, ClientInfo & client, bool loginOk, QString msg, quint16 serverUdpPort1, quint16 serverUdpPort2)
+void ClientManager::tcpOut_login(QTcpSocket & tcpSocket, ClientInfo & client, bool loginOk, QString userName, QString msg, quint16 serverUdpPort1, quint16 serverUdpPort2)
 {
 	QByteArrayMap argument;
 	argument["loginOk"] = loginOk ? "1" : "0";
+	argument["userName"] = userName.toUtf8();
 	argument["msg"] = msg.toUtf8();
 	if (loginOk)
 	{
@@ -632,14 +665,25 @@ bool ClientManager::login(QTcpSocket & tcpSocket, ClientInfo & client, QString i
 		*outMsg = U16("已经登录");
 		return false;
 	}
-	const bool validUserName = (userName.length() >= 4 && userName.length() <= 20 && generalNameCheck(userName));
+	if (m_lstLoginedIdentifier.contains(identifier))
+	{
+		*outMsg = U16("该识别码已经登录");
+		return false;
+	}
+	const bool validUserNameLength = (userName.length() >= 4 && userName.length() <= 20);
+	if (!validUserNameLength)
+	{
+		*outMsg = U16("用户名长度必须是4-20个字符");
+		return false;
+	}
+	const bool validUserName = generalNameCheck(userName);
 	if (!validUserName)
 	{
-		*outMsg = U16("指定的用户名不合法");
+		*outMsg = U16("用户名不得包含特殊符号");
 		return false;
 	}
 	// 如果期望用户名已经绑定了其他identifier，就不允许使用
-	const QString boundIdentifier = m_mapUserNameIdentifier.value(userName);
+	const QString boundIdentifier = getBoundIdentifier(userName);
 	if (boundIdentifier.length() > 0 && boundIdentifier != identifier)
 	{
 		*outMsg = U16("指定的用户名已经被使用");
@@ -662,8 +706,10 @@ bool ClientManager::login(QTcpSocket & tcpSocket, ClientInfo & client, QString i
 	Q_ASSERT(m_mapUserNameIdentifier.value(userName) == identifier);
 
 	client.status = LoginedStatus;
+	client.identifier = identifier;
 	client.userName = userName;
 	m_mapUserTcpSocket[userName] = &tcpSocket;
+	m_lstLoginedIdentifier.insert(identifier);
 	*outMsg = U16("登录成功");
 	return true;
 }
@@ -788,6 +834,20 @@ void ClientManager::udpIn_updateAddress(int index, QTcpSocket & tcpSocket, Clien
 
 	client.udpHostAddress = clientUdp1HostAddress;
 	client.udp1Port1 = clientUdp1Port1;
+}
+
+void ClientManager::tcpIn_refreshOnlineUser(QTcpSocket & tcpSocket, ClientInfo & client)
+{
+	if (!checkStatusAndDisconnect(tcpSocket, client, "tcpIn_refreshOnlineUser", LoginedStatus))
+		return;
+	tcpOut_refreshOnlineUser(tcpSocket, client, m_mapUserTcpSocket.keys().join(","));
+}
+
+void ClientManager::tcpOut_refreshOnlineUser(QTcpSocket & tcpSocket, ClientInfo & client, QString onlineUser)
+{
+	QByteArrayMap argument;
+	argument["onlineUser"] = onlineUser.toUtf8();
+	sendTcp(tcpSocket, client, "refreshOnlineUser", argument);
 }
 
 void ClientManager::tcpIn_tryTunneling(QTcpSocket & tcpSocket, ClientInfo & client, QString peerUserName)
@@ -965,4 +1025,5 @@ void ClientManager::tcpOut_closeTunneling(QTcpSocket & tcpSocket, ClientInfo & c
 	argument["reason"] = reason.toUtf8();
 	sendTcp(tcpSocket, client, "closeTunneling", argument);
 }
+
 

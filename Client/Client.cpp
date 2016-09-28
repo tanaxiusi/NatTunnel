@@ -112,7 +112,7 @@ bool Client::tryLogin()
 	if (!m_running || m_status == LoginedStatus || m_status == LoginingStatus)
 		return false;
 	if(m_userName.isEmpty())
-		emit loginFailed(U16("用户名为空"));
+		emit loginFailed(m_userName, U16("用户名为空"));
 	else
 		tcpOut_login(m_identifier, m_userName);
 	return true;
@@ -138,6 +138,13 @@ void Client::setUpnpAvailable(bool upnpAvailability)
 		return;
 	m_upnpAvailability = upnpAvailability;
 	tcpOut_upnpAvailability(upnpAvailability);
+}
+
+void Client::refreshOnlineUser()
+{
+	if (!m_running)
+		return;
+	tcpOut_refreshOnlineUser();
 }
 
 void Client::tryTunneling(QString peerUserName)
@@ -453,6 +460,8 @@ bool Client::refreshIdentifier()
 		return false;
 	QString hardwareAddress = getNetworkInterfaceHardwareAddress(getLocalAddress()).toLower();
 	hardwareAddress.remove('-');
+	if (hardwareAddress.isEmpty())
+		hardwareAddress = "000000000000";
 	m_identifier = hardwareAddress + "-" + m_randomIdentifierSuffix;
 	return true;
 }
@@ -462,9 +471,27 @@ bool Client::checkStatus(ClientStatus correctStatus, NatCheckStatus correctNatSt
 	return m_status == correctStatus && m_natStatus == correctNatStatus;
 }
 
+bool Client::checkStatus(ClientStatus correctStatus)
+{
+	return m_status == correctStatus;
+}
+
 bool Client::checkStatusAndDisconnect(QString functionName, ClientStatus correctStatus, NatCheckStatus correctNatStatus)
 {
 	if (checkStatus(correctStatus, correctNatStatus))
+	{
+		return true;
+	}
+	else
+	{
+		disconnectServer(functionName + " status error");
+		return false;
+	}
+}
+
+bool Client::checkStatusAndDisconnect(QString functionName, ClientStatus correctStatus)
+{
+	if (checkStatus(correctStatus))
 	{
 		return true;
 	}
@@ -550,10 +577,12 @@ void Client::dealTcpIn(QByteArray line)
 	else if (type == "hello")
 		tcpIn_hello(argument.value("serverName"), QHostAddress((QString)argument.value("clientAddress")));
 	else if (type == "login")
-		tcpIn_login(argument.value("loginOk").toInt() == 1, argument.value("msg"),
+		tcpIn_login(argument.value("loginOk").toInt() == 1, argument.value("userName"), argument.value("msg"),
 			argument.value("serverUdpPort1").toInt(), argument.value("serverUdpPort2").toInt());
 	else if (type == "checkNatStep2Type2")
 		tcpIn_checkNatStep2Type2((NatType)argument.value("natType").toInt());
+	else if (type == "refreshOnlineUser")
+		tcpIn_refreshOnlineUser(argument.value("onlineUser"));
 	else if (type == "tryTunneling")
 		tcpIn_tryTunneling(argument.value("peerUserName"), argument.value("canTunnel").toInt() == 1,
 			argument.value("needUpnp").toInt() == 1, argument.value("failReason"));
@@ -679,7 +708,7 @@ void Client::tcpOut_login(QString identifier, QString userName)
 	m_status = LoginingStatus;
 }
 
-void Client::tcpIn_login(bool loginOk, QString msg, quint16 serverUdpPort1, quint16 serverUdpPort2)
+void Client::tcpIn_login(bool loginOk, QString userName, QString msg, quint16 serverUdpPort1, quint16 serverUdpPort2)
 {
 	if (!checkStatusAndDisconnect("tcpIn_login", LoginingStatus, UnknownNatCheckStatus))
 		return;
@@ -697,7 +726,7 @@ void Client::tcpIn_login(bool loginOk, QString msg, quint16 serverUdpPort1, quin
 	else
 	{
 		m_status = LoginFailedStatus;
-		emit loginFailed(msg);
+		emit loginFailed(userName, msg);
 	}
 }
 
@@ -826,6 +855,21 @@ void Client::udpOut_updateAddress()
 	argument["userName"] = m_userName.toUtf8();
 	argument["identifier"] = m_identifier.toUtf8();
 	sendUdp(1, 1, "updateAddress", argument);
+}
+
+void Client::tcpOut_refreshOnlineUser()
+{
+	QByteArrayMap argument;
+	sendTcp("refreshOnlineUser", argument);
+}
+
+void Client::tcpIn_refreshOnlineUser(QString onlineUser)
+{
+	if (!checkStatusAndDisconnect("tcpIn_refreshOnlineUser", LoginedStatus))
+		return;
+	QStringList onlineUserList = onlineUser.split(",");
+	onlineUserList.removeAll(m_userName);
+	emit replyRefreshOnlineUser(onlineUserList);
 }
 
 void Client::tcpOut_tryTunneling(QString peerUserName)

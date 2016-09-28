@@ -145,11 +145,15 @@ bool isNatAddress(const QHostAddress & hostAddress)
 
 QString getNetworkInterfaceHardwareAddress(QHostAddress localAddress)
 {
+	QString t1 = localAddress.toString();
 	for (QNetworkInterface card : QNetworkInterface::allInterfaces())
 	{
 		for (QNetworkAddressEntry entry : card.addressEntries())
+		{
+			QString t2 = entry.ip().toString();
 			if (entry.ip() == localAddress)
 				return card.hardwareAddress();
+		}
 	}
 	return QString();
 }

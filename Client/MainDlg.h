@@ -27,15 +27,18 @@ protected:
 	virtual void closeEvent(QCloseEvent *event);
 
 private slots:
-	void connected();
-	void disconnected();
-	void logined();
-	void loginFailed(QString msg);
-	void natTypeConfirmed(NatType natType);
+	void onConnected();
+	void onDisconnected();
+	void onLogined();
+	void onLoginFailed(QString userName, QString msg);
+	void onNatTypeConfirmed(NatType natType);
 	void onClientUpnpStatusChanged(UpnpStatus upnpStatus);
 	void onClientWarning(QString msg);
 
 	void onEditLocalPasswordChanged();
+
+	void onBtnRefreshOnlineUser();
+	void onReplyRefreshOnlineUser(QStringList onlineUserList);
 
 	void onBtnTunnel();
 	void onReplyTryTunneling(QString peerUserName, bool canTunnel, bool needUpnp, QString failReason);

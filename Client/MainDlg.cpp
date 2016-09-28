@@ -4,6 +4,7 @@
 #include <QMessageBox>
 #include <QInputDialog>
 #include "Other.h"
+#include "GuideDlg.h"
 
 MainDlg::MainDlg(QWidget *parent)
 	: QMainWindow(parent)
@@ -22,8 +23,6 @@ MainDlg::MainDlg(QWidget *parent)
 	ui.statusBar->addPermanentWidget(m_labelNatType);
 	ui.statusBar->addPermanentWidget(m_labelStatus);
 
-	ui.btnTunnel->setEnabled(false);
-
 	m_tableModel = new QStandardItemModel(ui.tableView);
 	ui.tableView->setModel(m_tableModel);
 	m_tableModel->setHorizontalHeaderLabels(U16("tunnelId,对方用户名,对方IP地址,状态,操作").split(",", QString::SkipEmptyParts));
@@ -34,7 +33,10 @@ MainDlg::MainDlg(QWidget *parent)
 	ui.tableView->setColumnWidth(3, 100);
 	ui.tableView->setColumnWidth(4, 160);
 
+	ui.btnRefreshOnlineUser->setIcon(QIcon(":/MainDlg/refresh.png"));
+
 	connect(ui.editLocalPassword, SIGNAL(textChanged(const QString &)), this, SLOT(onEditLocalPasswordChanged()));
+	connect(ui.btnRefreshOnlineUser, SIGNAL(clicked()), this, SLOT(onBtnRefreshOnlineUser()));
 	connect(ui.btnTunnel, SIGNAL(clicked()), this, SLOT(onBtnTunnel()));
 
 	leadWindowsFirewallPopup();
@@ -60,14 +62,15 @@ void MainDlg::start()
 	m_client->moveToThread(&m_workingThread);
 	m_transferManager->moveToThread(&m_workingThread);
 
-	connect(m_client, SIGNAL(connected()), this, SLOT(connected()));
-	connect(m_client, SIGNAL(disconnected()), this, SLOT(disconnected()));
-	connect(m_client, SIGNAL(logined()), this, SLOT(logined()));
-	connect(m_client, SIGNAL(loginFailed(QString)), this, SLOT(loginFailed(QString)));
-	connect(m_client, SIGNAL(natTypeConfirmed(NatType)), this, SLOT(natTypeConfirmed(NatType)));
+	connect(m_client, SIGNAL(connected()), this, SLOT(onConnected()));
+	connect(m_client, SIGNAL(disconnected()), this, SLOT(onDisconnected()));
+	connect(m_client, SIGNAL(logined()), this, SLOT(onLogined()));
+	connect(m_client, SIGNAL(loginFailed(QString, QString)), this, SLOT(onLoginFailed(QString, QString)));
+	connect(m_client, SIGNAL(natTypeConfirmed(NatType)), this, SLOT(onNatTypeConfirmed(NatType)));
 	connect(m_client, SIGNAL(upnpStatusChanged(UpnpStatus)), this, SLOT(onClientUpnpStatusChanged(UpnpStatus)));
 	connect(m_client, SIGNAL(warning(QString)), this, SLOT(onClientWarning(QString)));
 
+	connect(m_client, SIGNAL(replyRefreshOnlineUser(QStringList)), this, SLOT(onReplyRefreshOnlineUser(QStringList)));
 	connect(m_client, SIGNAL(replyTryTunneling(QString, bool, bool, QString)), this, SLOT(onReplyTryTunneling(QString, bool, bool, QString)));
 	connect(m_client, SIGNAL(replyReadyTunneling(int, int, QString)), this, SLOT(onReplyReadyTunneling(int, int, QString)));
 	connect(m_client, SIGNAL(tunnelStarted(int, QString, QHostAddress)), this, SLOT(onTunnelStarted(int, QString, QHostAddress)));
@@ -75,17 +78,18 @@ void MainDlg::start()
 	connect(m_client, SIGNAL(tunnelClosed(int,QString,QString)), this, SLOT(onTunnelClosed(int,QString,QString)));
 
 	QSettings setting("NatTunnelClient.ini", QSettings::IniFormat);
+
 	const QHostAddress serverAddress = QHostAddress(setting.value("Server/Address").toString());
 	const int serverPort = setting.value("Server/Port").toInt();
+	const QByteArray serverKey = setting.value("Server/Key").toByteArray();
 
 	const QString userName = setting.value("Client/UserName").toString();
-	const QString localPassword = setting.value("Client/LocalPassword").toString();
-	const QByteArray globalKey = setting.value("Other/GlobalKey").toByteArray();
-	QString randomIdentifierSuffix = setting.value("Client/randomIdentifierSuffix").toString();
+	const QString localPassword = setting.value("Client/LocalPassword", QString::number(rand_u32())).toString();
+	QString randomIdentifierSuffix = setting.value("Client/RandomIdentifierSuffix").toString();
 	if (randomIdentifierSuffix.isEmpty())
 	{
 		randomIdentifierSuffix = QString::number(rand_u32());
-		setting.setValue("Client/randomIdentifierSuffix", randomIdentifierSuffix);
+		setting.setValue("Client/RandomIdentifierSuffix", randomIdentifierSuffix);
 	}
 
 
@@ -101,7 +105,7 @@ void MainDlg::start()
 
 	m_client->setRandomIdentifierSuffix(randomIdentifierSuffix);
 	m_client->setUserName(userName);
-	m_client->setGlobalKey(globalKey);
+	m_client->setGlobalKey(serverKey);
 	m_client->setServerInfo(serverAddress, serverPort);
 	QMetaObject::invokeMethod(m_client, "start");
 }
@@ -142,12 +146,12 @@ void MainDlg::closeEvent(QCloseEvent *event)
 	setting.setValue("Client/LocalPassword", ui.editLocalPassword->text());
 	setting.setValue("Cache/UserNameList", getUserNameList());
 }
-void MainDlg::connected()
+void MainDlg::onConnected()
 {
 	m_labelStatus->setText(U16("正在登录"));
 }
 
-void MainDlg::disconnected()
+void MainDlg::onDisconnected()
 {	
 	m_labelStatus->setText(U16("断开"));
 	m_labelNatType->clear();
@@ -156,18 +160,36 @@ void MainDlg::disconnected()
 	m_tableModel->removeRows(0, m_tableModel->rowCount());
 }
 
-void MainDlg::logined()
+void MainDlg::onLogined()
 {
+	onBtnRefreshOnlineUser();
 	m_labelStatus->setText(U16("登录成功"));
 	m_labelNatType->setText(U16("正在检测NAT类型"));
 }
 
-void MainDlg::loginFailed(QString msg)
+void MainDlg::onLoginFailed(QString userName, QString msg)
 {
-	m_labelStatus->setText(msg);
+	QString tipText;
+	if (userName.isEmpty())
+		tipText = U16("填写一个用户名");
+	else
+		tipText = U16("%1登录失败：%2，填写一个新用户名").arg(userName).arg(msg);
+	const QString newUserName = QInputDialog::getText(this, U16("填写用户名"), tipText);
+	if (newUserName.isNull())
+	{
+		this->close();
+		return;
+	}
+
+	ui.editUserName->setText(newUserName);
+	QSettings setting("NatTunnelClient.ini", QSettings::IniFormat);
+	setting.setValue("Client/UserName", newUserName);
+
+	QMetaObject::invokeMethod(m_client, "setUserName", Q_ARG(QString, newUserName));
+	QMetaObject::invokeMethod(m_client, "tryLogin");
 }
 
-void MainDlg::natTypeConfirmed(NatType natType)
+void MainDlg::onNatTypeConfirmed(NatType natType)
 {
 	m_labelNatType->setText(getNatDescription(natType));
 	ui.btnTunnel->setEnabled(true);
@@ -210,6 +232,21 @@ void MainDlg::onClientWarning(QString msg)
 void MainDlg::onEditLocalPasswordChanged()
 {
 	QMetaObject::invokeMethod(m_client, "setLocalPassword", Q_ARG(QString, ui.editLocalPassword->text()));
+}
+
+void MainDlg::onBtnRefreshOnlineUser()
+{
+	QMetaObject::invokeMethod(m_client, "refreshOnlineUser");
+	ui.btnRefreshOnlineUser->setEnabled(false);
+}
+
+void MainDlg::onReplyRefreshOnlineUser(QStringList onlineUserList)
+{
+	const QString currentText = ui.comboBoxPeerUserName->currentText();
+	ui.comboBoxPeerUserName->clear();
+	ui.comboBoxPeerUserName->addItems(onlineUserList);
+	ui.comboBoxPeerUserName->setCurrentText(currentText);
+	ui.btnRefreshOnlineUser->setEnabled(true);
 }
 
 void MainDlg::onBtnTunnel()
@@ -469,6 +506,3 @@ void MainDlg::setUserNameList(QStringList userNameList)
 	for (QString userName : userNameList)
 		ui.comboBoxPeerUserName->addItem(userName);
 }
-
-
-

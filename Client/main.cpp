@@ -2,15 +2,13 @@
 #include <QApplication>
 #include <QFile>
 #include <QMutex>
+#include <QSettings>
 #include <time.h>
 #include <iostream>
+#include "GuideDlg.h"
 
 static QFile fileLog;
 static QMutex mutexFileLog;
-
-#ifdef _DEBUG
-#include "vld.h"
-#endif
 
 void MyMessageHandler(QtMsgType type, const QMessageLogContext & context, const QString & text)
 {
@@ -45,6 +43,27 @@ void MyMessageHandler(QtMsgType type, const QMessageLogContext & context, const 
 	std::cout << finalText.toLocal8Bit().constData();
 }
 
+bool showGuideReturnCanContinue()
+{
+	QSettings setting("NatTunnelClient.ini", QSettings::IniFormat);
+	const bool inited = setting.value("Server/Inited").toBool();
+	if (!inited)
+	{
+		GuideDlg guideDlg;
+		guideDlg.setServerAddress(setting.value("Server/Address").toString());
+		guideDlg.setServerPort(setting.value("Server/Port").toInt());
+		guideDlg.setServerKey(setting.value("Server/Key").toString());
+		if (guideDlg.exec() != QDialog::Accepted)
+			return false;
+		setting.setValue("Server/Inited", true);
+
+		setting.setValue("Server/Address", guideDlg.serverAddress());
+		setting.setValue("Server/Port", guideDlg.serverPort());
+		setting.setValue("Server/Key", guideDlg.serverKey());
+	}
+	return true;
+}
+
 int main(int argc, char *argv[])
 {
 	QApplication app(argc, argv);
@@ -54,6 +73,9 @@ int main(int argc, char *argv[])
 	qInstallMessageHandler(MyMessageHandler);
 
 	srand(time(0));
+
+	if (!showGuideReturnCanContinue())
+		return 0;
 
 	MainDlg wnd;
 	wnd.show();

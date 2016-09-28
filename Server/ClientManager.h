@@ -32,6 +32,7 @@ class ClientManager : public QObject
 	struct ClientInfo
 	{
 		ClientStatus status;
+		QString identifier;
 		QString userName;
 		NatType natType = UnknownNatType;
 		NatCheckStatus natStatus = UnknownNatCheckStatus;
@@ -88,7 +89,9 @@ private:
 	bool saveUserCache();
 
 	bool checkStatus(QTcpSocket & tcpSocket, ClientInfo & client, ClientStatus correctStatus, NatCheckStatus correctNatStatus);
+	bool checkStatus(QTcpSocket & tcpSocket, ClientInfo & client, ClientStatus correctStatus);
 	bool checkStatusAndDisconnect(QTcpSocket & tcpSocket, ClientInfo & client, QString functionName, ClientStatus correctStatus, NatCheckStatus correctNatStatus);
+	bool checkStatusAndDisconnect(QTcpSocket & tcpSocket, ClientInfo & client, QString functionName, ClientStatus correctStatus);
 
 	void disconnectClient(QTcpSocket & tcpSocket, ClientInfo & client, QString reason);
 	void sendTcp(QTcpSocket & tcpSocket, ClientInfo & client, QByteArray type, QByteArrayMap argument);
@@ -96,6 +99,7 @@ private:
 	void onUdpReadyRead(int index);
 
 	QString getBoundUserName(QString identifier);
+	QString getBoundIdentifier(QString userName);
 	bool checkCanTunnel(ClientInfo & localClient, QString peerUserName, bool * outLocalNeedUpnp, bool * outPeerNeedUpnp, QString * outFailReason);
 	bool isExistTunnel(QString userName1, QString userName2);
 	// 根据Client类型和可能可用的upnp端口来确定外部连接端口，
@@ -118,7 +122,7 @@ private:
 	void tcpOut_hello(QTcpSocket & tcpSocket, ClientInfo & client);
 
 	void tcpIn_login(QTcpSocket & tcpSocket, ClientInfo & client, QString identifier, QString userName);
-	void tcpOut_login(QTcpSocket & tcpSocket, ClientInfo & client, bool loginOk, QString msg, quint16 serverUdpPort1 = 0, quint16 serverUdpPort2 = 0);
+	void tcpOut_login(QTcpSocket & tcpSocket, ClientInfo & client, bool loginOk, QString userName, QString msg, quint16 serverUdpPort1 = 0, quint16 serverUdpPort2 = 0);
 	bool login(QTcpSocket & tcpSocket, ClientInfo & client, QString identifier, QString userName, QString * outMsg);
 
 	void tcpIn_localNetwork(QTcpSocket & tcpSocket, ClientInfo & client, QHostAddress localAddress, quint16 clientUdp1LocalPort, QString gatewayInfo);
@@ -133,6 +137,9 @@ private:
 	void tcpIn_upnpAvailability(QTcpSocket & tcpSocket, ClientInfo & client, bool on);
 
 	void udpIn_updateAddress(int index, QTcpSocket & tcpSocket, ClientInfo & client, QHostAddress clientUdp1HostAddress, quint16 clientUdp1Port1);
+
+	void tcpIn_refreshOnlineUser(QTcpSocket & tcpSocket, ClientInfo & client);
+	void tcpOut_refreshOnlineUser(QTcpSocket & tcpSocket, ClientInfo & client, QString onlineUser);
 
 	void tcpIn_tryTunneling(QTcpSocket & tcpSocket, ClientInfo & client, QString peerUserName);
 	void tcpOut_tryTunneling(QTcpSocket & tcpSocket, ClientInfo & client, QString peerUserName, bool canTunnel, bool needUpnp, QString failReason);
@@ -159,6 +166,7 @@ private:
 	QMap<QString, QString> m_mapUserNameIdentifier;
 	QMap<QTcpSocket*, ClientInfo> m_mapClientInfo;
 	QMap<QString, QTcpSocket*> m_mapUserTcpSocket;
+	QSet<QString> m_lstLoginedIdentifier;
 	QMap<int, TunnelInfo> m_mapTunnelInfo;
 	QTimer m_timer300ms;
 	QTimer m_timer15s;

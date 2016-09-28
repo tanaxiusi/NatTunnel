@@ -1,4 +1,5 @@
 <RCC>
-    <qresource prefix="MainDlg">
+    <qresource prefix="/MainDlg">
+        <file>refresh.png</file>
     </qresource>
 </RCC>

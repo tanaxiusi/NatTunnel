@@ -18,11 +18,13 @@ signals:
 	void connected();
 	void disconnected();
 	void logined();
-	void loginFailed(QString msg);
+	void loginFailed(QString userName, QString msg);
 	void natTypeConfirmed(NatType natType);
 	void upnpStatusChanged(UpnpStatus upnpStatus);
 
 	void warning(QString msg);
+
+	void replyRefreshOnlineUser(QStringList onlineUserList);
 
 	void replyTryTunneling(QString peerUserName, bool canTunnel, bool needUpnp, QString failReason);
 	void replyReadyTunneling(int requestId, int tunnelId, QString peerUserName);
@@ -91,6 +93,8 @@ public slots:
 
 	void setUpnpAvailable(bool upnpAvailable);
 
+	void refreshOnlineUser();
+
 	void tryTunneling(QString peerUserName);
 	int readyTunneling(QString peerUserName, QString peerLocalPassword, bool useUpnp);
 	void closeTunneling(int tunnelId);
@@ -122,7 +126,9 @@ private:
 	bool refreshIdentifier();
 
 	bool checkStatus(ClientStatus correctStatus, NatCheckStatus correctNatStatus);
+	bool checkStatus(ClientStatus correctStatus);
 	bool checkStatusAndDisconnect(QString functionName, ClientStatus correctStatus, NatCheckStatus correctNatStatus);
+	bool checkStatusAndDisconnect(QString functionName, ClientStatus correctStatus);
 
 	void disconnectServer(QString reason);
 	void sendTcp(QByteArray type, QByteArrayMap argument);
@@ -147,7 +153,7 @@ private:
 	void tcpIn_hello(QString serverName, QHostAddress clientAddress);
 
 	void tcpOut_login(QString identifier, QString userName);
-	void tcpIn_login(bool loginOk, QString msg, quint16 serverUdpPort1, quint16 serverUdpPort2);
+	void tcpIn_login(bool loginOk, QString userName, QString msg, quint16 serverUdpPort1, quint16 serverUdpPort2);
 
 	void tcpOut_localNetwork(QHostAddress localAddress, quint16 clientUdp1LocalPort, QString gatewayInfo);
 
@@ -164,6 +170,9 @@ private:
 	void tcpOut_upnpAvailability(bool on);
 
 	void udpOut_updateAddress();
+
+	void tcpOut_refreshOnlineUser();
+	void tcpIn_refreshOnlineUser(QString onlineUser);
 
 	void tcpOut_tryTunneling(QString peerUserName);
 	void tcpIn_tryTunneling(QString peerUserName, bool canTunnel, bool needUpnp, QString failReason);
