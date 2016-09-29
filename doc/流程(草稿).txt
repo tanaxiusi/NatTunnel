@@ -50,7 +50,7 @@ Upnp:
 		ClientA:Tcp收到Server:Tcp[CloseTunneling]后，删除TunnelId。
 		
 会话结束：
-	ClientA:Tcp->Server:Tcp[CloseTunneling](参数：TunnelId)
+	ClientA:Tcp->Server:Tcp[CloseTunneling](参数：TunnelId、关闭原因)
 	Server:Tcp收到ClientA:Tcp[CloseTunneling]后，删除TunnelId，Server:Tcp->ClientA:Tcp，Server:Tcp->ClientB:Tcp
 	ClientA:Tcp收到Server:Tcp[CloseTunneling]后，删除TunnelId
 	ClientB:Tcp收到Server:Tcp[CloseTunneling]后，删除TunnelId
