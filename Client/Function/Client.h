@@ -5,7 +5,7 @@
 #include <QUdpSocket>
 #include <QTimer>
 #include <QTime>
-#include "Other.h"
+#include "Util/Other.h"
 #include "KcpManager.h"
 #include "QUpnpPortMapper.h"
 #include "MessageConverter.h"

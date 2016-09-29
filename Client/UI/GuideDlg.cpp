@@ -1,6 +1,6 @@
 ﻿#include "GuideDlg.h"
 #include <QMessageBox>
-#include "../Server/Other.h"
+#include "Util/Other.h"
 
 GuideDlg::GuideDlg(QWidget *parent)
 	: QDialog(parent)

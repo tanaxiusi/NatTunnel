@@ -1,5 +1,5 @@
 ﻿#include "Other.h"
-#include "crc32.h"
+#include "crc32/crc32.h"
 
 
 quint32 rand_u32()

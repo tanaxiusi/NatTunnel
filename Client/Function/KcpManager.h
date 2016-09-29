@@ -5,8 +5,8 @@
 #include <QHostAddress>
 #include <QTimer>
 #include <QTime>
-#include "ikcp.h"
-#include "Other.h"
+#include "kcp/ikcp.h"
+#include "Util/Other.h"
 #include "Peer.h"
 
 class KcpManager : public QObject

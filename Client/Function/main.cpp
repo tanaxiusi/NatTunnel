@@ -1,11 +1,11 @@
-﻿#include "MainDlg.h"
+﻿#include "UI/MainDlg.h"
+#include "UI/GuideDlg.h"
 #include <QApplication>
 #include <QFile>
 #include <QMutex>
 #include <QSettings>
 #include <time.h>
 #include <iostream>
-#include "GuideDlg.h"
 
 static QFile fileLog;
 static QMutex mutexFileLog;

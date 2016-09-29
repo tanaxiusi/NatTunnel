@@ -1,6 +1,6 @@
 ﻿#include "MessageConverter.h"
-#include "aes.h"
-#include "aes.c"
+#include "aes/aes.h"
+#include "aes/aes.c"
 
 void MessageConverter::setKey(const quint8 * key)
 {

@@ -5,10 +5,8 @@
 #include <QStandardItemModel>
 #include <QThread>
 #include "ui_MainDlg.h"
-#include "Client.h"
-#include "QUpnpPortMapper.h"
-#include "TcpTransfer.h"
-#include "TransferManager.h"
+#include "Function/Client.h"
+#include "Function/TransferManager.h"
 
 class MainDlg : public QMainWindow
 {

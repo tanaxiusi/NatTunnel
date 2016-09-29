@@ -1,6 +1,6 @@
 ﻿#include "KcpManager.h"
 #include <QDateTime>
-#include "Other.h"
+#include "Util/Other.h"
 
 static const QByteArray ShakeHandHeader1 = "Hello";
 static const QByteArray ShakeHandHeader2 = "Ok";

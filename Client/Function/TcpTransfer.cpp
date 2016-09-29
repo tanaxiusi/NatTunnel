@@ -1,6 +1,6 @@
 ﻿#include "TcpTransfer.h"
 #include <QCryptographicHash>
-#include "Other.h"
+#include "Util/Other.h"
 
 static const quint8 Direction_In = 1;
 static const quint8 Direction_Out = 2;

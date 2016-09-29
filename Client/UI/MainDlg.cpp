@@ -3,7 +3,7 @@
 #include <QSettings>
 #include <QMessageBox>
 #include <QInputDialog>
-#include "Other.h"
+#include "Util/Other.h"
 #include "GuideDlg.h"
 
 MainDlg::MainDlg(QWidget *parent)

@@ -4,9 +4,9 @@
 #include <QFile>
 #include "QJson/Parser"
 #include "QJson/Serializer"
-#include "Other.h"
-#include "crc32.h"
-#include "QStringMap.h"
+#include "Util/Other.h"
+#include "crc32/crc32.h"
+#include "Util/QStringMap.h"
 
 ClientManager::ClientManager(QObject *parent)
 	: QObject(parent)

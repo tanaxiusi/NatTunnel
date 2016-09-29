@@ -1,11 +1,13 @@
 ﻿#include "Other.h"
-#include "crc32.h"
+#include "crc32/crc32.h"
 #include <QNetworkInterface>
+
+#if defined(Q_OS_WIN)
 #include <Windows.h>
 #include <iphlpapi.h>
-
 #pragma comment(lib,"ws2_32")
 #pragma comment(lib,"Iphlpapi")
+#endif
 
 static const int _typeId_NatType = qRegisterMetaType<NatType>("NatType");
 static const int _typeId_UpnpStatus = qRegisterMetaType<UpnpStatus>("UpnpStatus");

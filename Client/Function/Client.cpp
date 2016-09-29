@@ -1,7 +1,7 @@
 ﻿#include "Client.h"
 #include <QTcpServer>
-#include "Other.h"
-#include "crc32.h"
+#include "Util/Other.h"
+#include "crc32/crc32.h"
 
 static bool inline isValidIndex(int index)
 {

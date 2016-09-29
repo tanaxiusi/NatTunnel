@@ -6,7 +6,7 @@
 #include <QUdpSocket>
 #include <QTimer>
 #include <QTime>
-#include "Other.h"
+#include "Util/Other.h"
 #include "MessageConverter.h"
 
 class ClientManager : public QObject
