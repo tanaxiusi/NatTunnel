@@ -145,12 +145,10 @@ bool isNatAddress(const QHostAddress & hostAddress)
 
 QString getNetworkInterfaceHardwareAddress(QHostAddress localAddress)
 {
-	QString t1 = localAddress.toString();
 	for (QNetworkInterface card : QNetworkInterface::allInterfaces())
 	{
 		for (QNetworkAddressEntry entry : card.addressEntries())
 		{
-			QString t2 = entry.ip().toString();
 			if (entry.ip() == localAddress)
 				return card.hardwareAddress();
 		}
@@ -160,6 +158,7 @@ QString getNetworkInterfaceHardwareAddress(QHostAddress localAddress)
 
 QStringList getGatewayAddress(QString localAddress)
 {
+#if defined(Q_OS_WIN)
 	ULONG neededSize = 0;
 	QByteArray buffer;
 	if (ERROR_BUFFER_OVERFLOW != GetAdaptersInfo(NULL, &neededSize))
@@ -186,12 +185,14 @@ QStringList getGatewayAddress(QString localAddress)
 			return result;
 		}
 	}
+#endif
 
 	return QStringList();
 }
 
 QString arpGetHardwareAddress(QString targetAddress, QString localAddress)
 {
+#if defined(Q_OS_WIN)
 	ULONG targetIP = inet_addr(targetAddress.toUtf8().constData());
 	if (targetIP == INADDR_NONE)
 		return QString();
@@ -209,4 +210,7 @@ QString arpGetHardwareAddress(QString targetAddress, QString localAddress)
 		result += QByteArray(1, mac[i]).toHex();
 	}
 	return result;
+#else
+	return QString();
+#endif
 }
