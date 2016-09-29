@@ -37,8 +37,8 @@ QByteArray checksumThenUnpackPackage(QByteArray package)
 	if (package.size() < 4)
 		return QByteArray();
 	const QByteArray content = QByteArray::fromRawData(package.constData() + 4, package.size() - 4);
-	const uint32_t receivedCrc = *(uint32_t*)package.constData();
-	const uint32_t actualCrc = crc32(content.constData(), content.size());
+	const quint32 receivedCrc = *(quint32*)package.constData();
+	const quint32 actualCrc = crc32(content.constData(), content.size());
 	if (receivedCrc != actualCrc)
 		return QByteArray();
 	return content;
@@ -49,8 +49,8 @@ QByteArray checksumThenUnpackPackage(QByteArray package, QByteArray userName)
 	if (package.size() < 4)
 		return QByteArray();
 	const QByteArray content = QByteArray::fromRawData(package.constData() + 4, package.size() - 4);
-	const uint32_t receivedCrc = *(uint32_t*)package.constData();
-	uint32_t actualCrc = crc32(content.constData(), content.size());
+	const quint32 receivedCrc = *(quint32*)package.constData();
+	quint32 actualCrc = crc32(content.constData(), content.size());
 	actualCrc = crc32(actualCrc, userName.constData(), userName.size());
 	if (receivedCrc != actualCrc)
 		return QByteArray();
@@ -59,14 +59,14 @@ QByteArray checksumThenUnpackPackage(QByteArray package, QByteArray userName)
 
 QByteArray addChecksumInfo(QByteArray package)
 {
-	uint32_t crc = crc32(package.constData(), package.size());
+	quint32 crc = crc32(package.constData(), package.size());
 	package.insert(0, (const char*)&crc, 4);
 	return package;
 }
 
 QByteArray addChecksumInfo(QByteArray package, QByteArray userName)
 {
-	uint32_t crc = crc32(package.constData(), package.size());
+	quint32 crc = crc32(package.constData(), package.size());
 	crc = crc32(crc, userName.constData(), userName.size());
 	package.insert(0, (const char*)&crc, 4);
 	return package;
@@ -79,13 +79,13 @@ bool isSameHostAddress(const QHostAddress & a, const QHostAddress & b)
 
 	if (a.protocol() == QAbstractSocket::IPv4Protocol && b.protocol() == QAbstractSocket::IPv6Protocol)
 	{
-		bool convertOk = false;
-		return QHostAddress(b.toIPv4Address(&convertOk)) == a && convertOk;
+		quint32 bIpv4 = b.toIPv4Address();
+		return bIpv4 && QHostAddress(bIpv4) == a;
 	}
 	else if (b.protocol() == QAbstractSocket::IPv4Protocol && a.protocol() == QAbstractSocket::IPv6Protocol)
 	{
-		bool convertOk = false;
-		return QHostAddress(a.toIPv4Address(&convertOk)) == b && convertOk;
+		quint32 aIpv4 = a.toIPv4Address();
+		return aIpv4 && QHostAddress(aIpv4) == b;
 	}
 	else
 	{
@@ -99,13 +99,13 @@ QHostAddress tryConvertToIpv4(const QHostAddress & hostAddress)
 		return hostAddress;
 	if (hostAddress.protocol() == QAbstractSocket::IPv6Protocol)
 	{
-		bool ok = false;
-		auto ipv4Address = hostAddress.toIPv4Address(&ok);
-		if (ok)
+		quint32 ipv4Address = hostAddress.toIPv4Address();
+		if (ipv4Address)
 			return QHostAddress(ipv4Address);
 	}
 	return hostAddress;
 }
+
 
 QString getNatDescription(NatType natType)
 {
@@ -128,9 +128,8 @@ QString getNatDescription(NatType natType)
 
 bool isNatAddress(const QHostAddress & hostAddress)
 {
-	bool isIpv4 = false;
-	const quint32 ipv4 = hostAddress.toIPv4Address(&isIpv4);
-	if (!isIpv4)
+	const quint32 ipv4 = hostAddress.toIPv4Address();
+	if (!ipv4)
 		return false;
 
 	const quint8 * a = (const quint8 *)&ipv4;
@@ -147,14 +146,10 @@ bool isNatAddress(const QHostAddress & hostAddress)
 
 QString getNetworkInterfaceHardwareAddress(QHostAddress localAddress)
 {
-	for (QNetworkInterface card : QNetworkInterface::allInterfaces())
-	{
-		for (QNetworkAddressEntry entry : card.addressEntries())
-		{
+	foreach (QNetworkInterface card, QNetworkInterface::allInterfaces())
+		foreach (QNetworkAddressEntry entry, card.addressEntries())
 			if (entry.ip() == localAddress)
 				return card.hardwareAddress();
-		}
-	}
 	return QString();
 }
 
@@ -205,7 +200,7 @@ QString arpGetHardwareAddress(QString targetAddress, QString localAddress)
 	if (retValue != NO_ERROR)
 		return QString();
 	QString result;
-	for (int i = 0; i < macLen; i++)
+	for (int i = 0; i < (int)macLen; i++)
 	{
 		if (result.length() > 0)
 			result += "-";

@@ -2,6 +2,7 @@
 #include <QtDebug>
 #include <QCryptographicHash>
 #include <QFile>
+#include <QStringList>
 #include "QJson/Parser"
 #include "QJson/Serializer"
 #include "Util/Other.h"
@@ -11,6 +12,9 @@
 ClientManager::ClientManager(QObject *parent)
 	: QObject(parent)
 {
+	m_running = false;
+	m_lastTunnelId = 0;
+
 	connect(&m_tcpServer, SIGNAL(newConnection()), this, SLOT(onTcpNewConnection()));
 	connect(&m_udpServer1, SIGNAL(readyRead()), this, SLOT(onUdp1ReadyRead()));
 	connect(&m_udpServer2, SIGNAL(readyRead()), this, SLOT(onUdp2ReadyRead()));
@@ -172,9 +176,9 @@ void ClientManager::timerFunction300ms()
 {
 	if (!m_running)
 		return;
-	for (QTcpSocket * tcpSocket : m_lstNeedSendUdp)
+	foreach (QTcpSocket * tcpSocket, m_lstNeedSendUdp)
 	{
-		auto iter = m_mapClientInfo.find(tcpSocket);
+		QMap<QTcpSocket*, ClientInfo>::iterator iter = m_mapClientInfo.find(tcpSocket);
 		if(iter == m_mapClientInfo.end())
 			continue;
 		ClientInfo & client = *iter;
@@ -198,7 +202,7 @@ void ClientManager::timerFunction15s()
 	if (!m_running)
 		return;
 	QList<QPair<QTcpSocket*, ClientInfo*>> timeoutSockets;
-	for(auto iter = m_mapClientInfo.begin(); iter != m_mapClientInfo.end(); ++iter)
+	for(QMap<QTcpSocket*, ClientInfo>::iterator iter = m_mapClientInfo.begin(); iter != m_mapClientInfo.end(); ++iter)
 	{
 		QTcpSocket * tcpSocket = iter.key();
 		ClientInfo & client = iter.value();
@@ -209,7 +213,8 @@ void ClientManager::timerFunction15s()
 			tcpOut_heartbeat(*tcpSocket, client);
 	}
 
-	for (QPair<QTcpSocket*, ClientInfo*> thePair: timeoutSockets)
+	typedef QPair<QTcpSocket*, ClientInfo*> PairType;
+	foreach (PairType thePair, timeoutSockets)
 		disconnectClient(*thePair.first, *thePair.second, "timeout");
 }
 
@@ -220,7 +225,7 @@ QUdpSocket * ClientManager::getUdpServer(int index)
 	else if (index == 2)
 		return &m_udpServer2;
 	else
-		return nullptr;
+		return NULL;
 }
 
 bool ClientManager::loadUserCache()
@@ -308,7 +313,7 @@ void ClientManager::sendUdp(int index, QByteArray type, QByteArrayMap argument, 
 		return;
 
 	QByteArray package = m_messageConverter.serialize(type, argument);
-	uint32_t crc = crc32(package.constData(), package.size());
+	quint32 crc = crc32(package.constData(), package.size());
 	package.insert(0, (const char*)&crc, 4);
 	udpServer->writeDatagram(package, hostAddress, port);
 }
@@ -335,7 +340,7 @@ void ClientManager::onUdpReadyRead(int index)
 
 QString ClientManager::getBoundUserName(QString identifier)
 {
-	for (auto iter = m_mapUserNameIdentifier.begin(); iter != m_mapUserNameIdentifier.end(); ++iter)
+	for (QStringMap::iterator iter = m_mapUserNameIdentifier.begin(); iter != m_mapUserNameIdentifier.end(); ++iter)
 	{
 		if (iter.value() == identifier)
 			return iter.key();
@@ -368,8 +373,8 @@ bool ClientManager::checkCanTunnel(ClientInfo & localClient, QString peerUserNam
 		return false;
 	}
 
-	QTcpSocket * ptrPeerTcpSocket = nullptr;
-	ClientInfo * ptrPeerClient = nullptr;
+	QTcpSocket * ptrPeerTcpSocket = NULL;
+	ClientInfo * ptrPeerClient = NULL;
 	if (!getTcpSocketAndClientInfoByUserName(peerUserName, &ptrPeerTcpSocket, &ptrPeerClient))
 	{
 		*outFailReason = U16("对方未上线");
@@ -421,7 +426,7 @@ bool ClientManager::checkCanTunnel(ClientInfo & localClient, QString peerUserNam
 
 bool ClientManager::isExistTunnel(QString userName1, QString userName2)
 {
-	for (auto iter = m_mapTunnelInfo.begin(); iter != m_mapTunnelInfo.end(); ++iter)
+	for (QMap<int, TunnelInfo>::iterator iter = m_mapTunnelInfo.begin(); iter != m_mapTunnelInfo.end(); ++iter)
 	{
 		TunnelInfo & tunnel = iter.value();
 		if(tunnel.clientAUserName == userName1 && tunnel.clientBUserName == userName2 ||
@@ -479,12 +484,12 @@ int ClientManager::getNextTunnelId()
 
 bool ClientManager::getTcpSocketAndClientInfoByUserName(QString userName, QTcpSocket ** outTcpSocket, ClientInfo ** outClientInfo)
 {
-	*outTcpSocket = nullptr;
-	*outClientInfo = nullptr;
+	*outTcpSocket = NULL;
+	*outClientInfo = NULL;
 	QTcpSocket * tcpSocket = m_mapUserTcpSocket.value(userName);
 	if (!tcpSocket)
 		return false;
-	auto iter = m_mapClientInfo.find(tcpSocket);
+	QMap<QTcpSocket*, ClientInfo>::iterator iter = m_mapClientInfo.find(tcpSocket);
 	if (iter == m_mapClientInfo.end())
 		return false;
 
@@ -495,9 +500,9 @@ bool ClientManager::getTcpSocketAndClientInfoByUserName(QString userName, QTcpSo
 
 ClientManager::TunnelInfo * ClientManager::getTunnelInfo(int tunnelId)
 {
-	auto iter = m_mapTunnelInfo.find(tunnelId);
+	QMap<int, TunnelInfo>::iterator iter = m_mapTunnelInfo.find(tunnelId);
 	if (iter == m_mapTunnelInfo.end())
-		return nullptr;
+		return NULL;
 	return &(iter.value());
 }
 
@@ -506,7 +511,7 @@ void ClientManager::clearUserTunnel(QString userName, QString reason)
 	if (userName.isEmpty())
 		return;
 
-	for (auto iter = m_mapTunnelInfo.begin(); iter != m_mapTunnelInfo.end();)
+	for (QMap<int, TunnelInfo>::iterator iter = m_mapTunnelInfo.begin(); iter != m_mapTunnelInfo.end();)
 	{
 		const int tunnelId = iter.key();
 		TunnelInfo & tunnel = iter.value();
@@ -520,8 +525,8 @@ void ClientManager::clearUserTunnel(QString userName, QString reason)
 
 		const QString peerUserName = (isA ? tunnel.clientBUserName : tunnel.clientAUserName);
 
-		QTcpSocket * ptrPeerTcpSocket = nullptr;
-		ClientInfo * ptrPeerClient = nullptr;
+		QTcpSocket * ptrPeerTcpSocket = NULL;
+		ClientInfo * ptrPeerClient = NULL;
 		if(getTcpSocketAndClientInfoByUserName(peerUserName, &ptrPeerTcpSocket, &ptrPeerClient))
 		{
 			QTcpSocket & peerTcpSocket = *ptrPeerTcpSocket;
@@ -586,7 +591,7 @@ void ClientManager::dealUdpIn(int index, const QByteArray & line, QHostAddress h
 	QTcpSocket * tcpSocket = m_mapUserTcpSocket.value(userName);
 	if (!tcpSocket)
 		return;
-	auto iter = m_mapClientInfo.find(tcpSocket);
+	QMap<QTcpSocket*, ClientInfo>::iterator iter = m_mapClientInfo.find(tcpSocket);
 	if (iter == m_mapClientInfo.end())
 		return;
 
@@ -615,7 +620,7 @@ void ClientManager::tcpIn_heartbeat(QTcpSocket & tcpSocket, ClientInfo & client)
 
 void ClientManager::tcpOut_heartbeat(QTcpSocket & tcpSocket, ClientInfo & client)
 {
-	sendTcp(tcpSocket, client, "heartbeat", {});
+	sendTcp(tcpSocket, client, "heartbeat", QByteArrayMap());
 }
 
 void ClientManager::tcpOut_hello(QTcpSocket & tcpSocket, ClientInfo & client)
@@ -840,7 +845,7 @@ void ClientManager::tcpIn_refreshOnlineUser(QTcpSocket & tcpSocket, ClientInfo &
 {
 	if (!checkStatusAndDisconnect(tcpSocket, client, "tcpIn_refreshOnlineUser", LoginedStatus))
 		return;
-	tcpOut_refreshOnlineUser(tcpSocket, client, m_mapUserTcpSocket.keys().join(","));
+	tcpOut_refreshOnlineUser(tcpSocket, client, QStringList(m_mapUserTcpSocket.keys()).join(","));
 }
 
 void ClientManager::tcpOut_refreshOnlineUser(QTcpSocket & tcpSocket, ClientInfo & client, QString onlineUser)
@@ -860,7 +865,7 @@ void ClientManager::tcpIn_tryTunneling(QTcpSocket & tcpSocket, ClientInfo & clie
 	bool needUpnp = false;
 	QString failReason;
 
-	canTunnel = checkCanTunnel(client, peerUserName, &needUpnp, nullptr, &failReason);
+	canTunnel = checkCanTunnel(client, peerUserName, &needUpnp, NULL, &failReason);
 	tcpOut_tryTunneling(tcpSocket, client, peerUserName, canTunnel, needUpnp, failReason);
 }
 
@@ -882,7 +887,7 @@ void ClientManager::tcpIn_readyTunneling(QTcpSocket & tcpSocket, ClientInfo & cl
 
 	bool peerNeedUpnp = false;
 
-	if (checkCanTunnel(client, peerUserName, nullptr, &peerNeedUpnp, nullptr))
+	if (checkCanTunnel(client, peerUserName, NULL, &peerNeedUpnp, NULL))
 	{
 		const int tunnelId = getNextTunnelId();
 		TunnelInfo & tunnel = m_mapTunnelInfo[tunnelId];
@@ -935,14 +940,14 @@ void ClientManager::tcpIn_startTunneling(QTcpSocket & tcpSocket, ClientInfo & cl
 	if (!checkStatusAndDisconnect(tcpSocket, client, "tcpIn_startTunneling", LoginedStatus, NatCheckFinished))
 		return;
 	TunnelInfo & tunnel = *getTunnelInfo(tunnelId);
-	if (&tunnel == nullptr)
+	if (&tunnel == NULL)
 	{
 		// 如果在B响应前，A已经取消了连接，会出现找不到tunnelId的情况
 		return;
 	}
 
-	QTcpSocket * ptrPeerTcpSocket = nullptr;
-	ClientInfo * ptrPeerClient = nullptr;
+	QTcpSocket * ptrPeerTcpSocket = NULL;
+	ClientInfo * ptrPeerClient = NULL;
 	if (!getTcpSocketAndClientInfoByUserName(tunnel.clientAUserName, &ptrPeerTcpSocket, &ptrPeerClient))
 	{
 		// A找不到，可能下线了
@@ -986,7 +991,7 @@ void ClientManager::tcpIn_closeTunneling(QTcpSocket & tcpSocket, ClientInfo & cl
 		return;
 
 	TunnelInfo & tunnel = *getTunnelInfo(tunnelId);
-	if (&tunnel == nullptr)
+	if (&tunnel == NULL)
 		return;
 
 	QString peerUserName;
@@ -1010,8 +1015,8 @@ void ClientManager::tcpIn_closeTunneling(QTcpSocket & tcpSocket, ClientInfo & cl
 
 	tcpOut_closeTunneling(tcpSocket, client, tunnelId, reason);
 
-	QTcpSocket * peerTcpSocket = nullptr;
-	ClientInfo * peerClient = nullptr;
+	QTcpSocket * peerTcpSocket = NULL;
+	ClientInfo * peerClient = NULL;
 	if (!getTcpSocketAndClientInfoByUserName(peerUserName, &peerTcpSocket, &peerClient))
 		return;
 

@@ -3,6 +3,8 @@
 #include <QFile>
 #include <QMutex>
 #include <QSettings>
+#include <QTextCodec>
+#include <QStringList>
 #include <time.h>
 #include <iostream>
 #include "ClientManager.h"
@@ -10,14 +12,20 @@
 static QFile fileLog;
 static QMutex mutexFileLog;
 
+#if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
 void MyMessageHandler(QtMsgType type, const QMessageLogContext & context, const QString & text)
+#else
+void MyMessageHandler(QtMsgType type, const char * text)
+#endif
 {
 	const QDateTime datetime = QDateTime::currentDateTime();
-	const char * typeText = nullptr;
+	const char * typeText = NULL;
 	switch (type)
 	{
 	case QtDebugMsg:
+#if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
 	case QtInfoMsg:
+#endif
 		typeText = "Info";
 		break;
 	case QtWarningMsg:
@@ -49,12 +57,19 @@ int main(int argc, char *argv[])
 
 	fileLog.setFileName(app.applicationDirPath() + "/NatTunnelServer.log");
 	fileLog.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text);
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
 	qInstallMessageHandler(MyMessageHandler);
+#else
+	QTextCodec::setCodecForCStrings(QTextCodec::codecForName("utf8"));
+	QTextCodec::setCodecForLocale(QTextCodec::codecForName("utf8"));
+	qInstallMsgHandler(MyMessageHandler);
+#endif
 
 	QSettings setting("NatTunnelServer.ini", QSettings::IniFormat);
 	QMap<QString, QString> mapUser;
 	setting.beginGroup("User");
-	for (QString userName : setting.childKeys())
+	foreach (QString userName, setting.childKeys())
 		mapUser[userName] = setting.value(userName).toString();
 	setting.endGroup();
 

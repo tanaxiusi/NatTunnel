@@ -11,6 +11,18 @@ static bool inline isValidIndex(int index)
 Client::Client(QObject *parent)
 	: QObject(parent)
 {
+	m_running = false;
+	m_serverTcpPort = 0;
+	m_serverUdpPort1 = 0;
+	m_serverUdpPort2 = 0;
+	m_status = UnknownClientStatus;
+	m_natStatus = UnknownNatCheckStatus;
+	m_natType = UnknownNatType;
+	m_upnpStatus = UpnpUnknownStatus;
+	m_upnpAvailability = false;
+	m_isPublicNetwork = false;
+	m_udp2UpnpPort = 0;
+
 	m_tcpSocket.setParent(this);
 	m_udpSocket1.setParent(this);
 	m_udpSocket2.setParent(this);
@@ -207,7 +219,7 @@ void Client::onTcpConnected()
 		m_upnpStatus = UpnpDiscovering;
 
 		const QString localAddressText = localAddress.toString();
-		for (QString gatewayAddress : getGatewayAddress(localAddressText))
+		foreach (QString gatewayAddress, getGatewayAddress(localAddressText))
 		{
 			const QString gatewayHardwareAddress = arpGetHardwareAddress(gatewayAddress, localAddressText);
 			m_lstGatewayInfo.append(gatewayAddress + " " + gatewayHardwareAddress);
@@ -329,7 +341,7 @@ void Client::onKcpConnectionHandShaked(int tunnelId)
 
 void Client::onKcpConnectionDisconnected(int tunnelId, QString reason)
 {
-	auto iter = m_mapTunnelInfo.find(tunnelId);
+	QMap<int, TunnelInfo>::iterator iter = m_mapTunnelInfo.find(tunnelId);
 	if (iter == m_mapTunnelInfo.end())
 		return;
 
@@ -384,7 +396,7 @@ QUdpSocket * Client::getUdpSocket(int index)
 	else if (index == 2)
 		return &m_udpSocket2;
 	else
-		return nullptr;
+		return NULL;
 }
 
 quint16 Client::getServerUdpPort(int index)
@@ -656,7 +668,7 @@ void Client::deleteUpnpPortMapping()
 quint32 Client::getKcpMagicNumber(QString peerUserName)
 {
 	// 确保不同用户间连接的kcp特征码不同
-	QStringList lst = { m_userName, peerUserName };
+	QStringList lst = QStringList() << m_userName << peerUserName;
 	if (lst[0] > lst[1])
 		qSwap(lst[0], lst[1]);
 	QByteArray buffer = lst.join("\n").toUtf8();
@@ -678,7 +690,7 @@ void Client::createKcpConnection(int tunnelId, TunnelInfo & tunnel)
 
 void Client::tcpOut_heartbeat()
 {
-	sendTcp("heartbeat", {});
+	sendTcp("heartbeat", QByteArrayMap());
 }
 
 void Client::tcpIn_heartbeat()

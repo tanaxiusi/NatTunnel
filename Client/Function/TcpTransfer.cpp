@@ -74,6 +74,8 @@ struct AckFrame
 TcpTransfer::TcpTransfer(QObject *parent)
 	: QObject(parent)
 {
+	m_nextSocketIndex = 1;
+	m_globalWaitingSize = 0;
 	m_timer5s.setParent(this);
 	connect(&m_timer5s, SIGNAL(timeout()), this, SLOT(timerFunction5s()));
 	m_lastOutTime = QTime::currentTime();
@@ -83,13 +85,13 @@ TcpTransfer::TcpTransfer(QObject *parent)
 TcpTransfer::~TcpTransfer()
 {
 	m_timer5s.stop();
-	for (SocketOutInfo socketOut : m_mapSocketOut.values())
+	foreach (SocketOutInfo socketOut, m_mapSocketOut.values())
 		delete socketOut.obj;
 	m_mapSocketOut.clear();
-	for (SocketInInfo socketIn : m_mapSocketIn.values())
+	foreach (SocketInInfo socketIn, m_mapSocketIn.values())
 		delete socketIn.obj;
 	m_mapSocketIn.clear();
-	for (QTcpServer * tcpServer : m_mapTcpServer)
+	foreach (QTcpServer * tcpServer, m_mapTcpServer)
 		delete tcpServer;
 	m_mapTcpServer.clear();
 }
@@ -166,20 +168,20 @@ quint32 TcpTransfer::nextSocketIndex()
 
 TcpTransfer::SocketInInfo * TcpTransfer::findSocketIn(const quint32 & peerSocketIndex)
 {
-	auto iter = m_mapSocketIn.find(peerSocketIndex);
+	QMap<quint32, SocketInInfo>::iterator iter = m_mapSocketIn.find(peerSocketIndex);
 	if (iter != m_mapSocketIn.end())
 		return &(iter.value());
 	else
-		return nullptr;
+		return NULL;
 }
 
 TcpTransfer::SocketOutInfo * TcpTransfer::findSocketOut(const quint32 & socketIndex)
 {
-	auto iter = m_mapSocketOut.find(socketIndex);
+	QMap<quint32, SocketOutInfo>::iterator iter = m_mapSocketOut.find(socketIndex);
 	if (iter != m_mapSocketOut.end())
 		return &(iter.value());
 	else
-		return nullptr;
+		return NULL;
 }
 
 void TcpTransfer::dealFrame(FrameType type, const QByteArray & frameData)
@@ -559,7 +561,7 @@ void TcpTransfer::onSocketInStateChanged(QAbstractSocket::SocketState state)
 		if (SocketInInfo * socketIn = findSocketIn(peerSocketIndex))
 		{
 			socketIn->obj->deleteLater();
-			socketIn->obj = nullptr;
+			socketIn->obj = NULL;
 			m_mapSocketIn.remove(peerSocketIndex);
 			output_DisconnectConnection(peerSocketIndex, Direction_In);
 		}

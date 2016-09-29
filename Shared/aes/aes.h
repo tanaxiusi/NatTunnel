@@ -1,7 +1,8 @@
 ﻿#ifndef _AES_H_
 #define _AES_H_
 
-#include <stdint.h>
+//#include <stdint.h>
+#include <QtGlobal>
 
 
 // #define the macros below to 1/0 to enable/disable the mode of operation.
@@ -22,16 +23,16 @@
 
 #if defined(ECB) && ECB
 
-void AES128_ECB_encrypt(uint8_t* input, const uint8_t* key, uint8_t *output);
-void AES128_ECB_decrypt(uint8_t* input, const uint8_t* key, uint8_t *output);
+void AES128_ECB_encrypt(quint8* input, const quint8* key, quint8 *output);
+void AES128_ECB_decrypt(quint8* input, const quint8* key, quint8 *output);
 
 #endif // #if defined(ECB) && ECB
 
 
 #if defined(CBC) && CBC
 
-void AES128_CBC_encrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv);
-void AES128_CBC_decrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv);
+void AES128_CBC_encrypt_buffer(quint8* output, quint8* input, quint32 length, const quint8* key, const quint8* iv);
+void AES128_CBC_decrypt_buffer(quint8* output, quint8* input, quint32 length, const quint8* key, const quint8* iv);
 
 #endif // #if defined(CBC) && CBC
 

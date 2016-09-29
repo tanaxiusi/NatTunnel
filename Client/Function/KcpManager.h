@@ -25,12 +25,15 @@ private:
 		int tunnelId;
 		QByteArray userName;
 		Peer peer;
-		ikcpcb * kcp = nullptr;
-		bool peerConfirmed = false;
-		int shakeHandStep = 0;
+		ikcpcb * kcp;
+		bool peerConfirmed;
+		int shakeHandStep;
 		QByteArray buffer;	// 仅握手时用到
 		quint32 nextUpdateTime;
 		QTime lastInTime;
+		KcpConnection()
+			:kcp(NULL), peerConfirmed(false), shakeHandStep(0)
+		{}
 	};
 
 public:

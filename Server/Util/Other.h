@@ -6,7 +6,7 @@
 #include <QHostAddress>
 
 #if defined(Q_OS_WIN)
-#define U16(str)	QString::fromUtf16(u##str)
+#define U16(str)	QString::fromUtf16((const ushort *)L##str)
 #elif defined(Q_OS_LINUX)
 #define U16(str)	QString::fromUtf8(str)
 #endif

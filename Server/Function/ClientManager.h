@@ -7,6 +7,7 @@
 #include <QTimer>
 #include <QTime>
 #include "Util/Other.h"
+#include "Util/QStringMap.h"
 #include "MessageConverter.h"
 
 class ClientManager : public QObject
@@ -34,17 +35,21 @@ class ClientManager : public QObject
 		ClientStatus status;
 		QString identifier;
 		QString userName;
-		NatType natType = UnknownNatType;
-		NatCheckStatus natStatus = UnknownNatCheckStatus;
+		NatType natType;
+		NatCheckStatus natStatus;
 		QHostAddress udpHostAddress;
-		quint16 udp1Port1 = 0;
-		quint16 udp1LocalPort = 0;
-		quint16 udp2LocalPort = 0;
+		quint16 udp1Port1;
+		quint16 udp1LocalPort;
+		quint16 udp2LocalPort;
 		QHostAddress localAddress;
 		QString gatewayInfo;
-		bool upnpAvailable = false;
+		bool upnpAvailable;
 		QTime lastInTime;
 		QTime lastOutTime;
+		ClientInfo()
+			:natType(UnknownNatType), natStatus(UnknownNatCheckStatus),
+			udp1Port1(0), udp1LocalPort(0), udp2LocalPort(0), upnpAvailable(false)
+		{}
 	};
 
 	enum TunnelStatus
@@ -56,11 +61,14 @@ class ClientManager : public QObject
 
 	struct TunnelInfo
 	{
-		TunnelStatus status = UnknownTunnelStatus;
+		TunnelStatus status;
 		QString clientAUserName;		// A为发起方，B为接收方，虽然有所区分，但功能上对等
 		QString clientBUserName;
-		quint16 clientAUdp2UpnpPort = 0;	// 如果开启了upnp，这个端口号非0
-		quint16 clientBUdp2UpnpPort = 0;
+		quint16 clientAUdp2UpnpPort;	// 如果开启了upnp，这个端口号非0
+		quint16 clientBUdp2UpnpPort;
+		TunnelInfo()
+			:status(UnknownTunnelStatus), clientAUdp2UpnpPort(0), clientBUdp2UpnpPort(0)
+		{}
 	};
 
 public:
@@ -156,14 +164,14 @@ private:
 	void tcpOut_closeTunneling(QTcpSocket & tcpSocket, ClientInfo & client, int tunnelId, QString reason);
 
 private:
-	bool m_running = false;
+	bool m_running;
 	MessageConverter m_messageConverter;
 	QTcpServer m_tcpServer;
 	QUdpSocket m_udpServer1;
 	QUdpSocket m_udpServer2;
 	QString m_userCacheFileName;
-	int m_lastTunnelId = 0;
-	QMap<QString, QString> m_mapUserNameIdentifier;
+	int m_lastTunnelId;
+	QStringMap m_mapUserNameIdentifier;
 	QMap<QTcpSocket*, ClientInfo> m_mapClientInfo;
 	QMap<QString, QTcpSocket*> m_mapUserTcpSocket;
 	QSet<QString> m_lstLoginedIdentifier;

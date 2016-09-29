@@ -47,7 +47,7 @@
 	typedef __int32 ISTDINT32;
 #elif defined(__GNUC__)
 	#include <stdint.h>
-	typedef uint32_t ISTDUINT32;
+	typedef quint32 ISTDUINT32;
 	typedef int32_t ISTDINT32;
 #else 
 	typedef unsigned long ISTDUINT32; 

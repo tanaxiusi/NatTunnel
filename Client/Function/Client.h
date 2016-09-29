@@ -5,6 +5,7 @@
 #include <QUdpSocket>
 #include <QTimer>
 #include <QTime>
+#include <QStringList>
 #include "Util/Other.h"
 #include "KcpManager.h"
 #include "QUpnpPortMapper.h"
@@ -64,12 +65,16 @@ private:
 
 	struct TunnelInfo
 	{
-		TunnelStatus status = UnknownTunnelStatus;
-		int localIndex = 0;		// 本地udp端口编号(1或2)
+		TunnelStatus status;
+		int localIndex;		// 本地udp端口编号(1或2)
 		QString peerUserName;
 		QHostAddress peerAddress;
-		quint16 peerPort = 0;
-		ikcpcb * kcp = nullptr;
+		quint16 peerPort;
+		ikcpcb * kcp;
+		TunnelInfo()
+			:status(UnknownTunnelStatus),localIndex(0),peerPort(0),kcp(NULL)
+		{}
+
 	};
 
 public:
@@ -190,7 +195,7 @@ private:
 	void tcpOut_closeTunneling(int tunnelId, QString reason);
 
 private:
-	bool m_running = false;
+	bool m_running;
 
 	MessageConverter m_messageConverter;
 	QTcpSocket m_tcpSocket;
@@ -208,27 +213,27 @@ private:
 	QString m_localPassword;
 
 	QHostAddress m_serverHostAddress;
-	quint16 m_serverTcpPort = 0;
-	quint16 m_serverUdpPort1 = 0;
-	quint16 m_serverUdpPort2 = 0;
+	quint16 m_serverTcpPort;
+	quint16 m_serverUdpPort1;
+	quint16 m_serverUdpPort2;
 
-	ClientStatus m_status = UnknownClientStatus;
-	NatCheckStatus m_natStatus = UnknownNatCheckStatus;
+	ClientStatus m_status;
+	NatCheckStatus m_natStatus;
 	QTime m_beginWaitTime;
-	NatType m_natType = UnknownNatType;
+	NatType m_natType;
 
-	UpnpStatus m_upnpStatus = UpnpUnknownStatus;
+	UpnpStatus m_upnpStatus;
 
 	QTime m_lastInTime;
 	QTime m_lastOutTime;
 
-	bool m_upnpAvailability = false;
-	bool m_isPublicNetwork = false;
+	bool m_upnpAvailability;
+	bool m_isPublicNetwork;
 	QHostAddress m_localPublicAddress;
 
 	QStringList m_lstGatewayInfo;		// 内网情况下，存储网关信息，List<"网关IP 网关MAC">
 
-	quint16 m_udp2UpnpPort = 0;
+	quint16 m_udp2UpnpPort;
 
 	QSet<int> m_waitingRequestId;
 

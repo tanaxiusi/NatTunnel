@@ -11,6 +11,13 @@ MainDlg::MainDlg(QWidget *parent)
 {
 	ui.setupUi(this);
 
+	m_labelStatus = NULL;
+	m_labelNatType = NULL;
+	m_labelUpnp = NULL;
+	m_tableModel = NULL;
+	m_client = NULL;
+	m_transferManager = NULL;
+
 	m_labelStatus = new QLabel(U16("未连接"));
 	m_labelNatType = new QLabel(U16(" "));
 	m_labelUpnp = new QLabel(U16(" "));
@@ -57,7 +64,7 @@ void MainDlg::start()
 	m_workingThread.start();
 
 	m_client = new Client();
-	m_transferManager = new TransferManager(nullptr, m_client);
+	m_transferManager = new TransferManager(NULL, m_client);
 
 	m_client->moveToThread(&m_workingThread);
 	m_transferManager->moveToThread(&m_workingThread);
@@ -118,8 +125,8 @@ void MainDlg::stop()
 	m_client->deleteLater();
 	m_transferManager->deleteLater();
 
-	m_client = nullptr;
-	m_transferManager = nullptr;
+	m_client = NULL;
+	m_transferManager = NULL;
 
 	m_workingThread.quit();
 	m_workingThread.wait();
@@ -245,7 +252,12 @@ void MainDlg::onReplyRefreshOnlineUser(QStringList onlineUserList)
 	const QString currentText = ui.comboBoxPeerUserName->currentText();
 	ui.comboBoxPeerUserName->clear();
 	ui.comboBoxPeerUserName->addItems(onlineUserList);
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
 	ui.comboBoxPeerUserName->setCurrentText(currentText);
+#else
+	ui.comboBoxPeerUserName->setEditText(currentText);
+#endif
 	ui.btnRefreshOnlineUser->setEnabled(true);
 }
 
@@ -331,7 +343,11 @@ void MainDlg::onBtnAddTransfer()
 		return;
 
 	QString originalText;
+#if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
 	QString inputText = QInputDialog::getMultiLineText(this, U16("添加转发"), U16("每行一个，格式：[本地端口号] [远程端口号] [远程IP地址](不填则默认为127.0.0.1)"), originalText);
+#else
+	QString inputText = QInputDialog::getText(this, U16("添加转发"), U16("格式：[本地端口号] [远程端口号] [远程IP地址](不填则默认为127.0.0.1)"), QLineEdit::Normal, originalText);
+#endif
 	if (inputText.isNull())
 		return;
 
@@ -355,7 +371,7 @@ void MainDlg::onBtnAddTransfer()
 	if (lstFailed.size() > 0)
 	{
 		QStringList lineList;
-		for (TransferInfo & transferInfo : lstFailed)
+		foreach (TransferInfo transferInfo, lstFailed)
 			lineList << QString("%1 %2 %3").arg(transferInfo.localPort).arg(transferInfo.remoteAddress.toString()).arg(transferInfo.remotePort);
 
 		QMessageBox::warning(this, U16("添加转发"), lineList.join("\n") + U16("\n%1个添加失败").arg(lstFailed.size()));
@@ -503,6 +519,6 @@ QStringList MainDlg::getUserNameList()
 void MainDlg::setUserNameList(QStringList userNameList)
 {
 	ui.comboBoxPeerUserName->clear();
-	for (QString userName : userNameList)
+	foreach (QString userName, userNameList)
 		ui.comboBoxPeerUserName->addItem(userName);
 }

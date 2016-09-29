@@ -2,6 +2,12 @@
 #include "aes/aes.h"
 #include "aes/aes.c"
 
+
+MessageConverter::MessageConverter()
+{
+	memset(m_key, 0, sizeof(m_key));
+}
+
 void MessageConverter::setKey(const quint8 * key)
 {
 	memcpy(m_key, key, sizeof(m_key));
@@ -33,7 +39,7 @@ QByteArray MessageConverter::parse(QByteArray message, QByteArrayMap * outArgume
 	if (outArgument)
 	{
 		QList<QByteArray> argumentList = line.mid(type.length() + 1).split(' ');
-		for (QByteArray argumentText : argumentList)
+		foreach (QByteArray argumentText, argumentList)
 		{
 			const int equalPos = argumentText.indexOf('=');
 			if (equalPos < 0)
@@ -52,7 +58,7 @@ QByteArray MessageConverter::serialize(QByteArray type, QByteArrayMap argument)
 		return QByteArray();
 	QByteArray line = "M" + type;
 
-	for (auto iter = argument.constBegin(); iter != argument.constEnd(); ++iter)
+	for (QByteArrayMap::iterator iter = argument.constBegin(); iter != argument.constEnd(); ++iter)
 	{
 		const QByteArray & argumentName = iter.key();
 		const QByteArray & argumentValue = iter.value();
@@ -77,7 +83,7 @@ QString MessageConverter::argumentToString(const QByteArrayMap & argument)
 {
 	QString result = "{";
 
-	for (auto iter = argument.constBegin(); iter != argument.constEnd(); ++iter)
+	for (QByteArrayMap::iterator iter = argument.constBegin(); iter != argument.constEnd(); ++iter)
 	{
 		const QByteArray & key = iter.key();
 		const QByteArray & value = iter.value();

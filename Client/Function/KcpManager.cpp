@@ -40,7 +40,7 @@ void KcpManager::setUserName(QString userName)
 
 void KcpManager::clear()
 {
-	for (int tunnelId : m_mapTunnelId.keys())
+	foreach (int tunnelId, m_mapTunnelId.keys())
 		deleteKcpConnection(tunnelId, "clear");
 }
 
@@ -59,7 +59,7 @@ bool KcpManager::haveUnconfirmedKcpConnection()
 bool KcpManager::createKcpConnection(int tunnelId, QHostAddress hostAddress, quint16 port, QString userName, quint32 magicNumber)
 {
 	const Peer peer(hostAddress, port);
-	if (m_mapTunnelId.contains(tunnelId) || getConnectionByPeer(peer) != nullptr)
+	if (m_mapTunnelId.contains(tunnelId) || getConnectionByPeer(peer) != NULL)
 		return false;
 
 	ikcpcb * kcp = ikcp_create(magicNumber, this);
@@ -101,7 +101,7 @@ void KcpManager::lowLevelInput(QHostAddress hostAddress, quint16 port, QByteArra
 	if (package.isEmpty())
 		return;
 	KcpConnection & connection = *getConnectionByPeer(Peer(hostAddress, port));
-	if (&connection == nullptr)
+	if (&connection == NULL)
 		return;
 	package = checksumThenUnpackPackage(package, connection.userName);
 	if (package.isEmpty())
@@ -216,7 +216,7 @@ void KcpManager::timerFunction10ms()
 {
 	m_cachedCurrentTime = QTime::currentTime();
 	const quint32 currentTime = getCurrentTime();
-	for (auto iter = m_map.begin(); iter != m_map.end(); ++iter)
+	for (QMap<ikcpcb*, KcpConnection>::iterator iter = m_map.begin(); iter != m_map.end(); ++iter)
 	{
 		ikcpcb * kcp = iter.key();
 		KcpConnection & connection = iter.value();
@@ -229,7 +229,7 @@ void KcpManager::timerFunction10ms()
 void KcpManager::timerFunction5s()
 {
 	QList<int> timeoutConnections;
-	for (auto iter = m_map.begin(); iter != m_map.end(); ++iter)
+	for (QMap<ikcpcb*, KcpConnection>::iterator iter = m_map.begin(); iter != m_map.end(); ++iter)
 	{
 		ikcpcb * kcp = iter.key();
 		KcpConnection & connection = iter.value();
@@ -238,7 +238,7 @@ void KcpManager::timerFunction5s()
 	}
 	if (timeoutConnections.isEmpty())
 		return;
-	for (int tunnelId : timeoutConnections)
+	foreach (int tunnelId, timeoutConnections)
 		deleteKcpConnection(tunnelId, U16("心跳超时"));
 }
 
@@ -271,7 +271,7 @@ KcpManager::KcpConnection * KcpManager::getConnectionByPeer(const Peer & peer)
 		else if(connection->peer.address == peer.address && connection->peer.port == peer.port)
 			return connection;
 	}
-	return nullptr;
+	return NULL;
 }
 
 void KcpManager::updateKcp(KcpConnection & connection, quint32 currentTime)

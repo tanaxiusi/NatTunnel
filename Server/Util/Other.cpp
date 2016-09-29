@@ -13,8 +13,8 @@ QByteArray checksumThenUnpackPackage(QByteArray package)
 	if (package.size() < 4)
 		return QByteArray();
 	const QByteArray content = QByteArray::fromRawData(package.constData() + 4, package.size() - 4);
-	const uint32_t receivedCrc = *(uint32_t*)package.constData();
-	const uint32_t actualCrc = crc32(content.constData(), content.size());
+	const quint32 receivedCrc = *(quint32*)package.constData();
+	const quint32 actualCrc = crc32(content.constData(), content.size());
 	if (receivedCrc != actualCrc)
 		return QByteArray();
 	return content;
@@ -26,9 +26,8 @@ QHostAddress tryConvertToIpv4(const QHostAddress & hostAddress)
 		return hostAddress;
 	if (hostAddress.protocol() == QAbstractSocket::IPv6Protocol)
 	{
-		bool ok = false;
-		auto ipv4Address = hostAddress.toIPv4Address(&ok);
-		if (ok)
+		quint32 ipv4Address = hostAddress.toIPv4Address();
+		if (ipv4Address)
 			return QHostAddress(ipv4Address);
 	}
 	return hostAddress;

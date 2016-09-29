@@ -1,6 +1,6 @@
 ﻿#include "crc32.h"
 
-static const uint32_t crc32tab[] = {
+static const quint32 crc32tab[] = {
 	0x00000000L, 0x77073096L, 0xee0e612cL, 0x990951baL,
 	0x076dc419L, 0x706af48fL, 0xe963a535L, 0x9e6495a3L,
 	0x0edb8832L, 0x79dcb8a4L, 0xe0d5e91eL, 0x97d2d988L,
@@ -69,20 +69,20 @@ static const uint32_t crc32tab[] = {
 
 
 
-uint32_t crc32(const char *buf, uint32_t size)
+quint32 crc32(const char *buf, quint32 size)
 {
 	const unsigned char * newBuf = (const unsigned char *)buf;
-	uint32_t i, crc;
+	quint32 i, crc;
 	crc = 0xFFFFFFFF;
 	for (i = 0; i < size; i++)
 		crc = crc32tab[(crc ^ newBuf[i]) & 0xff] ^ (crc >> 8);
 	return crc ^ 0xFFFFFFFF;
 }
 
-uint32_t crc32(uint32_t crc, const char *buf, uint32_t size)
+quint32 crc32(quint32 crc, const char *buf, quint32 size)
 {
 	const unsigned char * newBuf = (const unsigned char *)buf;
-	uint32_t i;
+	quint32 i;
 	for (i = 0; i < size; i++)
 		crc = crc32tab[(crc ^ newBuf[i]) & 0xff] ^ (crc >> 8);
 	return crc ^ 0xFFFFFFFF;

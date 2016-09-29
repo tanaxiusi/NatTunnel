@@ -6,9 +6,12 @@
 
 struct TransferInfo
 {
-	quint16 localPort = 0;
+	quint16 localPort;
 	QHostAddress remoteAddress;
-	quint16 remotePort = 0;
+	quint16 remotePort;
+	TransferInfo()
+		:localPort(0), remotePort(0)
+	{}
 };
 
 class TransferManager : public QObject

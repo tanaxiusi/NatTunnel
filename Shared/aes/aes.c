@@ -33,7 +33,7 @@ NOTE:   String length must be evenly divisible by 16byte (str_len % 16 == 0)
 /*****************************************************************************/
 /* Includes:                                                                 */
 /*****************************************************************************/
-#include <stdint.h>
+//#include <stdint.h>
 #include <string.h> // CBC mode, for memset
 #include "aes.h"
 
@@ -62,24 +62,24 @@ NOTE:   String length must be evenly divisible by 16byte (str_len % 16 == 0)
 /* Private variables:                                                        */
 /*****************************************************************************/
 // state - array holding the intermediate results during decryption.
-typedef uint8_t state_t[4][4];
+typedef quint8 state_t[4][4];
 static state_t* state;
 
 // The array that stores the round keys.
-static uint8_t RoundKey[176];
+static quint8 RoundKey[176];
 
 // The Key input to the AES Program
-static const uint8_t* Key;
+static const quint8* Key;
 
 #if defined(CBC) && CBC
   // Initial Vector used only for CBC mode
-  static uint8_t* Iv;
+  static quint8* Iv;
 #endif
 
 // The lookup-tables are marked const so they can be placed in read-only storage instead of RAM
 // The numbers below can be computed dynamically trading ROM for RAM - 
 // This can be useful in (embedded) bootloader applications, where ROM is often limited.
-static const uint8_t sbox[256] =   {
+static const quint8 sbox[256] =   {
   //0     1    2      3     4    5     6     7      8    9     A      B    C     D     E     F
   0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
   0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
@@ -98,7 +98,7 @@ static const uint8_t sbox[256] =   {
   0xe1, 0xf8, 0x98, 0x11, 0x69, 0xd9, 0x8e, 0x94, 0x9b, 0x1e, 0x87, 0xe9, 0xce, 0x55, 0x28, 0xdf,
   0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16 };
 
-static const uint8_t rsbox[256] =
+static const quint8 rsbox[256] =
 { 0x52, 0x09, 0x6a, 0xd5, 0x30, 0x36, 0xa5, 0x38, 0xbf, 0x40, 0xa3, 0x9e, 0x81, 0xf3, 0xd7, 0xfb,
   0x7c, 0xe3, 0x39, 0x82, 0x9b, 0x2f, 0xff, 0x87, 0x34, 0x8e, 0x43, 0x44, 0xc4, 0xde, 0xe9, 0xcb,
   0x54, 0x7b, 0x94, 0x32, 0xa6, 0xc2, 0x23, 0x3d, 0xee, 0x4c, 0x95, 0x0b, 0x42, 0xfa, 0xc3, 0x4e,
@@ -120,7 +120,7 @@ static const uint8_t rsbox[256] =
 // The round constant word array, Rcon[i], contains the values given by 
 // x to th e power (i-1) being powers of x (x is denoted as {02}) in the field GF(2^8)
 // Note that i starts at 1, not 0).
-static const uint8_t Rcon[255] = {
+static const quint8 Rcon[255] = {
   0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36, 0x6c, 0xd8, 0xab, 0x4d, 0x9a, 
   0x2f, 0x5e, 0xbc, 0x63, 0xc6, 0x97, 0x35, 0x6a, 0xd4, 0xb3, 0x7d, 0xfa, 0xef, 0xc5, 0x91, 0x39, 
   0x72, 0xe4, 0xd3, 0xbd, 0x61, 0xc2, 0x9f, 0x25, 0x4a, 0x94, 0x33, 0x66, 0xcc, 0x83, 0x1d, 0x3a, 
@@ -142,12 +142,12 @@ static const uint8_t Rcon[255] = {
 /*****************************************************************************/
 /* Private functions:                                                        */
 /*****************************************************************************/
-static uint8_t getSBoxValue(uint8_t num)
+static quint8 getSBoxValue(quint8 num)
 {
   return sbox[num];
 }
 
-static uint8_t getSBoxInvert(uint8_t num)
+static quint8 getSBoxInvert(quint8 num)
 {
   return rsbox[num];
 }
@@ -155,8 +155,8 @@ static uint8_t getSBoxInvert(uint8_t num)
 // This function produces Nb(Nr+1) round keys. The round keys are used in each round to decrypt the states. 
 static void KeyExpansion(void)
 {
-  uint32_t i, j, k;
-  uint8_t tempa[4]; // Used for the column/row operations
+  quint32 i, j, k;
+  quint8 tempa[4]; // Used for the column/row operations
   
   // The first round key is the key itself.
   for(i = 0; i < Nk; ++i)
@@ -220,9 +220,9 @@ static void KeyExpansion(void)
 
 // This function adds the round key to state.
 // The round key is added to the state by an XOR function.
-static void AddRoundKey(uint8_t round)
+static void AddRoundKey(quint8 round)
 {
-  uint8_t i,j;
+  quint8 i,j;
   for(i=0;i<4;++i)
   {
     for(j = 0; j < 4; ++j)
@@ -236,7 +236,7 @@ static void AddRoundKey(uint8_t round)
 // state matrix with values in an S-box.
 static void SubBytes(void)
 {
-  uint8_t i, j;
+  quint8 i, j;
   for(i = 0; i < 4; ++i)
   {
     for(j = 0; j < 4; ++j)
@@ -251,7 +251,7 @@ static void SubBytes(void)
 // Offset = Row number. So the first row is not shifted.
 static void ShiftRows(void)
 {
-  uint8_t temp;
+  quint8 temp;
 
   // Rotate first row 1 columns to left  
   temp           = (*state)[0][1];
@@ -277,7 +277,7 @@ static void ShiftRows(void)
   (*state)[1][3] = temp;
 }
 
-static uint8_t xtime(uint8_t x)
+static quint8 xtime(quint8 x)
 {
   return ((x<<1) ^ (((x>>7) & 1) * 0x1b));
 }
@@ -285,8 +285,8 @@ static uint8_t xtime(uint8_t x)
 // MixColumns function mixes the columns of the state matrix
 static void MixColumns(void)
 {
-  uint8_t i;
-  uint8_t Tmp,Tm,t;
+  quint8 i;
+  quint8 Tmp,Tm,t;
   for(i = 0; i < 4; ++i)
   {  
     t   = (*state)[i][0];
@@ -300,7 +300,7 @@ static void MixColumns(void)
 
 // Multiply is used to multiply numbers in the field GF(2^8)
 #if MULTIPLY_AS_A_FUNCTION
-static uint8_t Multiply(uint8_t x, uint8_t y)
+static quint8 Multiply(quint8 x, quint8 y)
 {
   return (((y & 1) * x) ^
        ((y>>1 & 1) * xtime(x)) ^
@@ -324,7 +324,7 @@ static uint8_t Multiply(uint8_t x, uint8_t y)
 static void InvMixColumns(void)
 {
   int i;
-  uint8_t a,b,c,d;
+  quint8 a,b,c,d;
   for(i=0;i<4;++i)
   { 
     a = (*state)[i][0];
@@ -344,7 +344,7 @@ static void InvMixColumns(void)
 // state matrix with values in an S-box.
 static void InvSubBytes(void)
 {
-  uint8_t i,j;
+  quint8 i,j;
   for(i=0;i<4;++i)
   {
     for(j=0;j<4;++j)
@@ -356,7 +356,7 @@ static void InvSubBytes(void)
 
 static void InvShiftRows(void)
 {
-  uint8_t temp;
+  quint8 temp;
 
   // Rotate first row 1 columns to right  
   temp=(*state)[3][1];
@@ -386,7 +386,7 @@ static void InvShiftRows(void)
 // Cipher is the main function that encrypts the PlainText.
 static void Cipher(void)
 {
-  uint8_t round = 0;
+  quint8 round = 0;
 
   // Add the First round key to the state before starting the rounds.
   AddRoundKey(0); 
@@ -411,7 +411,7 @@ static void Cipher(void)
 
 static void InvCipher(void)
 {
-  uint8_t round=0;
+  quint8 round=0;
 
   // Add the First round key to the state before starting the rounds.
   AddRoundKey(Nr); 
@@ -434,9 +434,9 @@ static void InvCipher(void)
   AddRoundKey(0);
 }
 
-static void BlockCopy(uint8_t* output, uint8_t* input)
+static void BlockCopy(quint8* output, quint8* input)
 {
-  uint8_t i;
+  quint8 i;
   for (i=0;i<KEYLEN;++i)
   {
     output[i] = input[i];
@@ -451,7 +451,7 @@ static void BlockCopy(uint8_t* output, uint8_t* input)
 #if defined(ECB) && ECB
 
 
-void AES128_ECB_encrypt(uint8_t* input, const uint8_t* key, uint8_t* output)
+void AES128_ECB_encrypt(quint8* input, const quint8* key, quint8* output)
 {
   // Copy input to output, and work in-memory on output
   BlockCopy(output, input);
@@ -464,7 +464,7 @@ void AES128_ECB_encrypt(uint8_t* input, const uint8_t* key, uint8_t* output)
   Cipher();
 }
 
-void AES128_ECB_decrypt(uint8_t* input, const uint8_t* key, uint8_t *output)
+void AES128_ECB_decrypt(quint8* input, const quint8* key, quint8 *output)
 {
   // Copy input to output, and work in-memory on output
   BlockCopy(output, input);
@@ -487,19 +487,19 @@ void AES128_ECB_decrypt(uint8_t* input, const uint8_t* key, uint8_t *output)
 #if defined(CBC) && CBC
 
 
-static void XorWithIv(uint8_t* buf)
+static void XorWithIv(quint8* buf)
 {
-  uint8_t i;
+  quint8 i;
   for(i = 0; i < KEYLEN; ++i)
   {
     buf[i] ^= Iv[i];
   }
 }
 
-void AES128_CBC_encrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv)
+void AES128_CBC_encrypt_buffer(quint8* output, quint8* input, quint32 length, const quint8* key, const quint8* iv)
 {
   uintptr_t i;
-  uint8_t remainders = length % KEYLEN; /* Remaining bytes in the last non-full block */
+  quint8 remainders = length % KEYLEN; /* Remaining bytes in the last non-full block */
 
   BlockCopy(output, input);
   state = (state_t*)output;
@@ -513,7 +513,7 @@ void AES128_CBC_encrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length,
 
   if(iv != 0)
   {
-    Iv = (uint8_t*)iv;
+    Iv = (quint8*)iv;
   }
 
   for(i = 0; i < length; i += KEYLEN)
@@ -536,10 +536,10 @@ void AES128_CBC_encrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length,
   }
 }
 
-void AES128_CBC_decrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv)
+void AES128_CBC_decrypt_buffer(quint8* output, quint8* input, quint32 length, const quint8* key, const quint8* iv)
 {
   uintptr_t i;
-  uint8_t remainders = length % KEYLEN; /* Remaining bytes in the last non-full block */
+  quint8 remainders = length % KEYLEN; /* Remaining bytes in the last non-full block */
   
   BlockCopy(output, input);
   state = (state_t*)output;
@@ -554,7 +554,7 @@ void AES128_CBC_decrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length,
   // If iv is passed as 0, we continue to encrypt without re-setting the Iv
   if(iv != 0)
   {
-    Iv = (uint8_t*)iv;
+    Iv = (quint8*)iv;
   }
 
   for(i = 0; i < length; i += KEYLEN)

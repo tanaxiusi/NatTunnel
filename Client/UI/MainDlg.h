@@ -63,12 +63,12 @@ private:
 
 private:
 	Ui::MainDlgClass ui;
-	QLabel * m_labelStatus = nullptr;
-	QLabel * m_labelNatType = nullptr;
-	QLabel * m_labelUpnp = nullptr;
-	QStandardItemModel * m_tableModel = nullptr;
+	QLabel * m_labelStatus;
+	QLabel * m_labelNatType;
+	QLabel * m_labelUpnp;
+	QStandardItemModel * m_tableModel;
 
 	QThread m_workingThread;
-	Client * m_client = nullptr;
-	TransferManager * m_transferManager = nullptr;
+	Client * m_client;
+	TransferManager * m_transferManager;
 };

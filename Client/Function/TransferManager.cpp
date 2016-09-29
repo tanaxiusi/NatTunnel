@@ -15,7 +15,7 @@ TransferManager::TransferManager(QObject *parent, Client * client)
 
 TransferManager::~TransferManager()
 {
-	for (TcpTransfer * tcpTransfer : m_mapTcpTransfer)
+	foreach (TcpTransfer * tcpTransfer, m_mapTcpTransfer)
 		delete tcpTransfer;
 	m_mapTcpTransfer.clear();
 }
@@ -33,20 +33,16 @@ bool TransferManager::addTransfer(int tunnelId, QList<TransferInfo> transferInfo
 	TcpTransfer * tcpTransfer = m_mapTcpTransfer.value(tunnelId);
 	if (!tcpTransfer)
 		return false;
-	for (const TransferInfo & transferInfo : transferInfoList)
-	{
+	foreach (const TransferInfo & transferInfo, transferInfoList)
 		if (!tcpTransfer->addTransfer(transferInfo.localPort, transferInfo.remotePort, transferInfo.remoteAddress))
-		{
 			if (outFailedList)
 				outFailedList->append(transferInfo);
-		}
-	}
 	return true;
 }
 
 void TransferManager::onClientDisconnected()
 {
-	for (TcpTransfer * tcpTransfer : m_mapTcpTransfer)
+	foreach (TcpTransfer * tcpTransfer, m_mapTcpTransfer)
 		delete tcpTransfer;
 	m_mapTcpTransfer.clear();
 }
