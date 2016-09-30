@@ -5,6 +5,7 @@
 #include <QInputDialog>
 #include "Util/Other.h"
 #include "GuideDlg.h"
+#include "MultiLineInputDialog.h"
 
 MainDlg::MainDlg(QWidget *parent)
 	: QMainWindow(parent)
@@ -105,8 +106,6 @@ void MainDlg::start()
 	if (setting.value("Other/ShowAddress").toInt() == 1)
 		ui.tableView->setColumnHidden(2, false);
 
-	setUserNameList(setting.value("Cache/UserNameList").toStringList());
-
 	ui.editUserName->setText(userName);
 	ui.editLocalPassword->setText(localPassword);
 
@@ -151,7 +150,6 @@ void MainDlg::closeEvent(QCloseEvent *event)
 {
 	QSettings setting("NatTunnelClient.ini", QSettings::IniFormat);
 	setting.setValue("Client/LocalPassword", ui.editLocalPassword->text());
-	setting.setValue("Cache/UserNameList", getUserNameList());
 }
 void MainDlg::onConnected()
 {
@@ -253,11 +251,7 @@ void MainDlg::onReplyRefreshOnlineUser(QStringList onlineUserList)
 	ui.comboBoxPeerUserName->clear();
 	ui.comboBoxPeerUserName->addItems(onlineUserList);
 
-#if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
-	ui.comboBoxPeerUserName->setCurrentText(currentText);
-#else
 	ui.comboBoxPeerUserName->setEditText(currentText);
-#endif
 	ui.btnRefreshOnlineUser->setEnabled(true);
 }
 
@@ -339,17 +333,17 @@ void MainDlg::onBtnAddTransfer()
 	if (!btnAddTransfer)
 		return;
 	const int tunnelId = btnAddTransfer->property("tunnelId").toInt();
-	if (tunnelId == 0)
+	const QString peerUserName = btnAddTransfer->property("peerUserName").toString();
+	if (tunnelId == 0 || peerUserName.isEmpty())
 		return;
 
-	QString originalText;
-#if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
-	QString inputText = QInputDialog::getMultiLineText(this, U16("添加转发"), U16("每行一个，格式：[本地端口号] [远程端口号] [远程IP地址](不填则默认为127.0.0.1)"), originalText);
-#else
-	QString inputText = QInputDialog::getText(this, U16("添加转发"), U16("格式：[本地端口号] [远程端口号] [远程IP地址](不填则默认为127.0.0.1)"), QLineEdit::Normal, originalText);
-#endif
+	QSettings cache("Cache.ini", QSettings::IniFormat);
+	QString originalText = cache.value("Transfer/" + peerUserName).toString();
+	QString inputText = MultiLineInputDialog::getText(this, U16("添加转发"), U16("每行一个，格式：[本地端口号] [远程端口号] [远程IP地址](不填则默认为127.0.0.1)"), originalText);
 	if (inputText.isNull())
 		return;
+
+	cache.setValue("Transfer/" + peerUserName, inputText);
 
 	QString errorMsg;
 	QList<TransferInfo> lstTransferInfo = parseTransferInfoList(inputText, &errorMsg);
@@ -435,13 +429,13 @@ QList<TransferInfo> MainDlg::parseTransferInfoList(QString text, QString * outEr
 	return result;
 }
 
-void MainDlg::updateTableRow(int tunnelId, QString peerUsername, QString peerAddress, QString status)
+void MainDlg::updateTableRow(int tunnelId, QString peerUserName, QString peerAddress, QString status)
 {
 	const QString key = QString::number(tunnelId);
 	QList<QStandardItem*> lstItem = m_tableModel->findItems(key);
 	if (lstItem.isEmpty())
 	{
-		lstItem << new QStandardItem(key) << new QStandardItem(peerUsername) << new QStandardItem(peerAddress)
+		lstItem << new QStandardItem(key) << new QStandardItem(peerUserName) << new QStandardItem(peerAddress)
 			<< new QStandardItem(status) << new QStandardItem();
 		m_tableModel->appendRow(lstItem);
 
@@ -451,6 +445,7 @@ void MainDlg::updateTableRow(int tunnelId, QString peerUsername, QString peerAdd
 		btnCloseTunneling->setProperty("tunnelId", tunnelId);
 		btnAddTransfer->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding));
 		btnAddTransfer->setProperty("tunnelId", tunnelId);
+		btnAddTransfer->setProperty("peerUserName", peerUserName);
 
 		connect(btnCloseTunneling, SIGNAL(clicked()), this, SLOT(onBtnCloseTunneling()));
 		connect(btnAddTransfer, SIGNAL(clicked()), this, SLOT(onBtnAddTransfer()));
@@ -468,8 +463,8 @@ void MainDlg::updateTableRow(int tunnelId, QString peerUsername, QString peerAdd
 	else
 	{
 		const int row = lstItem.at(0)->row();
-		if (!peerUsername.isNull())
-			m_tableModel->item(row, 1)->setText(peerUsername);
+		if (!peerUserName.isNull())
+			m_tableModel->item(row, 1)->setText(peerUserName);
 		if (!peerAddress.isNull())
 			m_tableModel->item(row, 2)->setText(peerAddress);
 		if (!status.isNull())
@@ -506,19 +501,4 @@ void MainDlg::insertTopUserName(QString userName)
 		ui.comboBoxPeerUserName->removeItem(ui.comboBoxPeerUserName->count() - 1);
 	ui.comboBoxPeerUserName->insertItem(0, userName);
 	ui.comboBoxPeerUserName->setCurrentIndex(0);
-}
-
-QStringList MainDlg::getUserNameList()
-{
-	QStringList result;
-	for (int i = 0; i < ui.comboBoxPeerUserName->count(); ++i)
-		result << ui.comboBoxPeerUserName->itemText(i);
-	return result;
-}
-
-void MainDlg::setUserNameList(QStringList userNameList)
-{
-	ui.comboBoxPeerUserName->clear();
-	foreach (QString userName, userNameList)
-		ui.comboBoxPeerUserName->addItem(userName);
 }
