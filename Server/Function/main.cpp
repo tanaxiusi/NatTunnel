@@ -80,16 +80,10 @@ int main(int argc, char *argv[])
 	const QByteArray globalKey = setting.value("Other/GlobalKey").toByteArray();
 	if (globalKey.isEmpty())
 		qWarning() << QString("Empty GlobalKey");
-	QString userCacheFileName = setting.value("Other/UserCacheFileName").toString();
-	if (userCacheFileName.isEmpty())
-	{
-		qWarning() << QString("Empty UserCacheFileName, relocating to 'UserCache.txt'");
-		userCacheFileName = "UserCache.txt";
-	}
 
 	ClientManager clientManager;
 	clientManager.setGlobalKey(globalKey);
-	clientManager.setUserCacheFileName(userCacheFileName);
+	clientManager.setDatabase("User.db", "root", "000000");
 	if (!clientManager.start(tcpPort, udp1Port, udp2Port))
 		return 0;
 

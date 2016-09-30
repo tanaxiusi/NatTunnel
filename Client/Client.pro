@@ -1,5 +1,6 @@
 TEMPLATE = app
 TARGET = Client
 QT += core network xml gui
-INCLUDEPATH += ./../Shared
+INCLUDEPATH += . \
+	./../Shared
 include(Client.pri)

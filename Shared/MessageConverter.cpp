@@ -58,7 +58,7 @@ QByteArray MessageConverter::serialize(QByteArray type, QByteArrayMap argument)
 		return QByteArray();
 	QByteArray line = "M" + type;
 
-	for (QByteArrayMap::iterator iter = argument.constBegin(); iter != argument.constEnd(); ++iter)
+	for (QByteArrayMap::const_iterator iter = argument.constBegin(); iter != argument.constEnd(); ++iter)
 	{
 		const QByteArray & argumentName = iter.key();
 		const QByteArray & argumentValue = iter.value();
@@ -83,7 +83,7 @@ QString MessageConverter::argumentToString(const QByteArrayMap & argument)
 {
 	QString result = "{";
 
-	for (QByteArrayMap::iterator iter = argument.constBegin(); iter != argument.constEnd(); ++iter)
+	for (QByteArrayMap::const_iterator iter = argument.constBegin(); iter != argument.constEnd(); ++iter)
 	{
 		const QByteArray & key = iter.key();
 		const QByteArray & value = iter.value();

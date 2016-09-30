@@ -9,6 +9,7 @@
 #include "Util/Other.h"
 #include "Util/QStringMap.h"
 #include "MessageConverter.h"
+#include "UserContainer.h"
 
 class ClientManager : public QObject
 {
@@ -76,7 +77,7 @@ public:
 	~ClientManager();
 
 	void setGlobalKey(QByteArray key);
-	void setUserCacheFileName(QString fileName);
+	void setDatabase(QString fileName, QString userName, QString password);
 
 	bool start(quint16 tcpPort, quint16 udpPort1, quint16 udpPort2);
 	bool stop();
@@ -93,9 +94,6 @@ private slots:
 private:
 	QUdpSocket * getUdpServer(int index);
 
-	bool loadUserCache();
-	bool saveUserCache();
-
 	bool checkStatus(QTcpSocket & tcpSocket, ClientInfo & client, ClientStatus correctStatus, NatCheckStatus correctNatStatus);
 	bool checkStatus(QTcpSocket & tcpSocket, ClientInfo & client, ClientStatus correctStatus);
 	bool checkStatusAndDisconnect(QTcpSocket & tcpSocket, ClientInfo & client, QString functionName, ClientStatus correctStatus, NatCheckStatus correctNatStatus);
@@ -106,8 +104,6 @@ private:
 	void sendUdp(int index, QByteArray type, QByteArrayMap argument, QHostAddress hostAddress, quint16 port);
 	void onUdpReadyRead(int index);
 
-	QString getBoundUserName(QString identifier);
-	QString getBoundIdentifier(QString userName);
 	bool checkCanTunnel(ClientInfo & localClient, QString peerUserName, bool * outLocalNeedUpnp, bool * outPeerNeedUpnp, QString * outFailReason);
 	bool isExistTunnel(QString userName1, QString userName2);
 	// 根据Client类型和可能可用的upnp端口来确定外部连接端口，
@@ -169,9 +165,8 @@ private:
 	QTcpServer m_tcpServer;
 	QUdpSocket m_udpServer1;
 	QUdpSocket m_udpServer2;
-	QString m_userCacheFileName;
 	int m_lastTunnelId;
-	QStringMap m_mapUserNameIdentifier;
+	UserContainer m_userContainer;
 	QMap<QTcpSocket*, ClientInfo> m_mapClientInfo;
 	QMap<QString, QTcpSocket*> m_mapUserTcpSocket;
 	QSet<QString> m_lstLoginedIdentifier;

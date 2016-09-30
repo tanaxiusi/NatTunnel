@@ -62,7 +62,7 @@ bool generalNameCheck(const QString & name)
 	if (name.length() == 0)
 		return false;
 
-	static QString forbiddenChar = "\\/:?*\"<>| ,";
+	static QString forbiddenChar = "\\/:?*\"'`<>| ,";
 	for (int i = 0; i < forbiddenChar.length(); ++i)
 	{
 		if (name.indexOf(forbiddenChar.at(i)) >= 0)

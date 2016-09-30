@@ -3,8 +3,6 @@
 #include <QCryptographicHash>
 #include <QFile>
 #include <QStringList>
-#include "QJson/Parser"
-#include "QJson/Serializer"
 #include "Util/Other.h"
 #include "crc32/crc32.h"
 #include "Util/QStringMap.h"
@@ -41,11 +39,9 @@ void ClientManager::setGlobalKey(QByteArray key)
 	m_messageConverter.setKey((const quint8*)key.constData());
 }
 
-void ClientManager::setUserCacheFileName(QString fileName)
+void ClientManager::setDatabase(QString fileName, QString userName, QString password)
 {
-	if (m_running)
-		return;
-	m_userCacheFileName = fileName;
+	m_userContainer.setDatabaseConfig(fileName, userName, password);
 }
 
 bool ClientManager::start(quint16 tcpPort, quint16 udpPort1, quint16 udpPort2)
@@ -53,8 +49,8 @@ bool ClientManager::start(quint16 tcpPort, quint16 udpPort1, quint16 udpPort2)
 	if (m_running)
 		return false;
 
-	if (!loadUserCache())
-		qWarning() << QString("ClientManager::start loadUserCache failed");
+	if (!m_userContainer.open())
+		qWarning() << QString("ClientManager::start userContainer open failed");
 
 	const bool tcpOk = m_tcpServer.listen(QHostAddress::Any, tcpPort);
 	const bool udp1Ok = m_udpServer1.bind(udpPort1);
@@ -81,6 +77,8 @@ bool ClientManager::stop()
 	m_tcpServer.close();
 	m_udpServer1.close();
 	m_udpServer2.close();
+
+	m_userContainer.close();
 
 	m_running = false;
 	return true;
@@ -228,31 +226,6 @@ QUdpSocket * ClientManager::getUdpServer(int index)
 		return NULL;
 }
 
-bool ClientManager::loadUserCache()
-{
-	QFile file(m_userCacheFileName);
-	if (!file.open(QIODevice::ReadOnly))
-		return false;
-	bool ok = false;
-	const QVariantMap root = QJson::Parser().parse(&file, &ok).toMap();
-	if (!ok)
-		return false;
-	m_mapUserNameIdentifier = toStringMap(root);
-	return true;
-}
-
-bool ClientManager::saveUserCache()
-{
-	QFile file(m_userCacheFileName);
-	if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text))
-		return false;
-	QJson::Serializer serializer;
-	serializer.setIndentMode(QJson::IndentFull);
-	bool ok = false;
-	serializer.serialize(toVariantMap(m_mapUserNameIdentifier), &file, &ok);
-	return true;
-}
-
 bool ClientManager::checkStatus(QTcpSocket & tcpSocket, ClientInfo & client, ClientStatus correctStatus, NatCheckStatus correctNatStatus)
 {
 	return client.status == correctStatus && client.natStatus == correctNatStatus;
@@ -336,21 +309,6 @@ void ClientManager::onUdpReadyRead(int index)
 		if (!package.contains('\n'))
 			dealUdpIn(index, package, hostAddress, port);
 	}
-}
-
-QString ClientManager::getBoundUserName(QString identifier)
-{
-	for (QStringMap::iterator iter = m_mapUserNameIdentifier.begin(); iter != m_mapUserNameIdentifier.end(); ++iter)
-	{
-		if (iter.value() == identifier)
-			return iter.key();
-	}
-	return QString();
-}
-
-QString ClientManager::getBoundIdentifier(QString userName)
-{
-	return m_mapUserNameIdentifier.value(userName);
 }
 
 bool ClientManager::checkCanTunnel(ClientInfo & localClient, QString peerUserName, bool * outLocalNeedUpnp, bool * outPeerNeedUpnp, QString * outFailReason)
@@ -595,7 +553,7 @@ void ClientManager::dealUdpIn(int index, const QByteArray & line, QHostAddress h
 	if (iter == m_mapClientInfo.end())
 		return;
 
-	if (identifier != getBoundIdentifier(userName))
+	if (identifier != m_userContainer.getBoundIdentifier(userName))
 		return;
 
 	ClientInfo & client = *iter;
@@ -688,7 +646,7 @@ bool ClientManager::login(QTcpSocket & tcpSocket, ClientInfo & client, QString i
 		return false;
 	}
 	// 如果期望用户名已经绑定了其他identifier，就不允许使用
-	const QString boundIdentifier = getBoundIdentifier(userName);
+	const QString boundIdentifier = m_userContainer.getBoundIdentifier(userName);
 	if (boundIdentifier.length() > 0 && boundIdentifier != identifier)
 	{
 		*outMsg = U16("指定的用户名已经被使用");
@@ -697,18 +655,15 @@ bool ClientManager::login(QTcpSocket & tcpSocket, ClientInfo & client, QString i
 	
 	if (boundIdentifier.isEmpty())			// userName原绑定identifier为空，说明是新或老identifier期望使用这个新的userName
 	{
-		QString boundUserName = getBoundUserName(identifier);
+		QString boundUserName = m_userContainer.getBoundUserName(identifier);
 		if (boundUserName != userName)			// 这个identifier原来还绑定了一个userName，说明这是个老identifier
-			m_mapUserNameIdentifier.remove(boundUserName);
-		m_mapUserNameIdentifier[userName] = identifier;
-		saveUserCache();
+			m_userContainer.removeBound(boundUserName, identifier);
+		m_userContainer.newBound(userName, identifier);
 	}
 	else if (boundIdentifier == identifier)			// 还是按原绑定关系，不变
 	{
 		
 	}
-
-	Q_ASSERT(m_mapUserNameIdentifier.value(userName) == identifier);
 
 	client.status = LoginedStatus;
 	client.identifier = identifier;
