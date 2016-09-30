@@ -27,6 +27,7 @@ protected:
 private slots:
 	void onConnected();
 	void onDisconnected();
+	void onBinaryError(QByteArray correctBinary);
 	void onLogined();
 	void onLoginFailed(QString userName, QString msg);
 	void onNatTypeConfirmed(NatType natType);

@@ -1,6 +1,7 @@
 ﻿#include "Other.h"
 #include "crc32/crc32.h"
 #include <QNetworkInterface>
+#include <QFile>
 
 #if defined(Q_OS_WIN)
 #include <Windows.h>
@@ -210,4 +211,13 @@ QString arpGetHardwareAddress(QString targetAddress, QString localAddress)
 #else
 	return QString();
 #endif
+}
+
+QByteArray readFile(const QString fileName)
+{
+	QFile file(fileName);
+	if (file.open(QIODevice::ReadOnly))
+		return file.readAll();
+	else
+		return QByteArray();
 }

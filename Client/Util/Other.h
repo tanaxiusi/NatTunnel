@@ -47,3 +47,4 @@ bool isNatAddress(const QHostAddress & hostAddress);
 QString getNetworkInterfaceHardwareAddress(QHostAddress localAddress);
 QStringList getGatewayAddress(QString localAddress);
 QString arpGetHardwareAddress(QString targetAddress, QString localAddress);
+QByteArray readFile(const QString fileName);

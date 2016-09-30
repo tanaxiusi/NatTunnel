@@ -72,6 +72,7 @@ void MainDlg::start()
 
 	connect(m_client, SIGNAL(connected()), this, SLOT(onConnected()));
 	connect(m_client, SIGNAL(disconnected()), this, SLOT(onDisconnected()));
+	connect(m_client, SIGNAL(binaryError(QByteArray)), this, SLOT(onBinaryError(QByteArray)));
 	connect(m_client, SIGNAL(logined()), this, SLOT(onLogined()));
 	connect(m_client, SIGNAL(loginFailed(QString, QString)), this, SLOT(onLoginFailed(QString, QString)));
 	connect(m_client, SIGNAL(natTypeConfirmed(NatType)), this, SLOT(onNatTypeConfirmed(NatType)));
@@ -163,6 +164,12 @@ void MainDlg::onDisconnected()
 	m_labelUpnp->clear();
 	ui.btnTunnel->setEnabled(false);
 	m_tableModel->removeRows(0, m_tableModel->rowCount());
+}
+
+void MainDlg::onBinaryError(QByteArray correctBinary)
+{
+	QMessageBox::warning(this, U16("错误"), U16("二进制文件错误"));
+	this->close();
 }
 
 void MainDlg::onLogined()

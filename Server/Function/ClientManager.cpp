@@ -41,7 +41,18 @@ void ClientManager::setGlobalKey(QByteArray key)
 
 void ClientManager::setDatabase(QString fileName, QString userName, QString password)
 {
+	if (m_running)
+		return;
 	m_userContainer.setDatabaseConfig(fileName, userName, password);
+}
+
+void ClientManager::setPlatformBinary(QString platform, QByteArray binary)
+{
+	if (m_running)
+		return;
+	PlatformBinaryInfo & binaryInfo = m_mapPlatformBinaryInfo[platform.toLower()];
+	binaryInfo.binary = binary;
+	binaryInfo.checksum = QCryptographicHash::hash(binary, QCryptographicHash::Sha1);
 }
 
 bool ClientManager::start(quint16 tcpPort, quint16 udpPort1, quint16 udpPort2)
@@ -279,6 +290,16 @@ void ClientManager::sendTcp(QTcpSocket & tcpSocket, ClientInfo & client, QByteAr
 	tcpSocket.write(m_messageConverter.serialize(type, argument));
 }
 
+void ClientManager::sendTcpRaw(QTcpSocket & tcpSocket, ClientInfo & client, QByteArray line)
+{
+	if (line.isEmpty())
+		return;
+	client.lastOutTime = QTime::currentTime();
+	tcpSocket.write(line);
+	if (!line.endsWith('\n'))
+		tcpSocket.write("\n");
+}
+
 void ClientManager::sendUdp(int index, QByteArray type, QByteArrayMap argument, QHostAddress hostAddress, quint16 port)
 {
 	QUdpSocket * udpServer = getUdpServer(index);
@@ -508,6 +529,8 @@ void ClientManager::dealTcpIn(QByteArray line, QTcpSocket & tcpSocket, ClientInf
 
 	if (type == "heartbeat")
 		tcpIn_heartbeat(tcpSocket, client);
+	else if (type == "checkBinary")
+		tcpIn_checkBinary(tcpSocket, client, argument.value("platform"), argument.value("binaryChecksum"));
 	else if (type == "login")
 		tcpIn_login(tcpSocket, client, argument.value("identifier"), argument.value("userName"));
 	else if (type == "localNetwork")
@@ -621,9 +644,63 @@ void ClientManager::tcpOut_login(QTcpSocket & tcpSocket, ClientInfo & client, bo
 	sendTcp(tcpSocket, client, "login", argument);
 }
 
+void ClientManager::tcpIn_checkBinary(QTcpSocket & tcpSocket, ClientInfo & client, QString platform, QByteArray binaryChecksum)
+{
+	if (!checkStatusAndDisconnect(tcpSocket, client, "tcpIn_checkBinary", ConnectedStatus))
+		return;
+	client.status = BinaryCheckedStatus;
+	if (m_mapPlatformBinaryInfo.contains(platform.toLower()))
+	{
+		const PlatformBinaryInfo & binaryInfo = m_mapPlatformBinaryInfo[platform];
+		if (binaryChecksum == binaryInfo.checksum)
+			tcpOut_checkBinary(tcpSocket, client, true, QString());
+		else
+			tcpOut_checkBinary(tcpSocket, client, false, platform);
+	}
+	else
+	{
+		tcpOut_checkBinary(tcpSocket, client, false, QString());
+	}
+}
+
+void ClientManager::tcpOut_checkBinary(QTcpSocket & tcpSocket, ClientInfo & client, bool correct, QString platform)
+{
+	if (correct)
+	{
+		QByteArrayMap argument;
+		argument["correct"] = "1";
+		sendTcp(tcpSocket, client, "checkBinary", argument);
+	}
+	else if(m_mapPlatformBinaryInfo.contains(platform))
+	{
+		// 指定平台有客户端二进制文件，但是这个Client的版本不对，要传个正确的给他
+		PlatformBinaryInfo & binaryInfo = m_mapPlatformBinaryInfo[platform];
+		if (binaryInfo.cachedMessage.isEmpty())
+		{
+			QByteArrayMap argument;
+			argument["correct"] = "0";
+			argument["compressedBinary"] = qCompress(binaryInfo.binary, 9);
+			binaryInfo.cachedMessage = m_messageConverter.serialize("checkBinary", argument);
+		}
+		sendTcpRaw(tcpSocket, client, binaryInfo.cachedMessage);
+	}
+	else
+	{
+		// 指定平台还没有客户端二进制文件
+		QByteArrayMap argument;
+		argument["correct"] = "0";
+		sendTcp(tcpSocket, client, "checkBinary", argument);
+	}
+}
+
 bool ClientManager::login(QTcpSocket & tcpSocket, ClientInfo & client, QString identifier, QString userName, QString * outMsg)
 {
-	if (client.status != ConnectedStatus)
+	if (client.status == ConnectedStatus)
+	{
+		*outMsg = U16("还没有检验过二进制文件");
+		return false;
+	}
+	if (client.status == LoginedStatus)
 	{
 		*outMsg = U16("已经登录");
 		return false;
@@ -676,11 +753,8 @@ bool ClientManager::login(QTcpSocket & tcpSocket, ClientInfo & client, QString i
 
 void ClientManager::tcpIn_localNetwork(QTcpSocket & tcpSocket, ClientInfo & client, QHostAddress localAddress, quint16 clientUdp1LocalPort, QString gatewayInfo)
 {
-	if (client.status != LoginedStatus)
-	{
-		disconnectClient(tcpSocket, client, "tcpIn_localNetwork error status");
+	if (!checkStatusAndDisconnect(tcpSocket, client, "tcpIn_localNetwork", LoginedStatus))
 		return;
-	}
 	client.localAddress = localAddress;
 	client.udp1LocalPort = clientUdp1LocalPort;
 	client.gatewayInfo = gatewayInfo;

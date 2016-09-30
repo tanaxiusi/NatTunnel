@@ -1,4 +1,5 @@
 ﻿#include "Other.h"
+#include <QFile>
 #include "crc32/crc32.h"
 
 
@@ -69,4 +70,13 @@ bool generalNameCheck(const QString & name)
 			return false;
 	}
 	return true;
+}
+
+QByteArray readFile(const QString fileName)
+{
+	QFile file(fileName);
+	if (file.open(QIODevice::ReadOnly))
+		return file.readAll();
+	else
+		return QByteArray();
 }

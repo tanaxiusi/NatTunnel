@@ -82,6 +82,15 @@ int main(int argc, char *argv[])
 		qWarning() << QString("Empty GlobalKey");
 
 	ClientManager clientManager;
+
+	setting.beginGroup("Binary");
+	foreach(QString platform, setting.childKeys())
+	{
+		const QByteArray binary = readFile(setting.value(platform).toString());
+		clientManager.setPlatformBinary(platform, binary);
+	}
+	setting.endGroup();
+	
 	clientManager.setGlobalKey(globalKey);
 	clientManager.setDatabase("User.db", "root", "000000");
 	if (!clientManager.start(tcpPort, udp1Port, udp2Port))

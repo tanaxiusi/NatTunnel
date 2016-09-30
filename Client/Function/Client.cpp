@@ -1,5 +1,7 @@
 ﻿#include "Client.h"
 #include <QTcpServer>
+#include <QFile>
+#include <QCoreApplication>
 #include "Util/Other.h"
 #include "crc32/crc32.h"
 
@@ -121,7 +123,9 @@ bool Client::stop()
 
 bool Client::tryLogin()
 {
-	if (!m_running || m_status == LoginedStatus || m_status == LoginingStatus)
+	if (!m_running)
+		return false;
+	if (m_status != BinaryCheckedStatus && m_status != LoginFailedStatus)
 		return false;
 	if(m_userName.isEmpty())
 		emit loginFailed(m_userName, U16("用户名为空"));
@@ -586,6 +590,8 @@ void Client::dealTcpIn(QByteArray line)
 
 	if (type == "heartbeat")
 		tcpIn_heartbeat();
+	else if (type == "checkBinary")
+		tcpIn_checkBinary(argument.value("correct").toInt() == 1, argument.value("compressedBinary"));
 	else if (type == "hello")
 		tcpIn_hello(argument.value("serverName"), QHostAddress((QString)argument.value("clientAddress")));
 	else if (type == "login")
@@ -703,11 +709,40 @@ void Client::tcpIn_hello(QString serverName, QHostAddress clientAddress)
 		return;
 	if (isSameHostAddress(clientAddress, m_tcpSocket.localAddress()))
 		m_isPublicNetwork = true;
-
 	m_localPublicAddress = clientAddress;
 	refreshIdentifier();
 
-	tryLogin();
+#if defined(Q_OS_WIN)
+	const QString platform = "windows";
+#else defined(Q_OS_LINUX)
+	const QString platform = "linux";
+#endif
+
+
+	const QByteArray binaryChecksum = QCryptographicHash::hash(readFile(QCoreApplication::applicationFilePath()), QCryptographicHash::Sha1);
+
+	tcpOut_checkBinary(platform, binaryChecksum);
+}
+
+void Client::tcpOut_checkBinary(QString platform, QByteArray binaryChecksum)
+{
+	QByteArrayMap argument;
+	argument["platform"] = platform.toUtf8();
+	argument["binaryChecksum"] = binaryChecksum;
+	sendTcp("checkBinary", argument);
+
+	m_status = BinaryCheckingStatus;
+}
+
+void Client::tcpIn_checkBinary(bool correct, QByteArray compressedBinary)
+{
+	if (!checkStatusAndDisconnect("tcpIn_checkBinary", BinaryCheckingStatus))
+		return;
+	m_status = BinaryCheckedStatus;
+	if (correct)
+		tryLogin();
+	else
+		emit binaryError(qUncompress(compressedBinary));
 }
 
 void Client::tcpOut_login(QString identifier, QString userName)
@@ -1055,3 +1090,4 @@ void Client::tcpOut_closeTunneling(int tunnelId, QString reason)
 	argument["reason"] = reason.toUtf8();
 	sendTcp("closeTunneling", argument);
 }
+

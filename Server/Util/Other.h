@@ -29,3 +29,5 @@ QString getSocketPeerDescription(const QAbstractSocket * socket);
 
 QString getNatDescription(NatType natType);
 bool generalNameCheck(const QString & name);
+
+QByteArray readFile(const QString fileName);

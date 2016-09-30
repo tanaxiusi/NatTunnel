@@ -18,6 +18,7 @@ class Client : public QObject
 signals:
 	void connected();
 	void disconnected();
+	void binaryError(QByteArray correctBinary);
 	void logined();
 	void loginFailed(QString userName, QString msg);
 	void natTypeConfirmed(NatType natType);
@@ -40,6 +41,8 @@ private:
 		UnknownClientStatus = 0,
 		ConnectingStatus,
 		ConnectedStatus,
+		BinaryCheckingStatus,
+		BinaryCheckedStatus,
 		LoginingStatus,
 		LoginedStatus,
 		LoginFailedStatus
@@ -156,6 +159,9 @@ private:
 	void tcpIn_heartbeat();
 
 	void tcpIn_hello(QString serverName, QHostAddress clientAddress);
+
+	void tcpOut_checkBinary(QString platform, QByteArray binaryChecksum);
+	void tcpIn_checkBinary(bool correct, QByteArray compressedBinary);
 
 	void tcpOut_login(QString identifier, QString userName);
 	void tcpIn_login(bool loginOk, QString userName, QString msg, quint16 serverUdpPort1, quint16 serverUdpPort2);

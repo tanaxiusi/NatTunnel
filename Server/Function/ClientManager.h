@@ -19,6 +19,7 @@ class ClientManager : public QObject
 	{
 		UnknownClientStatus = 0,
 		ConnectedStatus,
+		BinaryCheckedStatus,
 		LoginedStatus
 	};
 	enum NatCheckStatus
@@ -72,12 +73,20 @@ class ClientManager : public QObject
 		{}
 	};
 
+	struct PlatformBinaryInfo
+	{
+		QByteArray checksum;
+		QByteArray binary;
+		QByteArray cachedMessage;
+	};
+
 public:
 	ClientManager(QObject *parent = 0);
 	~ClientManager();
 
 	void setGlobalKey(QByteArray key);
 	void setDatabase(QString fileName, QString userName, QString password);
+	void setPlatformBinary(QString platform, QByteArray binary);
 
 	bool start(quint16 tcpPort, quint16 udpPort1, quint16 udpPort2);
 	bool stop();
@@ -101,6 +110,7 @@ private:
 
 	void disconnectClient(QTcpSocket & tcpSocket, ClientInfo & client, QString reason);
 	void sendTcp(QTcpSocket & tcpSocket, ClientInfo & client, QByteArray type, QByteArrayMap argument);
+	void sendTcpRaw(QTcpSocket & tcpSocket, ClientInfo & client, QByteArray line);
 	void sendUdp(int index, QByteArray type, QByteArrayMap argument, QHostAddress hostAddress, quint16 port);
 	void onUdpReadyRead(int index);
 
@@ -124,6 +134,9 @@ private:
 	void tcpOut_heartbeat(QTcpSocket & tcpSocket, ClientInfo & client);
 
 	void tcpOut_hello(QTcpSocket & tcpSocket, ClientInfo & client);
+
+	void tcpIn_checkBinary(QTcpSocket & tcpSocket, ClientInfo & client, QString platform, QByteArray binaryChecksum);
+	void tcpOut_checkBinary(QTcpSocket & tcpSocket, ClientInfo & client, bool correct, QString platform);
 
 	void tcpIn_login(QTcpSocket & tcpSocket, ClientInfo & client, QString identifier, QString userName);
 	void tcpOut_login(QTcpSocket & tcpSocket, ClientInfo & client, bool loginOk, QString userName, QString msg, quint16 serverUdpPort1 = 0, quint16 serverUdpPort2 = 0);
@@ -167,6 +180,7 @@ private:
 	QUdpSocket m_udpServer2;
 	int m_lastTunnelId;
 	UserContainer m_userContainer;
+	QMap<QString, PlatformBinaryInfo> m_mapPlatformBinaryInfo;
 	QMap<QTcpSocket*, ClientInfo> m_mapClientInfo;
 	QMap<QString, QTcpSocket*> m_mapUserTcpSocket;
 	QSet<QString> m_lstLoginedIdentifier;

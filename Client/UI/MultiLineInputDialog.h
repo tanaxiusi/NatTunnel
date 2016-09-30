@@ -12,7 +12,7 @@ public:
 	~MultiLineInputDialog();
 
 	static QString getText(QWidget *parent, const QString &title, const QString &label,
-		const QString &text = QString(), bool *ok = Q_NULLPTR, Qt::WindowFlags flags = Qt::WindowFlags());
+		const QString &text = QString(), bool *ok = NULL, Qt::WindowFlags flags = Qt::WindowFlags());
 
 private:
 	Ui::MultiLineInputDialog ui;
