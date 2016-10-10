@@ -28,6 +28,7 @@
 ###运行Client，第一次运行会要求输入Server信息：
 ![image](Images/Client-01.png)
 ###填入Server端对应信息后，输入一个自己的用户名：
+![image](Images/Client-03.png)
 ###登录成功后如图：
 ![image](Images/Client-02.png)
 
