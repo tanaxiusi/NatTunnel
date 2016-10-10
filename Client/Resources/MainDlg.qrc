@@ -1,5 +1,6 @@
 <RCC>
     <qresource prefix="/MainDlg">
         <file>refresh.png</file>
+        <file>WindowsUpdate.txt</file>
     </qresource>
 </RCC>

@@ -3,6 +3,8 @@
 #include <QSettings>
 #include <QMessageBox>
 #include <QInputDialog>
+#include <QFileInfo>
+#include <QProcess>
 #include "Util/Other.h"
 #include "GuideDlg.h"
 #include "MultiLineInputDialog.h"
@@ -168,7 +170,30 @@ void MainDlg::onDisconnected()
 
 void MainDlg::onBinaryError(QByteArray correctBinary)
 {
-	QMessageBox::warning(this, U16("错误"), U16("二进制文件错误"));
+	if (QMessageBox::Ok == QMessageBox::warning(this, U16("错误"), U16("二进制文件错误，点击确认更新"), QMessageBox::Ok | QMessageBox::Cancel))
+	{
+		const QString binaryFileName = QFileInfo(QCoreApplication::applicationFilePath()).fileName();
+		const QString updateFileName = binaryFileName + ".update";
+		const QString scriptFileName = "update.bat";
+
+		const QString currentDir = QCoreApplication::applicationDirPath();
+
+#if defined(Q_OS_WIN)
+		QByteArray scriptContent = readFile(":/MainDlg/WindowsUpdate.txt");
+#endif
+		scriptContent.replace("(PID)", QByteArray::number(QCoreApplication::applicationPid()));
+		scriptContent.replace("(BinaryFileName)", binaryFileName.toLocal8Bit());
+		scriptContent.replace("(UpdateFileName)", updateFileName.toLocal8Bit());
+		scriptContent.replace("(ScriptFileName)", scriptFileName.toLocal8Bit());
+
+		const bool ok1 = writeFile(currentDir + "/" + updateFileName, correctBinary);
+		const bool ok2 = writeFile(currentDir + "/" + scriptFileName, scriptContent);
+		if (ok1 && ok2)
+			QProcess::startDetached(scriptFileName, QStringList(), currentDir);
+		else
+			QMessageBox::warning(this, U16("错误"), U16("写入更新文件失败"));
+	}
+
 	this->close();
 }
 

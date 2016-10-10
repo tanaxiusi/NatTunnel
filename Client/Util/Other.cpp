@@ -221,3 +221,12 @@ QByteArray readFile(const QString fileName)
 	else
 		return QByteArray();
 }
+
+bool writeFile(const QString & fileName, const QByteArray & content)
+{
+	QFile file(fileName);
+	if (!file.open(QIODevice::Truncate | QIODevice::WriteOnly))
+		return false;
+	file.write(content);
+	return true;
+}

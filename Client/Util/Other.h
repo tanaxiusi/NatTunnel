@@ -48,3 +48,4 @@ QString getNetworkInterfaceHardwareAddress(QHostAddress localAddress);
 QStringList getGatewayAddress(QString localAddress);
 QString arpGetHardwareAddress(QString targetAddress, QString localAddress);
 QByteArray readFile(const QString fileName);
+bool writeFile(const QString & fileName, const QByteArray & content);
