@@ -2,6 +2,7 @@
 #include <QTcpServer>
 #include <QFile>
 #include <QCoreApplication>
+#include <QCryptographicHash>
 #include "Util/Other.h"
 #include "crc32/crc32.h"
 

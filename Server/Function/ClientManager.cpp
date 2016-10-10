@@ -523,9 +523,12 @@ void ClientManager::dealTcpIn(QByteArray line, QTcpSocket & tcpSocket, ClientInf
 	if (type.isEmpty())
 		return;
 
-	qDebug() << QString("%1 %2 tcpIn %3 %4")
-		.arg(getSocketPeerDescription(&tcpSocket)).arg(client.userName)
-		.arg((QString)type).arg(m_messageConverter.argumentToString(argument));
+	if (type != "heartbeat")
+	{
+		qDebug() << QString("%1 %2 tcpIn %3 %4")
+			.arg(getSocketPeerDescription(&tcpSocket)).arg(client.userName)
+			.arg((QString)type).arg(m_messageConverter.argumentToString(argument));
+	}
 
 	if (type == "heartbeat")
 		tcpIn_heartbeat(tcpSocket, client);
