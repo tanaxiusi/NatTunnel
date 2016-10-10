@@ -26,5 +26,11 @@
     
 ###运行Server
 ###运行Client，第一次运行会要求输入Server信息：
-    ![image](Images/Client-01.png)
+![image](Images/Client-01.png)
 ###填入Server端对应信息后，输入一个自己的用户名：
+###登录成功后如图：
+![image](Images/Client-02.png)
+
+    首次登录会随机产生一个本地密码，其他Client连接的时候需要验证本地密码。
+    注意：Client关闭后生成的NatTunnelClient.ini中包含了本机唯一标识符，也在第一次运行时随机产生，如果删除了，就会被识别成不同的Client。
+    
