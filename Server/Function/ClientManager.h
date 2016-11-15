@@ -20,7 +20,8 @@ class ClientManager : public QObject
 		UnknownClientStatus = 0,
 		ConnectedStatus,
 		BinaryCheckedStatus,
-		LoginedStatus
+		LoginedStatus,
+		DiscardedStatus			// 废弃状态。由于通讯格式错误或被踢下线，过一段时间会被清理
 	};
 	enum NatCheckStatus
 	{
@@ -105,10 +106,11 @@ private:
 
 	bool checkStatus(QTcpSocket & tcpSocket, ClientInfo & client, ClientStatus correctStatus, NatCheckStatus correctNatStatus);
 	bool checkStatus(QTcpSocket & tcpSocket, ClientInfo & client, ClientStatus correctStatus);
-	bool checkStatusAndDisconnect(QTcpSocket & tcpSocket, ClientInfo & client, QString functionName, ClientStatus correctStatus, NatCheckStatus correctNatStatus);
-	bool checkStatusAndDisconnect(QTcpSocket & tcpSocket, ClientInfo & client, QString functionName, ClientStatus correctStatus);
+	bool checkStatusAndDiscard(QTcpSocket & tcpSocket, ClientInfo & client, QString functionName, ClientStatus correctStatus, NatCheckStatus correctNatStatus);
+	bool checkStatusAndDiscard(QTcpSocket & tcpSocket, ClientInfo & client, QString functionName, ClientStatus correctStatus);
 
 	void disconnectClient(QTcpSocket & tcpSocket, ClientInfo & client, QString reason);
+
 	void sendTcp(QTcpSocket & tcpSocket, ClientInfo & client, QByteArray type, QByteArrayMap argument);
 	void sendTcpRaw(QTcpSocket & tcpSocket, ClientInfo & client, QByteArray line);
 	void sendUdp(int index, QByteArray type, QByteArrayMap argument, QHostAddress hostAddress, quint16 port);
@@ -134,6 +136,9 @@ private:
 	void tcpOut_heartbeat(QTcpSocket & tcpSocket, ClientInfo & client);
 
 	void tcpOut_hello(QTcpSocket & tcpSocket, ClientInfo & client);
+
+	void discardClient(QTcpSocket & tcpSocket, ClientInfo & client, QString reason);
+	void tcpOut_discard(QTcpSocket & tcpSocket, ClientInfo & client, QString reason);
 
 	void tcpIn_checkBinary(QTcpSocket & tcpSocket, ClientInfo & client, QString platform, QByteArray binaryChecksum);
 	void tcpOut_checkBinary(QTcpSocket & tcpSocket, ClientInfo & client, bool correct, QString platform);

@@ -18,6 +18,7 @@ class Client : public QObject
 signals:
 	void connected();
 	void disconnected();
+	void discarded(QString reason);
 	void binaryError(QByteArray correctBinary);
 	void logined();
 	void loginFailed(QString userName, QString msg);
@@ -94,6 +95,9 @@ public slots:
 	bool start();
 	bool stop();
 
+	bool isDiscarded();
+	void reconnect();
+
 	bool tryLogin();
 
 	QHostAddress getLocalAddress();
@@ -158,6 +162,8 @@ private:
 	void tcpOut_heartbeat();
 	void tcpIn_heartbeat();
 
+	void tcpIn_discard(QString reason);
+
 	void tcpIn_hello(QString serverName, QHostAddress clientAddress);
 
 	void tcpOut_checkBinary(QString platform, QByteArray binaryChecksum);
@@ -202,6 +208,7 @@ private:
 
 private:
 	bool m_running;
+	bool m_discarded;
 
 	MessageConverter m_messageConverter;
 	QTcpSocket m_tcpSocket;

@@ -74,6 +74,7 @@ void MainDlg::start()
 
 	connect(m_client, SIGNAL(connected()), this, SLOT(onConnected()));
 	connect(m_client, SIGNAL(disconnected()), this, SLOT(onDisconnected()));
+	connect(m_client, SIGNAL(discarded(QString)), this, SLOT(onDiscarded(QString)));
 	connect(m_client, SIGNAL(binaryError(QByteArray)), this, SLOT(onBinaryError(QByteArray)));
 	connect(m_client, SIGNAL(logined()), this, SLOT(onLogined()));
 	connect(m_client, SIGNAL(loginFailed(QString, QString)), this, SLOT(onLoginFailed(QString, QString)));
@@ -166,6 +167,13 @@ void MainDlg::onDisconnected()
 	m_labelUpnp->clear();
 	ui.btnTunnel->setEnabled(false);
 	m_tableModel->removeRows(0, m_tableModel->rowCount());
+}
+
+void MainDlg::onDiscarded(QString reason)
+{
+	stop();
+	QMessageBox::warning(this, U16("被踢下线"), reason);
+	this->close();
 }
 
 void MainDlg::onBinaryError(QByteArray correctBinary)

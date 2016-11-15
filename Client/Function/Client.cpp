@@ -15,6 +15,7 @@ Client::Client(QObject *parent)
 	: QObject(parent)
 {
 	m_running = false;
+	m_discarded = false;
 	m_serverTcpPort = 0;
 	m_serverUdpPort1 = 0;
 	m_serverUdpPort2 = 0;
@@ -121,6 +122,23 @@ bool Client::stop()
 	m_running = false;
 	return true;
 }
+
+bool Client::isDiscarded()
+{
+	if (!m_running)
+		return false;
+	return m_discarded;
+}
+
+void Client::reconnect()
+{
+	if (!m_running)
+		return;
+	if (m_discarded)
+		m_discarded = false;
+	startConnect();
+}
+
 
 bool Client::tryLogin()
 {
@@ -303,6 +321,8 @@ void Client::timerFunction300ms()
 void Client::timerFunction10s()
 {
 	if (!m_running)
+		return;
+	if (m_discarded)
 		return;
 
 	if (m_tcpSocket.state() == QAbstractSocket::UnconnectedState)
@@ -591,6 +611,8 @@ void Client::dealTcpIn(QByteArray line)
 
 	if (type == "heartbeat")
 		tcpIn_heartbeat();
+	else if (type == "discard")
+		tcpIn_discard(argument.value("reason"));
 	else if (type == "checkBinary")
 		tcpIn_checkBinary(argument.value("correct").toInt() == 1, argument.value("compressedBinary"));
 	else if (type == "hello")
@@ -702,6 +724,13 @@ void Client::tcpOut_heartbeat()
 
 void Client::tcpIn_heartbeat()
 {
+}
+
+void Client::tcpIn_discard(QString reason)
+{
+	m_discarded = true;
+	emit discarded(reason);
+	disconnectServer("have discarded");
 }
 
 void Client::tcpIn_hello(QString serverName, QHostAddress clientAddress)
@@ -1091,4 +1120,3 @@ void Client::tcpOut_closeTunneling(int tunnelId, QString reason)
 	argument["reason"] = reason.toUtf8();
 	sendTcp("closeTunneling", argument);
 }
-

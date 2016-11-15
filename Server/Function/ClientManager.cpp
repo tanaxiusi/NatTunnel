@@ -247,7 +247,7 @@ bool ClientManager::checkStatus(QTcpSocket & tcpSocket, ClientInfo & client, Cli
 	return client.status == correctStatus;
 }
 
-bool ClientManager::checkStatusAndDisconnect(QTcpSocket & tcpSocket, ClientInfo & client, QString functionName, ClientStatus correctStatus, NatCheckStatus correctNatStatus)
+bool ClientManager::checkStatusAndDiscard(QTcpSocket & tcpSocket, ClientInfo & client, QString functionName, ClientStatus correctStatus, NatCheckStatus correctNatStatus)
 {
 	if (checkStatus(tcpSocket, client, correctStatus, correctNatStatus))
 	{
@@ -255,12 +255,12 @@ bool ClientManager::checkStatusAndDisconnect(QTcpSocket & tcpSocket, ClientInfo 
 	}
 	else
 	{
-		disconnectClient(tcpSocket, client, functionName + " status error");
+		discardClient(tcpSocket, client, functionName + " status error");
 		return false;
 	}
 }
 
-bool ClientManager::checkStatusAndDisconnect(QTcpSocket & tcpSocket, ClientInfo & client, QString functionName, ClientStatus correctStatus)
+bool ClientManager::checkStatusAndDiscard(QTcpSocket & tcpSocket, ClientInfo & client, QString functionName, ClientStatus correctStatus)
 {
 	if (checkStatus(tcpSocket, client, correctStatus))
 	{
@@ -268,7 +268,7 @@ bool ClientManager::checkStatusAndDisconnect(QTcpSocket & tcpSocket, ClientInfo 
 	}
 	else
 	{
-		disconnectClient(tcpSocket, client, functionName + " status error");
+		discardClient(tcpSocket, client, functionName + " status error");
 		return false;
 	}
 }
@@ -283,6 +283,8 @@ void ClientManager::disconnectClient(QTcpSocket & tcpSocket, ClientInfo & client
 
 void ClientManager::sendTcp(QTcpSocket & tcpSocket, ClientInfo & client, QByteArray type, QByteArrayMap argument)
 {
+	if (client.status == DiscardedStatus)
+		return;
 	qDebug() << QString("%1 %2 tcpOut %3 %4")
 		.arg(getSocketPeerDescription(&tcpSocket)).arg(client.userName)
 		.arg((QString)type).arg(m_messageConverter.argumentToString(argument));
@@ -292,6 +294,8 @@ void ClientManager::sendTcp(QTcpSocket & tcpSocket, ClientInfo & client, QByteAr
 
 void ClientManager::sendTcpRaw(QTcpSocket & tcpSocket, ClientInfo & client, QByteArray line)
 {
+	if (client.status == DiscardedStatus)
+		return;
 	if (line.isEmpty())
 		return;
 	client.lastOutTime = QTime::currentTime();
@@ -518,6 +522,8 @@ void ClientManager::clearUserTunnel(QString userName, QString reason)
 
 void ClientManager::dealTcpIn(QByteArray line, QTcpSocket & tcpSocket, ClientInfo & client)
 {
+	if (client.status == DiscardedStatus)
+		return;
 	QByteArrayMap argument;
 	QByteArray type = m_messageConverter.parse(line, &argument);
 	if (type.isEmpty())
@@ -583,6 +589,8 @@ void ClientManager::dealUdpIn(int index, const QByteArray & line, QHostAddress h
 		return;
 
 	ClientInfo & client = *iter;
+	if (client.status == DiscardedStatus)
+		return;
 
 	if (type == "checkNatStep1")
 	{
@@ -614,6 +622,19 @@ void ClientManager::tcpOut_hello(QTcpSocket & tcpSocket, ClientInfo & client)
 	argument["clientAddress"] = tryConvertToIpv4(tcpSocket.peerAddress()).toString().toUtf8();
 
 	sendTcp(tcpSocket, client, "hello", argument);
+}
+
+void ClientManager::discardClient(QTcpSocket & tcpSocket, ClientInfo & client, QString reason)
+{
+	tcpOut_discard(tcpSocket, client, reason);
+	client.status = DiscardedStatus;
+}
+
+void ClientManager::tcpOut_discard(QTcpSocket & tcpSocket, ClientInfo & client, QString reason)
+{
+	QByteArrayMap argument;
+	argument["reason"] = reason.toUtf8();
+	sendTcp(tcpSocket, client, "discard", argument);
 }
 
 void ClientManager::tcpIn_login(QTcpSocket & tcpSocket, ClientInfo & client, QString identifier, QString userName)
@@ -649,7 +670,7 @@ void ClientManager::tcpOut_login(QTcpSocket & tcpSocket, ClientInfo & client, bo
 
 void ClientManager::tcpIn_checkBinary(QTcpSocket & tcpSocket, ClientInfo & client, QString platform, QByteArray binaryChecksum)
 {
-	if (!checkStatusAndDisconnect(tcpSocket, client, "tcpIn_checkBinary", ConnectedStatus))
+	if (!checkStatusAndDiscard(tcpSocket, client, "tcpIn_checkBinary", ConnectedStatus))
 		return;
 	client.status = BinaryCheckedStatus;
 	if (m_mapPlatformBinaryInfo.contains(platform.toLower()))
@@ -708,11 +729,7 @@ bool ClientManager::login(QTcpSocket & tcpSocket, ClientInfo & client, QString i
 		*outMsg = U16("已经登录");
 		return false;
 	}
-	if (m_lstLoginedIdentifier.contains(identifier))
-	{
-		*outMsg = U16("该识别码已经登录");
-		return false;
-	}
+
 	const bool validUserNameLength = (userName.length() >= 4 && userName.length() <= 20);
 	if (!validUserNameLength)
 	{
@@ -732,9 +749,16 @@ bool ClientManager::login(QTcpSocket & tcpSocket, ClientInfo & client, QString i
 		*outMsg = U16("指定的用户名已经被使用");
 		return false;
 	}
+
+	const bool identifierAlreadyLogined = m_lstLoginedIdentifier.contains(identifier);
 	
 	if (boundIdentifier.isEmpty())			// userName原绑定identifier为空，说明是新或老identifier期望使用这个新的userName
 	{
+		if (identifierAlreadyLogined)		// 这种情况下(老identifier使用新的userName)不允许登录
+		{
+			*outMsg = U16("该识别码已经登录");
+			return false;
+		}
 		QString boundUserName = m_userContainer.getBoundUserName(identifier);
 		if (boundUserName != userName)			// 这个identifier原来还绑定了一个userName，说明这是个老identifier
 			m_userContainer.removeBound(boundUserName, identifier);
@@ -742,7 +766,20 @@ bool ClientManager::login(QTcpSocket & tcpSocket, ClientInfo & client, QString i
 	}
 	else if (boundIdentifier == identifier)			// 还是按原绑定关系，不变
 	{
-		
+		if (identifierAlreadyLogined)					// 如果重复登录，踢掉原来的
+		{
+			QTcpSocket * ptrLoginedTcpSocket = NULL;
+			ClientInfo * ptrLoginedClient = NULL;
+
+			if (getTcpSocketAndClientInfoByUserName(userName, &ptrLoginedTcpSocket, &ptrLoginedClient))
+			{
+				QTcpSocket & loginedTcpSocket = *ptrLoginedTcpSocket;
+				ClientInfo & loginedClient = *ptrLoginedClient;
+				loginedClient.userName = QString();
+				loginedClient.identifier = QString();
+				discardClient(loginedTcpSocket, loginedClient, U16("其他地方登录"));
+			}
+		}
 	}
 
 	client.status = LoginedStatus;
@@ -756,7 +793,7 @@ bool ClientManager::login(QTcpSocket & tcpSocket, ClientInfo & client, QString i
 
 void ClientManager::tcpIn_localNetwork(QTcpSocket & tcpSocket, ClientInfo & client, QHostAddress localAddress, quint16 clientUdp1LocalPort, QString gatewayInfo)
 {
-	if (!checkStatusAndDisconnect(tcpSocket, client, "tcpIn_localNetwork", LoginedStatus))
+	if (!checkStatusAndDiscard(tcpSocket, client, "tcpIn_localNetwork", LoginedStatus))
 		return;
 	client.localAddress = localAddress;
 	client.udp1LocalPort = clientUdp1LocalPort;
@@ -784,11 +821,11 @@ void ClientManager::udpIn_checkNatStep1(int index, QTcpSocket & tcpSocket, Clien
 
 void ClientManager::tcpIn_checkNatStep1(QTcpSocket & tcpSocket, ClientInfo & client, int partlyType, quint16 clientUdp2LocalPort )
 {
-	if (!checkStatusAndDisconnect(tcpSocket, client, "tcpIn_checkNatStep1", LoginedStatus, Step1_12SendingToClient1))
+	if (!checkStatusAndDiscard(tcpSocket, client, "tcpIn_checkNatStep1", LoginedStatus, Step1_12SendingToClient1))
 		return;
 	if (partlyType != 1 && partlyType != 2)
 	{
-		disconnectClient(tcpSocket, client, "tcpIn_checkNatStep1 argument error");
+		discardClient(tcpSocket, client, "tcpIn_checkNatStep1 argument error");
 		return;
 	}
 
@@ -811,11 +848,11 @@ void ClientManager::tcpIn_checkNatStep1(QTcpSocket & tcpSocket, ClientInfo & cli
 
 void ClientManager::tcpIn_checkNatStep2Type1(QTcpSocket & tcpSocket, ClientInfo & client, NatType natType)
 {
-	if (!checkStatusAndDisconnect(tcpSocket, client, "tcpIn_checkNatStep2Type1", LoginedStatus, Step2_Type1_1SendingToClient12))
+	if (!checkStatusAndDiscard(tcpSocket, client, "tcpIn_checkNatStep2Type1", LoginedStatus, Step2_Type1_1SendingToClient12))
 		return;
 	if (natType != PublicNetwork && natType != FullOrRestrictedConeNat)
 	{
-		disconnectClient(tcpSocket, client, "tcpIn_checkNatStep2Type1 argument error");
+		discardClient(tcpSocket, client, "tcpIn_checkNatStep2Type1 argument error");
 		return;
 	}
 
@@ -875,7 +912,7 @@ void ClientManager::udpIn_updateAddress(int index, QTcpSocket & tcpSocket, Clien
 
 void ClientManager::tcpIn_refreshOnlineUser(QTcpSocket & tcpSocket, ClientInfo & client)
 {
-	if (!checkStatusAndDisconnect(tcpSocket, client, "tcpIn_refreshOnlineUser", LoginedStatus))
+	if (!checkStatusAndDiscard(tcpSocket, client, "tcpIn_refreshOnlineUser", LoginedStatus))
 		return;
 	tcpOut_refreshOnlineUser(tcpSocket, client, QStringList(m_mapUserTcpSocket.keys()).join(","));
 }
@@ -890,7 +927,7 @@ void ClientManager::tcpOut_refreshOnlineUser(QTcpSocket & tcpSocket, ClientInfo 
 void ClientManager::tcpIn_tryTunneling(QTcpSocket & tcpSocket, ClientInfo & client, QString peerUserName)
 {
 	// local = A, peer = B
-	if (!checkStatusAndDisconnect(tcpSocket, client, "tcpIn_tryTunneling", LoginedStatus, NatCheckFinished))
+	if (!checkStatusAndDiscard(tcpSocket, client, "tcpIn_tryTunneling", LoginedStatus, NatCheckFinished))
 		return;
 
 	bool canTunnel = false;
@@ -914,7 +951,7 @@ void ClientManager::tcpOut_tryTunneling(QTcpSocket & tcpSocket, ClientInfo & cli
 void ClientManager::tcpIn_readyTunneling(QTcpSocket & tcpSocket, ClientInfo & client, QString peerUserName, QString peerLocalPassword, quint16 udp2UpnpPort, int requestId)
 {
 	// local = A, peer = B
-	if (!checkStatusAndDisconnect(tcpSocket, client, "tcpIn_readyTunneling", LoginedStatus, NatCheckFinished))
+	if (!checkStatusAndDiscard(tcpSocket, client, "tcpIn_readyTunneling", LoginedStatus, NatCheckFinished))
 		return;
 
 	bool peerNeedUpnp = false;
@@ -969,7 +1006,7 @@ void ClientManager::tcpOut_startTunneling(QTcpSocket & tcpSocket, ClientInfo & c
 void ClientManager::tcpIn_startTunneling(QTcpSocket & tcpSocket, ClientInfo & client, int tunnelId, bool canTunnel, quint16 udp2UpnpPort, QString errorString)
 {
 	// local = B, peer = A
-	if (!checkStatusAndDisconnect(tcpSocket, client, "tcpIn_startTunneling", LoginedStatus, NatCheckFinished))
+	if (!checkStatusAndDiscard(tcpSocket, client, "tcpIn_startTunneling", LoginedStatus, NatCheckFinished))
 		return;
 	TunnelInfo & tunnel = *getTunnelInfo(tunnelId);
 	if (&tunnel == NULL)
@@ -1019,7 +1056,7 @@ void ClientManager::tcpOut_tunneling(QTcpSocket & tcpSocket, ClientInfo & client
 
 void ClientManager::tcpIn_closeTunneling(QTcpSocket & tcpSocket, ClientInfo & client, int tunnelId, QString reason)
 {
-	if (!checkStatusAndDisconnect(tcpSocket, client, "tcpIn_closeTunneling", LoginedStatus, NatCheckFinished))
+	if (!checkStatusAndDiscard(tcpSocket, client, "tcpIn_closeTunneling", LoginedStatus, NatCheckFinished))
 		return;
 
 	TunnelInfo & tunnel = *getTunnelInfo(tunnelId);
@@ -1039,7 +1076,7 @@ void ClientManager::tcpIn_closeTunneling(QTcpSocket & tcpSocket, ClientInfo & cl
 	{
 		QString text = QString("try to close a tunnel(%2,%3,%4) not belong to it")
 			.arg(tunnelId).arg(tunnel.clientAUserName).arg(tunnel.clientBUserName);
-		disconnectClient(tcpSocket, client, text);
+		discardClient(tcpSocket, client, text);
 		return;
 	}
 
