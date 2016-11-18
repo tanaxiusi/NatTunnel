@@ -66,7 +66,6 @@ private:
 
 signals:
 	void dataOutput(QByteArray package);
-	bool isTunnelBusy();
 
 public:
 	TcpTransfer(QObject *parent = 0);
@@ -76,6 +75,8 @@ public:
 
 	bool addTransfer(quint16 localPort, quint16 remotePort, QHostAddress remoteAddress);
 	bool deleteTransfer(quint16 localPort);
+	QMap<quint16, Peer> getTransferOutList();
+	QMap<quint16, Peer> getTransferInList();
 
 private:
 	static bool isValidFrameType(FrameType frameType);

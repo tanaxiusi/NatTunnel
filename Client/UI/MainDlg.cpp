@@ -7,7 +7,7 @@
 #include <QProcess>
 #include "Util/Other.h"
 #include "GuideDlg.h"
-#include "MultiLineInputDialog.h"
+#include "TransferManageDlg.h"
 
 MainDlg::MainDlg(QWidget *parent)
 	: QMainWindow(parent)
@@ -367,106 +367,24 @@ void MainDlg::onBtnCloseTunneling()
 	btnCloseTunneling->setEnabled(false);
 }
 
-void MainDlg::onBtnAddTransfer()
+void MainDlg::onBtnManageTransfer()
 {
-	QPushButton * btnAddTransfer = (QPushButton*)sender();
-	if (!btnAddTransfer)
+	QPushButton * btnManageTransfer = (QPushButton*)sender();
+	if (!btnManageTransfer)
 		return;
-	const int tunnelId = btnAddTransfer->property("tunnelId").toInt();
-	const QString peerUserName = btnAddTransfer->property("peerUserName").toString();
+	const int tunnelId = btnManageTransfer->property("tunnelId").toInt();
+	const QString peerUserName = btnManageTransfer->property("peerUserName").toString();
 	if (tunnelId == 0 || peerUserName.isEmpty())
 		return;
 
-	QSettings cache("Cache.ini", QSettings::IniFormat);
-	QString originalText = cache.value("Transfer/" + peerUserName).toString();
-	QString inputText = MultiLineInputDialog::getText(this, U16("添加转发"), U16("每行一个，格式：[本地端口号] [远程端口号] [远程IP地址](不填则默认为127.0.0.1)"), originalText);
-	if (inputText.isNull())
-		return;
-
-	cache.setValue("Transfer/" + peerUserName, inputText);
-
-	QString errorMsg;
-	QList<TransferInfo> lstTransferInfo = parseTransferInfoList(inputText, &errorMsg);
-	if (errorMsg.length() > 0)
-	{
-		QMessageBox::warning(this, U16("添加转发"), errorMsg);
-		return;
-	}
-
-	if (lstTransferInfo.isEmpty())
-	{
-		return;
-	}
-
-	QList<TransferInfo> lstFailed;
-	QMetaObject::invokeMethod(m_transferManager, "addTransfer", Qt::BlockingQueuedConnection,
-		Q_ARG(int, tunnelId), Q_ARG(QList<TransferInfo>, lstTransferInfo), Q_ARG(QList<TransferInfo>*, &lstFailed));
-
-	if (lstFailed.size() > 0)
-	{
-		QStringList lineList;
-		foreach (TransferInfo transferInfo, lstFailed)
-			lineList << QString("%1 %2 %3").arg(transferInfo.localPort).arg(transferInfo.remoteAddress.toString()).arg(transferInfo.remotePort);
-
-		QMessageBox::warning(this, U16("添加转发"), lineList.join("\n") + U16("\n%1个添加失败").arg(lstFailed.size()));
-	}
-
-}
-
-QList<TransferInfo> MainDlg::parseTransferInfoList(QString text, QString * outErrorMsg)
-{
-	QString dummy;
-	if (!outErrorMsg)
-		outErrorMsg = &dummy;
-	outErrorMsg->clear();
-	QList<TransferInfo> result;
-	const QStringList lineList = text.split("\n", QString::KeepEmptyParts);
-	for (int i = 0; i < lineList.size(); ++i)
-	{
-		QString line = lineList.at(i);
-		line.trimmed();
-		if (line.isEmpty())
-			continue;
-
-		QStringList fieldList = line.split(" ", QString::SkipEmptyParts);
-		if (fieldList.size() != 2 && fieldList.size() != 3)
-		{
-			*outErrorMsg = U16("第%1行 无效的格式：'%2'").arg(i + 1).arg(line);
-			return QList<TransferInfo>();
-		}
-		const QString localPortText = fieldList[0];
-		const QString remotePortText = fieldList[1];
-		const QString remoteAddressText = fieldList.size() >= 3 ? fieldList[2] : QString("127.0.0.1");
-
-		bool localPortOk = false, remotePortOk = false;
-		const int localPort = localPortText.toInt(&localPortOk);
-		const QHostAddress remoteAddress = QHostAddress(remoteAddressText);
-		const int remotePort = remotePortText.toInt(&remotePortOk);
-
-		if (!localPortOk || localPort <= 0 || localPort > 65535)
-		{
-			*outErrorMsg = U16("第%1行 无效的本地端口号 '%2'：").arg(i + 1).arg(localPortText);
-			return QList<TransferInfo>();
-		}
-		if (!remotePortOk || remotePort <= 0 || remotePort > 65535)
-		{
-			*outErrorMsg = U16("第%1行 无效的远程端口号 '%2'：").arg(i + 1).arg(remotePortText);
-			return QList<TransferInfo>();
-		}
-		if (remoteAddressText.isNull())
-		{
-			*outErrorMsg = U16("第%1行 无效的远程IP地址 '%2'：").arg(i + 1).arg(remoteAddressText);
-			return QList<TransferInfo>();
-		}
-
-		TransferInfo transferInfo;
-		transferInfo.localPort = localPort;
-		transferInfo.remoteAddress = remoteAddress;
-		transferInfo.remotePort = remotePort;
-
-		result << transferInfo;
-	}
-	return result;
+	TransferManageDlg dlg(this, tunnelId);
+	connect(&dlg, SIGNAL(wannaGetTransferOutList(int)), m_transferManager, SLOT(getTransferOutList(int)), Qt::BlockingQueuedConnection);
+	connect(&dlg, SIGNAL(wannaGetTransferInList(int)), m_transferManager, SLOT(getTransferInList(int)), Qt::BlockingQueuedConnection);
+	connect(&dlg, SIGNAL(wannaAddTransfer(int, quint16, quint16, QHostAddress)),
+		m_transferManager, SLOT(addTransfer(int, quint16, quint16, QHostAddress)), Qt::QueuedConnection);
+	connect(&dlg, SIGNAL(wannaDeleteTransfer(int, quint16)), m_transferManager, SLOT(deleteTransfer(int, quint16)), Qt::QueuedConnection);
+	dlg.init();
+	dlg.exec();
 }
 
 void MainDlg::updateTableRow(int tunnelId, QString peerUserName, QString peerAddress, QString status)
@@ -480,15 +398,15 @@ void MainDlg::updateTableRow(int tunnelId, QString peerUserName, QString peerAdd
 		m_tableModel->appendRow(lstItem);
 
 		QPushButton * btnCloseTunneling = new QPushButton(U16("断开"));
-		QPushButton * btnAddTransfer = new QPushButton(U16("添加转发"));
+		QPushButton * btnManageTransfer = new QPushButton(U16("管理转发"));
 		btnCloseTunneling->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding));
 		btnCloseTunneling->setProperty("tunnelId", tunnelId);
-		btnAddTransfer->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding));
-		btnAddTransfer->setProperty("tunnelId", tunnelId);
-		btnAddTransfer->setProperty("peerUserName", peerUserName);
+		btnManageTransfer->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding));
+		btnManageTransfer->setProperty("tunnelId", tunnelId);
+		btnManageTransfer->setProperty("peerUserName", peerUserName);
 
 		connect(btnCloseTunneling, SIGNAL(clicked()), this, SLOT(onBtnCloseTunneling()));
-		connect(btnAddTransfer, SIGNAL(clicked()), this, SLOT(onBtnAddTransfer()));
+		connect(btnManageTransfer, SIGNAL(clicked()), this, SLOT(onBtnManageTransfer()));
 
 		QHBoxLayout * horizontalLayout = new QHBoxLayout();
 		QWidget * containerWidget = new QWidget();
@@ -496,7 +414,7 @@ void MainDlg::updateTableRow(int tunnelId, QString peerUserName, QString peerAdd
 		horizontalLayout->setMargin(0);
 		horizontalLayout->setSpacing(0);
 		horizontalLayout->addWidget(btnCloseTunneling);
-		horizontalLayout->addWidget(btnAddTransfer);
+		horizontalLayout->addWidget(btnManageTransfer);
 
 		ui.tableView->setIndexWidget(m_tableModel->index(m_tableModel->rowCount() - 1, m_tableModel->columnCount() - 1), containerWidget);
 	}

@@ -153,6 +153,16 @@ bool TcpTransfer::deleteTransfer(quint16 localPort)
 	return true;
 }
 
+QMap<quint16, Peer> TcpTransfer::getTransferOutList()
+{
+	return m_mapTransferOut;
+}
+
+QMap<quint16, Peer> TcpTransfer::getTransferInList()
+{
+	return m_mapTransferIn;
+}
+
 bool TcpTransfer::isValidFrameType(FrameType frameType)
 {
 	return frameType > BeginUnknownFrameType && frameType < EndUnknownFrameType;
@@ -335,11 +345,12 @@ void TcpTransfer::input_Ack(quint32 socketIndex, quint8 direction, int writtenSi
 			m_globalWaitingSize = 0;
 			qWarning() << QString("TcpTransfer::input_Ack m_globalWaitingSize < 0");
 		}
+		// 全局流控解除后，重新发送因此而等待的socket
 		while (m_globalWaitingSize < GlobalMaxWaitingSize && m_lstGlobalWaitingSocket.size() > 0)
 		{
 			const SocketIdentifier & socketIdentifier = m_lstGlobalWaitingSocket.first();
 			if(socketIdentifier.direction == Direction_In)
-			{ 
+			{
 				if (SocketInInfo * socketIn = findSocketIn(socketIdentifier.peerSocketIndex))
 					readAndSendSocketIn(*socketIn);
 			}
@@ -690,3 +701,4 @@ void TcpTransfer::onSocketInBytesWritten(qint64 size)
 		return;
 	output_Ack(peerSocketIndex, Direction_In, size);
 }
+

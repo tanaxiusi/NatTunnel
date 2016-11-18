@@ -4,16 +4,6 @@
 #include "TcpTransfer.h"
 #include "Client.h"
 
-struct TransferInfo
-{
-	quint16 localPort;
-	QHostAddress remoteAddress;
-	quint16 remotePort;
-	TransferInfo()
-		:localPort(0), remotePort(0)
-	{}
-};
-
 class TransferManager : public QObject
 {
 	Q_OBJECT
@@ -24,7 +14,10 @@ public:
 
 public slots:
 	bool addTransfer(int tunnelId, quint16 localPort, quint16 remotePort, QHostAddress remoteAddress);
-	bool addTransfer(int tunnelId, QList<TransferInfo> transferInfoList, QList<TransferInfo> * outFailedList);
+	bool deleteTransfer(int tunnelId, quint16 localPort);
+
+	QMap<quint16, Peer> getTransferOutList(int tunnelId);
+	QMap<quint16, Peer> getTransferInList(int tunnelId);
 
 private slots:
 	void onClientDisconnected();

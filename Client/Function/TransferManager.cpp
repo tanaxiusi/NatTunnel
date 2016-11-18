@@ -1,7 +1,5 @@
 ﻿#include "TransferManager.h"
 
-static const int _typeId_QListTransferInfo = qRegisterMetaType<QList<TransferInfo> >("QList<TransferInfo>");
-
 TransferManager::TransferManager(QObject *parent, Client * client)
 	: QObject(parent)
 {
@@ -28,16 +26,28 @@ bool TransferManager::addTransfer(int tunnelId, quint16 localPort, quint16 remot
 	return tcpTransfer->addTransfer(localPort, remotePort, remoteAddress);
 }
 
-bool TransferManager::addTransfer(int tunnelId, QList<TransferInfo> transferInfoList, QList<TransferInfo> * outFailedList)
+bool TransferManager::deleteTransfer(int tunnelId, quint16 localPort)
 {
 	TcpTransfer * tcpTransfer = m_mapTcpTransfer.value(tunnelId);
 	if (!tcpTransfer)
 		return false;
-	foreach (const TransferInfo & transferInfo, transferInfoList)
-		if (!tcpTransfer->addTransfer(transferInfo.localPort, transferInfo.remotePort, transferInfo.remoteAddress))
-			if (outFailedList)
-				outFailedList->append(transferInfo);
-	return true;
+	return tcpTransfer->deleteTransfer(localPort);
+}
+
+QMap<quint16, Peer> TransferManager::getTransferOutList(int tunnelId)
+{
+	TcpTransfer * tcpTransfer = m_mapTcpTransfer.value(tunnelId);
+	if (!tcpTransfer)
+		return QMap<quint16, Peer>();
+	return tcpTransfer->getTransferOutList();
+}
+
+QMap<quint16, Peer> TransferManager::getTransferInList(int tunnelId)
+{
+	TcpTransfer * tcpTransfer = m_mapTcpTransfer.value(tunnelId);
+	if (!tcpTransfer)
+		return QMap<quint16, Peer>();
+	return tcpTransfer->getTransferInList();
 }
 
 void TransferManager::onClientDisconnected()
@@ -83,4 +93,3 @@ void TransferManager::onTcpTransferOutput(QByteArray package)
 		return;
 	m_client->tunnelWrite(tunnelId, package);
 }
-
