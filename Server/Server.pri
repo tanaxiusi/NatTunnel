@@ -1,19 +1,15 @@
-HEADERS += ./Function/ClientManager.h \
-    ./Function/UserContainer.h \
+HEADERS += ./Function/UserContainer.h \
+    ./Function/ClientManager.h \
     ./Util/Other.h \
     ./Util/QStringMap.h \
     ../Shared/MessageConverter.h \
-    ../Shared/crc32/crc32.h \
-    ../Shared/aes/aes.h
+    ../Shared/aes/aes.h \
+    ../Shared/crc32/crc32.h
 SOURCES += ./Function/ClientManager.cpp \
-    ./Function/UserContainer.cpp \
     ./Function/main.cpp \
+    ./Function/UserContainer.cpp \
     ./Util/Other.cpp \
     ./Util/QStringMap.cpp \
     ../Shared/MessageConverter.cpp \
-    ../Shared/crc32/crc32.cpp \
-    ../Shared/aes/aes.c
-	
-win32{
-	RC_FILE = Resources/Server.rc
-}
+    ../Shared/aes/aes.c \
+    ../Shared/crc32/crc32.cpp

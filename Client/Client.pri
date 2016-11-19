@@ -5,34 +5,33 @@ HEADERS += ./Function/Peer.h \
     ./Function/TcpTransfer.h \
     ./Function/QUpnpPortMapper.h \
     ./Resources/resource.h \
+    ./UI/TransferManageDlg.h \
+    ./UI/AddTransferDlg.h \
     ./UI/MainDlg.h \
     ./UI/GuideDlg.h \
-	./UI/MultiLineInputDialog.h \
     ../Shared/MessageConverter.h \
-    ../Shared/kcp/ikcp.h \
-    ../Shared/crc32/crc32.h \
     ../Shared/aes/aes.h \
+    ../Shared/crc32/crc32.h \
+    ../Shared/kcp/ikcp.h \
     ./Util/Other.h
-SOURCES += ./Function/Client.cpp \
+SOURCES += ./main.cpp \
+    ./Function/Client.cpp \
     ./Function/KcpManager.cpp \
-    ./Function/main.cpp \
     ./Function/Peer.cpp \
     ./Function/QUpnpPortMapper.cpp \
     ./Function/TcpTransfer.cpp \
     ./Function/TransferManager.cpp \
+    ./UI/AddTransferDlg.cpp \
     ./UI/GuideDlg.cpp \
     ./UI/MainDlg.cpp \
-	./UI/MultiLineInputDialog.cpp \
+    ./UI/TransferManageDlg.cpp \
     ../Shared/MessageConverter.cpp \
-    ../Shared/kcp/ikcp.c \
-    ../Shared/crc32/crc32.cpp \
     ../Shared/aes/aes.c \
+    ../Shared/crc32/crc32.cpp \
+    ../Shared/kcp/ikcp.c \
     ./Util/Other.cpp
 FORMS += ./FormFiles/GuideDlg.ui \
     ./FormFiles/MainDlg.ui \
-	./FormFiles/MultiLineInputDialog.ui
+    ./FormFiles/TransferManageDlg.ui \
+    ./FormFiles/AddTransferDlg.ui
 RESOURCES += Resources/MainDlg.qrc
-
-win32{
-	RC_FILE = Resources/Client.rc
-}
