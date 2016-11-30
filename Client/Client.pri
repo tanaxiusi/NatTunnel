@@ -35,3 +35,4 @@ FORMS += ./FormFiles/GuideDlg.ui \
     ./FormFiles/TransferManageDlg.ui \
     ./FormFiles/AddTransferDlg.ui
 RESOURCES += Resources/MainDlg.qrc
+win32:RC_FILE = Resources/Client.rc

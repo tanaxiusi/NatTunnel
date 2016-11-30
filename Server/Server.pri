@@ -13,3 +13,4 @@ SOURCES += ./Function/ClientManager.cpp \
     ../Shared/MessageConverter.cpp \
     ../Shared/aes/aes.c \
     ../Shared/crc32/crc32.cpp
+win32:RC_FILE = Resources/Server.rc

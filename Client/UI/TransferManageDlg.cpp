@@ -52,7 +52,7 @@ void TransferManageDlg::refreshIn()
 {
 	const QMap<quint16, Peer> transferList = wannaGetTransferInList(m_tunnelId);
 	m_modelIn->removeRows(0, m_modelIn->rowCount());
-	for (quint16 localPort : transferList.keys())
+	foreach (quint16 localPort, transferList.keys())
 	{
 		const Peer peer = transferList.value(localPort);
 		QList<QStandardItem*> lstItem;
@@ -66,7 +66,7 @@ void TransferManageDlg::refreshOut()
 {
 	const QMap<quint16, Peer> transferList = wannaGetTransferOutList(m_tunnelId);
 	m_modelOut->removeRows(0, m_modelOut->rowCount());
-	for (quint16 localPort : transferList.keys())
+	foreach (quint16 localPort, transferList.keys())
 	{
 		const Peer peer = transferList.value(localPort);
 		QList<QStandardItem*> lstItem;
