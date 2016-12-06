@@ -36,6 +36,9 @@ char * strcopy(char * dst, size_t SizeInBytes, const char * src);
 
 quint32 rand_u32();
 
+QByteArray boolToQByteArray(bool value);
+bool QByteArrayToBool(const QByteArray & value);
+
 QByteArray checksumThenUnpackPackage(QByteArray package);
 QByteArray checksumThenUnpackPackage(QByteArray package, QByteArray userName);
 QByteArray addChecksumInfo(QByteArray package);
@@ -43,6 +46,7 @@ QByteArray addChecksumInfo(QByteArray package, QByteArray userName);
 bool isSameHostAddress(const QHostAddress & a, const QHostAddress & b);
 QHostAddress tryConvertToIpv4(const QHostAddress & hostAddress);
 QString getNatDescription(NatType natType);
+QString getUpnpStatusDescription(UpnpStatus upnpStatus);
 bool isNatAddress(const QHostAddress & hostAddress);
 QString getNetworkInterfaceHardwareAddress(QHostAddress localAddress);
 QStringList getGatewayAddress(QString localAddress);

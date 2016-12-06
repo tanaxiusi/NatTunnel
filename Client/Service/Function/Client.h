@@ -27,7 +27,7 @@ signals:
 
 	void warning(QString msg);
 
-	void replyRefreshOnlineUser(QStringList onlineUserList);
+	void replyQueryOnlineUser(QStringList onlineUserList);
 
 	void replyTryTunneling(QString peerUserName, bool canTunnel, bool needUpnp, QString failReason);
 	void replyReadyTunneling(int requestId, int tunnelId, QString peerUserName);
@@ -86,11 +86,9 @@ public:
 	~Client();
 
 public slots:
-	void setGlobalKey(QByteArray key);
-	void setRandomIdentifierSuffix(QString randomIdentifierSuffix);
+	void setConfig(QByteArray globalKey, QString randomIdentifierSuffix, QHostAddress serverHostAddress, quint16 serverTcpPort);
 	void setUserName(QString userName);
 	void setLocalPassword(QString localPassword);
-	void setServerInfo(QHostAddress hostAddress, quint16 tcpPort);
 
 	bool start();
 	bool stop();
@@ -105,7 +103,7 @@ public slots:
 
 	void setUpnpAvailable(bool upnpAvailable);
 
-	void refreshOnlineUser();
+	void queryOnlineUser();
 
 	void tryTunneling(QString peerUserName);
 	int readyTunneling(QString peerUserName, QString peerLocalPassword, bool useUpnp);
@@ -188,8 +186,8 @@ private:
 
 	void udpOut_updateAddress();
 
-	void tcpOut_refreshOnlineUser();
-	void tcpIn_refreshOnlineUser(QString onlineUser);
+	void tcpOut_queryOnlineUser();
+	void tcpIn_queryOnlineUser(QString onlineUser);
 
 	void tcpOut_tryTunneling(QString peerUserName);
 	void tcpIn_tryTunneling(QString peerUserName, bool canTunnel, bool needUpnp, QString failReason);

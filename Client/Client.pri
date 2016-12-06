@@ -1,38 +1,45 @@
-HEADERS += ./Function/Peer.h \
-    ./Function/Client.h \
-    ./Function/KcpManager.h \
-    ./Function/TransferManager.h \
-    ./Function/TcpTransfer.h \
-    ./Function/QUpnpPortMapper.h \
-    ./Resources/resource.h \
-    ./UI/TransferManageDlg.h \
-    ./UI/AddTransferDlg.h \
-    ./UI/MainDlg.h \
-    ./UI/GuideDlg.h \
-    ../Shared/MessageConverter.h \
+HEADERS += ../Shared/MessageConverter.h \
     ../Shared/aes/aes.h \
     ../Shared/crc32/crc32.h \
     ../Shared/kcp/ikcp.h \
-    ./Util/Other.h
+    ./Service/ServiceMain.h \
+    ./Service/Function/Client.h \
+    ./Service/Function/KcpManager.h \
+    ./Service/Function/QUpnpPortMapper.h \
+    ./Service/Function/TcpTransfer.h \
+    ./Service/Function/TransferManager.h \
+    ./Gui/GuiMain.h \
+    ./Gui/UI/AddTransferDlg.h \
+    ./Gui/UI/GuideDlg.h \
+    ./Gui/UI/MainDlg.h \
+    ./Gui/UI/TransferManageDlg.h \
+    ./Util/Other.h \
+    ./Util/Peer.h \
+    ./Util/BridgeForGui.h \
+    ./Util/BridgeForService.h
 SOURCES += ./main.cpp \
-    ./Function/Client.cpp \
-    ./Function/KcpManager.cpp \
-    ./Function/Peer.cpp \
-    ./Function/QUpnpPortMapper.cpp \
-    ./Function/TcpTransfer.cpp \
-    ./Function/TransferManager.cpp \
-    ./UI/AddTransferDlg.cpp \
-    ./UI/GuideDlg.cpp \
-    ./UI/MainDlg.cpp \
-    ./UI/TransferManageDlg.cpp \
     ../Shared/MessageConverter.cpp \
     ../Shared/aes/aes.c \
     ../Shared/crc32/crc32.cpp \
     ../Shared/kcp/ikcp.c \
-    ./Util/Other.cpp
-FORMS += ./FormFiles/GuideDlg.ui \
-    ./FormFiles/MainDlg.ui \
-    ./FormFiles/TransferManageDlg.ui \
-    ./FormFiles/AddTransferDlg.ui
-RESOURCES += Resources/MainDlg.qrc
+    ./Service/ServiceMain.cpp \
+    ./Service/Function/Client.cpp \
+    ./Service/Function/KcpManager.cpp \
+    ./Service/Function/QUpnpPortMapper.cpp \
+    ./Service/Function/TcpTransfer.cpp \
+    ./Service/Function/TransferManager.cpp \
+    ./Gui/GuiMain.cpp \
+    ./Gui/UI/AddTransferDlg.cpp \
+    ./Gui/UI/GuideDlg.cpp \
+    ./Gui/UI/MainDlg.cpp \
+    ./Gui/UI/TransferManageDlg.cpp \
+    ./Util/BridgeForGui.cpp \
+    ./Util/BridgeForService.cpp \
+    ./Util/Other.cpp \
+    ./Util/Peer.cpp
+FORMS += ./Gui/FormFiles/AddTransferDlg.ui \
+    ./Gui/FormFiles/GuideDlg.ui \
+    ./Gui/FormFiles/MainDlg.ui \
+    ./Gui/FormFiles/TransferManageDlg.ui
+RESOURCES += Gui/Resources/MainDlg.qrc
 win32:RC_FILE = Resources/Client.rc

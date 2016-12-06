@@ -29,13 +29,13 @@ TransferManageDlg::~TransferManageDlg()
 
 void TransferManageDlg::init()
 {
-	refreshIn();
-	refreshOut();
+	emit wannaQueryTransferIn(m_tunnelId);
+	emit wannaQueryTransferOut(m_tunnelId);
 }
 
 void TransferManageDlg::onBtnRefreshIn()
 {
-	refreshIn();
+	emit wannaQueryTransferIn(m_tunnelId);
 }
 
 void TransferManageDlg::onBtnAddOut()
@@ -44,15 +44,25 @@ void TransferManageDlg::onBtnAddOut()
 	if (dlg.exec() != QDialog::Accepted)
 		return;
 
-	wannaAddTransfer(m_tunnelId, dlg.localPort(), dlg.remotePort(), dlg.remoteAddress());
-	refreshOut();
+	emit wannaAddTransfer(m_tunnelId, dlg.localPort(), dlg.remotePort(), dlg.remoteAddress());
+	emit wannaQueryTransferOut(m_tunnelId);
 }
 
-void TransferManageDlg::refreshIn()
+void TransferManageDlg::onBtnDeleteTransfer()
 {
-	const QMap<quint16, Peer> transferList = wannaGetTransferInList(m_tunnelId);
+	QPushButton * btnDeleteTransfer = qobject_cast<QPushButton*>(sender());
+	if (!btnDeleteTransfer)
+		return;
+	const quint16 localPort = (quint16)btnDeleteTransfer->property("localPort").toInt();
+	emit wannaDeleteTransfer(m_tunnelId, localPort);
+	emit wannaQueryTransferOut(m_tunnelId);
+}
+
+
+void TransferManageDlg::onQueryTransferIn(int bridgeMessageId, QMap<quint16, Peer> transferList)
+{
 	m_modelIn->removeRows(0, m_modelIn->rowCount());
-	foreach (quint16 localPort, transferList.keys())
+	foreach(quint16 localPort, transferList.keys())
 	{
 		const Peer peer = transferList.value(localPort);
 		QList<QStandardItem*> lstItem;
@@ -62,11 +72,10 @@ void TransferManageDlg::refreshIn()
 	}
 }
 
-void TransferManageDlg::refreshOut()
+void TransferManageDlg::onQueryTransferOut(int bridgeMessageId, QMap<quint16, Peer> transferList)
 {
-	const QMap<quint16, Peer> transferList = wannaGetTransferOutList(m_tunnelId);
 	m_modelOut->removeRows(0, m_modelOut->rowCount());
-	foreach (quint16 localPort, transferList.keys())
+	foreach(quint16 localPort, transferList.keys())
 	{
 		const Peer peer = transferList.value(localPort);
 		QList<QStandardItem*> lstItem;
@@ -81,14 +90,4 @@ void TransferManageDlg::refreshOut()
 
 		ui.tableViewOut->setIndexWidget(m_modelOut->index(m_modelOut->rowCount() - 1, m_modelOut->columnCount() - 1), btnDeleteTransfer);
 	}
-}
-
-void TransferManageDlg::onBtnDeleteTransfer()
-{
-	QPushButton * btnDeleteTransfer = qobject_cast<QPushButton*>(sender());
-	if (!btnDeleteTransfer)
-		return;
-	const quint16 localPort = (quint16)btnDeleteTransfer->property("localPort").toInt();
-	emit wannaDeleteTransfer(m_tunnelId, localPort);
-	refreshOut();
 }

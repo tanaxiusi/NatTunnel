@@ -3,10 +3,9 @@
 #include <QMainWindow>
 #include <QCloseEvent>
 #include <QStandardItemModel>
-#include <QThread>
+#include <QHostAddress>
 #include "ui_MainDlg.h"
-#include "Function/Client.h"
-#include "Function/TransferManager.h"
+#include "Util/BridgeForGui.h"
 
 class MainDlg : public QMainWindow
 {
@@ -18,8 +17,6 @@ public:
 
 	void start();
 	void stop();
-
-	void leadWindowsFirewallPopup();
 
 protected:
 	virtual void closeEvent(QCloseEvent *event);
@@ -37,8 +34,8 @@ private slots:
 
 	void onEditLocalPasswordChanged();
 
-	void onBtnRefreshOnlineUser();
-	void onReplyRefreshOnlineUser(QStringList onlineUserList);
+	void onBtnQueryOnlineUser();
+	void onReplyQueryOnlineUser(QStringList onlineUserList);
 
 	void onBtnTunnel();
 	void onReplyTryTunneling(QString peerUserName, bool canTunnel, bool needUpnp, QString failReason);
@@ -64,7 +61,5 @@ private:
 	QLabel * m_labelUpnp;
 	QStandardItemModel * m_tableModel;
 
-	QThread m_workingThread;
-	Client * m_client;
-	TransferManager * m_transferManager;
+	BridgeForGui * m_bridge;
 };

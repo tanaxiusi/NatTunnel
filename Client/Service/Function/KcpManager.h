@@ -7,7 +7,7 @@
 #include <QTime>
 #include "kcp/ikcp.h"
 #include "Util/Other.h"
-#include "Peer.h"
+#include "Util/Peer.h"
 
 class KcpManager : public QObject
 {

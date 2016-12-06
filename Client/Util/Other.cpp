@@ -127,6 +127,27 @@ QString getNatDescription(NatType natType)
 	}
 }
 
+QString getUpnpStatusDescription(UpnpStatus upnpStatus)
+{
+	switch (upnpStatus)
+	{
+	case UpnpUnknownStatus:
+		return U16("Upnp未知状态");
+	case UpnpDiscovering:
+		return U16("正在检测upnp支持");
+	case UpnpUnneeded:
+		return U16("当前网络环境无需Upnp");
+	case UpnpQueryingExternalAddress:
+		return U16("Upnp正在查询公网地址");
+	case UpnpOk:
+		return U16("Upnp可用");
+	case UpnpFailed:
+		return U16("Upnp不可用");
+	default:
+		return "Error";
+	}
+}
+
 bool isNatAddress(const QHostAddress & hostAddress)
 {
 	const quint32 ipv4 = hostAddress.toIPv4Address();
@@ -229,4 +250,14 @@ bool writeFile(const QString & fileName, const QByteArray & content)
 		return false;
 	file.write(content);
 	return true;
+}
+
+QByteArray boolToQByteArray(bool value)
+{
+	return value ? "1" : "0";
+}
+
+bool QByteArrayToBool(const QByteArray & value)
+{
+	return value.toInt() == 1;
 }

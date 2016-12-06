@@ -65,18 +65,16 @@ Client::~Client()
 	stop();
 }
 
-void Client::setGlobalKey(QByteArray key)
-{
-	if (key.size() < 16)
-		key.append(QByteArray(16 - key.size(), 0));
-	m_messageConverter.setKey((const quint8*)key.constData());
-}
-
-void Client::setRandomIdentifierSuffix(QString randomIdentifierSuffix)
+void Client::setConfig(QByteArray globalKey, QString randomIdentifierSuffix, QHostAddress serverHostAddress, quint16 serverTcpPort)
 {
 	if (m_running)
 		return;
+	if (globalKey.size() < 16)
+		globalKey.append(QByteArray(16 - globalKey.size(), 0));
+	m_messageConverter.setKey((const quint8*)globalKey.constData());
 	m_randomIdentifierSuffix = randomIdentifierSuffix;
+	m_serverHostAddress = tryConvertToIpv4(serverHostAddress);
+	m_serverTcpPort = serverTcpPort;
 }
 
 void Client::setUserName(QString userName)
@@ -90,14 +88,6 @@ void Client::setUserName(QString userName)
 void Client::setLocalPassword(QString localPassword)
 {
 	m_localPassword = localPassword;
-}
-
-void Client::setServerInfo(QHostAddress hostAddress, quint16 tcpPort)
-{
-	if (m_running)
-		return;
-	m_serverHostAddress = tryConvertToIpv4(hostAddress);
-	m_serverTcpPort = tcpPort;
 }
 
 bool Client::start()
@@ -175,11 +165,11 @@ void Client::setUpnpAvailable(bool upnpAvailability)
 	tcpOut_upnpAvailability(upnpAvailability);
 }
 
-void Client::refreshOnlineUser()
+void Client::queryOnlineUser()
 {
 	if (!m_running)
 		return;
-	tcpOut_refreshOnlineUser();
+	tcpOut_queryOnlineUser();
 }
 
 void Client::tryTunneling(QString peerUserName)
@@ -205,7 +195,7 @@ int Client::readyTunneling(QString peerUserName, QString peerLocalPassword, bool
 	if (!m_running || !checkStatus(LoginedStatus, NatCheckFinished))
 		return 0;
 	int requestId = qrand() * 2;
-	// 使用upnp时，requestId为奇数，在返回的时候可以昨区分
+	// 使用upnp时，requestId为奇数，在返回的时候可以作区分
 	if (useUpnp)
 		requestId++;
 	if(useUpnp)
@@ -622,8 +612,8 @@ void Client::dealTcpIn(QByteArray line)
 			argument.value("serverUdpPort1").toInt(), argument.value("serverUdpPort2").toInt());
 	else if (type == "checkNatStep2Type2")
 		tcpIn_checkNatStep2Type2((NatType)argument.value("natType").toInt());
-	else if (type == "refreshOnlineUser")
-		tcpIn_refreshOnlineUser(argument.value("onlineUser"));
+	else if (type == "queryOnlineUser")
+		tcpIn_queryOnlineUser(argument.value("onlineUser"));
 	else if (type == "tryTunneling")
 		tcpIn_tryTunneling(argument.value("peerUserName"), argument.value("canTunnel").toInt() == 1,
 			argument.value("needUpnp").toInt() == 1, argument.value("failReason"));
@@ -934,19 +924,19 @@ void Client::udpOut_updateAddress()
 	sendUdp(1, 1, "updateAddress", argument);
 }
 
-void Client::tcpOut_refreshOnlineUser()
+void Client::tcpOut_queryOnlineUser()
 {
 	QByteArrayMap argument;
-	sendTcp("refreshOnlineUser", argument);
+	sendTcp("queryOnlineUser", argument);
 }
 
-void Client::tcpIn_refreshOnlineUser(QString onlineUser)
+void Client::tcpIn_queryOnlineUser(QString onlineUser)
 {
-	if (!checkStatusAndDisconnect("tcpIn_refreshOnlineUser", LoginedStatus))
+	if (!checkStatusAndDisconnect("tcpIn_queryOnlineUser", LoginedStatus))
 		return;
 	QStringList onlineUserList = onlineUser.split(",");
 	onlineUserList.removeAll(m_userName);
-	emit replyRefreshOnlineUser(onlineUserList);
+	emit replyQueryOnlineUser(onlineUserList);
 }
 
 void Client::tcpOut_tryTunneling(QString peerUserName)

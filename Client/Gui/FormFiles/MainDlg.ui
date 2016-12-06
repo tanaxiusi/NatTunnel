@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>800</width>
-    <height>100</height>
+    <height>232</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -103,7 +103,7 @@
             </widget>
            </item>
            <item>
-            <widget class="QPushButton" name="btnRefreshOnlineUser">
+            <widget class="QPushButton" name="btnQueryOnlineUser">
              <property name="sizePolicy">
               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                <horstretch>0</horstretch>
@@ -182,8 +182,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>725</width>
-     <height>25</height>
+     <width>800</width>
+     <height>26</height>
     </rect>
    </property>
   </widget>

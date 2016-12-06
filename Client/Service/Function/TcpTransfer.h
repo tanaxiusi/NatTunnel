@@ -5,7 +5,7 @@
 #include <QTcpServer>
 #include <QTimer>
 #include <QTime>
-#include "Peer.h"
+#include "Util/Peer.h"
 
 class TcpTransfer : public QObject
 {

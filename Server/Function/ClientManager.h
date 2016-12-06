@@ -160,8 +160,8 @@ private:
 
 	void udpIn_updateAddress(int index, QTcpSocket & tcpSocket, ClientInfo & client, QHostAddress clientUdp1HostAddress, quint16 clientUdp1Port1);
 
-	void tcpIn_refreshOnlineUser(QTcpSocket & tcpSocket, ClientInfo & client);
-	void tcpOut_refreshOnlineUser(QTcpSocket & tcpSocket, ClientInfo & client, QString onlineUser);
+	void tcpIn_queryOnlineUser(QTcpSocket & tcpSocket, ClientInfo & client);
+	void tcpOut_queryOnlineUser(QTcpSocket & tcpSocket, ClientInfo & client, QString onlineUser);
 
 	void tcpIn_tryTunneling(QTcpSocket & tcpSocket, ClientInfo & client, QString peerUserName);
 	void tcpOut_tryTunneling(QTcpSocket & tcpSocket, ClientInfo & client, QString peerUserName, bool canTunnel, bool needUpnp, QString failReason);

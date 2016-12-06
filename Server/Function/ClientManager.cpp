@@ -551,8 +551,8 @@ void ClientManager::dealTcpIn(QByteArray line, QTcpSocket & tcpSocket, ClientInf
 		tcpIn_checkNatStep2Type1(tcpSocket, client, (NatType)argument.value("natType").toInt());
 	else if (type == "upnpAvailability")
 		tcpIn_upnpAvailability(tcpSocket, client, argument.value("on").toInt() == 1);
-	else if (type == "refreshOnlineUser")
-		tcpIn_refreshOnlineUser(tcpSocket, client);
+	else if (type == "queryOnlineUser")
+		tcpIn_queryOnlineUser(tcpSocket, client);
 	else if (type == "tryTunneling")
 		tcpIn_tryTunneling(tcpSocket, client, argument.value("peerUserName"));
 	else if (type == "readyTunneling")
@@ -910,18 +910,18 @@ void ClientManager::udpIn_updateAddress(int index, QTcpSocket & tcpSocket, Clien
 	client.udp1Port1 = clientUdp1Port1;
 }
 
-void ClientManager::tcpIn_refreshOnlineUser(QTcpSocket & tcpSocket, ClientInfo & client)
+void ClientManager::tcpIn_queryOnlineUser(QTcpSocket & tcpSocket, ClientInfo & client)
 {
-	if (!checkStatusAndDiscard(tcpSocket, client, "tcpIn_refreshOnlineUser", LoginedStatus))
+	if (!checkStatusAndDiscard(tcpSocket, client, "tcpIn_queryOnlineUser", LoginedStatus))
 		return;
-	tcpOut_refreshOnlineUser(tcpSocket, client, QStringList(m_mapUserTcpSocket.keys()).join(","));
+	tcpOut_queryOnlineUser(tcpSocket, client, QStringList(m_mapUserTcpSocket.keys()).join(","));
 }
 
-void ClientManager::tcpOut_refreshOnlineUser(QTcpSocket & tcpSocket, ClientInfo & client, QString onlineUser)
+void ClientManager::tcpOut_queryOnlineUser(QTcpSocket & tcpSocket, ClientInfo & client, QString onlineUser)
 {
 	QByteArrayMap argument;
 	argument["onlineUser"] = onlineUser.toUtf8();
-	sendTcp(tcpSocket, client, "refreshOnlineUser", argument);
+	sendTcp(tcpSocket, client, "queryOnlineUser", argument);
 }
 
 void ClientManager::tcpIn_tryTunneling(QTcpSocket & tcpSocket, ClientInfo & client, QString peerUserName)

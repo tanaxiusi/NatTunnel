@@ -1,4 +1,5 @@
-taskkill /f /pid (PID)
+taskkill /f /pid (GuiPid)
+taskkill /f /pid (ServicePid)
 move /y (UpdateFileName) (BinaryFileName)
 del (UpdateFileName)
 del (ScriptFileName)
