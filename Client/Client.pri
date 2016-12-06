@@ -42,4 +42,7 @@ FORMS += ./Gui/FormFiles/AddTransferDlg.ui \
     ./Gui/FormFiles/MainDlg.ui \
     ./Gui/FormFiles/TransferManageDlg.ui
 RESOURCES += Gui/Resources/MainDlg.qrc
-win32:RC_FILE = Resources/Client.rc
+win32{
+    RC_FILE = WindowsResources/Client.rc
+    LIBS += Advapi32.lib
+}

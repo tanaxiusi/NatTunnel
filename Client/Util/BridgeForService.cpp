@@ -245,8 +245,8 @@ void BridgeForService::onNewConnection()
 void BridgeForService::onSocketDisconnected()
 {
 	QLocalSocket * socket = (QLocalSocket*)sender();
-	QHash<QLocalSocket*, Client*>::const_iterator iter = m_map.constFind(socket);
-	if (iter == m_map.constEnd())
+	QHash<QLocalSocket*, Client*>::iterator iter = m_map.find(socket);
+	if (iter == m_map.end())
 		return;
 	Client * client = iter.value();
 	delete client;

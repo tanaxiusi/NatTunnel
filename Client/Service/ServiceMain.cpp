@@ -4,6 +4,8 @@
 #include <QDateTime>
 #include <QMutex>
 #include <QTcpServer>
+#include <QCryptographicHash>
+#include <QTextCodec>
 #include "Util/BridgeForService.h"
 
 static QFile g_fileLog;
@@ -66,7 +68,7 @@ static void stopAndUninstallWindowsService()
 	SC_HANDLE hMyService = OpenServiceW(hSCM, (LPCWSTR)serviceName.constData(), SERVICE_ALL_ACCESS);
 	if (hMyService)
 	{
-		BOOL s = DeleteService(hMyService);
+		DeleteService(hMyService);
 		CloseServiceHandle(hMyService);
 	}
 	CloseServiceHandle(hSCM);
