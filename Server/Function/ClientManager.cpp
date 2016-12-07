@@ -12,6 +12,7 @@ ClientManager::ClientManager(QObject *parent)
 {
 	m_running = false;
 	m_lastTunnelId = 0;
+	m_disableBinaryCheck = false;
 
 	connect(&m_tcpServer, SIGNAL(newConnection()), this, SLOT(onTcpNewConnection()));
 	connect(&m_udpServer1, SIGNAL(readyRead()), this, SLOT(onUdp1ReadyRead()));
@@ -53,6 +54,13 @@ void ClientManager::setPlatformBinary(QString platform, QByteArray binary)
 	PlatformBinaryInfo & binaryInfo = m_mapPlatformBinaryInfo[platform.toLower()];
 	binaryInfo.binary = binary;
 	binaryInfo.checksum = QCryptographicHash::hash(binary, QCryptographicHash::Sha1);
+}
+
+void ClientManager::setDisableBinaryCheck(bool disableBinaryCheck)
+{
+	if (m_running)
+		return;
+	m_disableBinaryCheck = disableBinaryCheck;
 }
 
 bool ClientManager::start(quint16 tcpPort, quint16 udpPort1, quint16 udpPort2)
@@ -673,7 +681,11 @@ void ClientManager::tcpIn_checkBinary(QTcpSocket & tcpSocket, ClientInfo & clien
 	if (!checkStatusAndDiscard(tcpSocket, client, "tcpIn_checkBinary", ConnectedStatus))
 		return;
 	client.status = BinaryCheckedStatus;
-	if (m_mapPlatformBinaryInfo.contains(platform.toLower()))
+	
+	if (m_disableBinaryCheck)
+	{
+		tcpOut_checkBinary(tcpSocket, client, true, QString());
+	}else if (m_mapPlatformBinaryInfo.contains(platform.toLower()))
 	{
 		const PlatformBinaryInfo & binaryInfo = m_mapPlatformBinaryInfo[platform];
 		if (binaryChecksum == binaryInfo.checksum)

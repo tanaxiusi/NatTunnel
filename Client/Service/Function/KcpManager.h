@@ -15,7 +15,7 @@ class KcpManager : public QObject
 
 signals :
 	void highLevelOutput(int tunnelId, QByteArray package);
-	void wannaLowLevelOutput(int tunnelId, QHostAddress hostAddress, quint16 port, QByteArray package);
+	void lowLevelOutput(int tunnelId, QHostAddress hostAddress, quint16 port, QByteArray package);
 	void handShaked(int tunnelId);
 	void disconnected(int tunnelId, QString reason);
 
@@ -48,6 +48,7 @@ public:
 	bool createKcpConnection(int tunnelId, QHostAddress hostAddress, quint16 port, QString userName, quint32 magicNumber);
 	bool deleteKcpConnection(int tunnelId, QString reason);
 
+public slots:
 	void lowLevelInput(QHostAddress hostAddress, quint16 port, QByteArray package);
 	int highLevelInput(int tunnelId, QByteArray package);
 

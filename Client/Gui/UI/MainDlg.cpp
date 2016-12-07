@@ -325,11 +325,15 @@ void MainDlg::onBtnManageTransfer()
 		return;
 
 	TransferManageDlg dlg(this, tunnelId);
-	connect(&dlg, SIGNAL(wannaQueryTransferIn(int)), m_bridge, SLOT(queryTransferIn(int)));
-	connect(&dlg, SIGNAL(wannaQueryTransferOut(int)), m_bridge, SLOT(queryTransferOut(int)));
+	connect(&dlg, SIGNAL(wannaGetTransferInList(int)), m_bridge, SLOT(slot_getTransferInList(int)));
+	connect(&dlg, SIGNAL(wannaGetTransferOutList(int)), m_bridge, SLOT(slot_getTransferOutList(int)));
 	connect(&dlg, SIGNAL(wannaAddTransfer(int, quint16, quint16, QHostAddress)),
-		m_bridge, SLOT(addTransfer(int, quint16, quint16, QHostAddress)), Qt::QueuedConnection);
-	connect(&dlg, SIGNAL(wannaDeleteTransfer(int, quint16)), m_bridge, SLOT(deleteTransfer(int, quint16)), Qt::QueuedConnection);
+		m_bridge, SLOT(slot_addTransfer(int, quint16, quint16, QHostAddress)));
+	connect(&dlg, SIGNAL(wannaDeleteTransfer(int, quint16)), m_bridge, SLOT(slot_deleteTransfer(int, quint16)));
+	connect(m_bridge, SIGNAL(event_onGetTransferInList(int, QMap<quint16, Peer>)),
+		&dlg, SLOT(onGetTransferInList(int, QMap<quint16, Peer>)));
+	connect(m_bridge, SIGNAL(event_onGetTransferOutList(int, QMap<quint16, Peer>)),
+		&dlg, SLOT(onGetTransferOutList(int, QMap<quint16, Peer>)));
 	dlg.init();
 	dlg.exec();
 }

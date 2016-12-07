@@ -157,6 +157,42 @@ void BridgeForService::sendEvent_onReadyTunneling(QByteArray bridgeMessageId, in
 	send(getCurrentSocket(), "onReadyTunneling", argument);
 }
 
+void BridgeForService::sendEvent_onAddTransfer(QByteArray bridgeMessageId, bool result_ok)
+{
+	QByteArrayMap argument;
+	argument["bridgeMessageId"] = bridgeMessageId;
+	argument["result_ok"] = boolToQByteArray(result_ok);
+	send(getCurrentSocket(), "onAddTransfer", argument);
+}
+
+void BridgeForService::sendEvent_onDeleteTransfer(QByteArray bridgeMessageId, bool result_ok)
+{
+	QByteArrayMap argument;
+	argument["bridgeMessageId"] = bridgeMessageId;
+	argument["result_ok"] = boolToQByteArray(result_ok);
+	send(getCurrentSocket(), "onDeleteTransfer", argument);
+}
+
+void BridgeForService::sendEvent_onGetTransferOutList(QByteArray bridgeMessageId, QMap<quint16, Peer> result_list)
+{
+	QByteArrayMap argument;
+	argument["bridgeMessageId"] = bridgeMessageId;
+	QDataStream out(&argument["result_list"], QIODevice::Append);
+	out.setByteOrder(QDataStream::LittleEndian);
+	out << result_list;
+	send(getCurrentSocket(), "onGetTransferOutList", argument);
+}
+
+void BridgeForService::sendEvent_onGetTransferInList(QByteArray bridgeMessageId, QMap<quint16, Peer> result_list)
+{
+	QByteArrayMap argument;
+	argument["bridgeMessageId"] = bridgeMessageId;
+	QDataStream out(&argument["result_list"], QIODevice::Append);
+	out.setByteOrder(QDataStream::LittleEndian);
+	out << result_list;
+	send(getCurrentSocket(), "onGetTransferInList", argument);
+}
+
 BridgeForService::BridgeForService(QObject * parent)
 	:QObject(parent)
 {
@@ -253,7 +289,7 @@ void BridgeForService::onSocketDisconnected()
 	m_map.erase(iter);
 
 	if (m_map.isEmpty())
-		m_timer.start();		// 最后一个连接断开后也准备退出
+		stopAndExit();		// 最后一个连接断开后也准备退出
 }
 
 void BridgeForService::onSocketReadyRead()
@@ -338,7 +374,26 @@ void BridgeForService::dealIn(QLocalSocket * socket, Client * client, QByteArray
 	}
 	else if (type == "closeTunneling")
 		client->closeTunneling(argument.value("tunnelId").toInt());
+	else if (type == "addTransfer")
+	{
+		bool result_ok = client->addTransfer(argument.value("tunnelId").toInt(), argument.value("localPort").toInt(),
+			argument.value("remotePort").toInt(), QHostAddress((QString)argument.value("remoteAddress")));
+		sendEvent_onAddTransfer(argument.value("bridgeMessageId"), result_ok);
+	}
+	else if (type == "deleteTransfer")
+	{
+		bool result_ok = client->deleteTransfer(argument.value("tunnelId").toInt(), argument.value("localPort").toInt());
+		sendEvent_onDeleteTransfer(argument.value("bridgeMessageId"), result_ok);
+	}
+	else if (type == "getTransferOutList")
+	{
+		QMap<quint16, Peer> result_list = client->getTransferOutList(argument.value("tunnelId").toInt());
+		sendEvent_onGetTransferOutList(argument.value("bridgeMessageId"), result_list);
+	}
+	else if (type == "getTransferInList")
+	{
+		QMap<quint16, Peer> result_list = client->getTransferInList(argument.value("tunnelId").toInt());
+		sendEvent_onGetTransferInList(argument.value("bridgeMessageId"), result_list);
+	}
 }
-
-
 

@@ -33,6 +33,10 @@ public slots:
 	void sendEvent_onStop(QByteArray bridgeMessageId, bool result_ok);
 	void sendEvent_onTryLogin(QByteArray bridgeMessageId, bool result_ok);
 	void sendEvent_onReadyTunneling(QByteArray bridgeMessageId, int result_requestId);
+	void sendEvent_onAddTransfer(QByteArray bridgeMessageId, bool result_ok);
+	void sendEvent_onDeleteTransfer(QByteArray bridgeMessageId, bool result_ok);
+	void sendEvent_onGetTransferOutList(QByteArray bridgeMessageId, QMap<quint16, Peer> result_list);
+	void sendEvent_onGetTransferInList(QByteArray bridgeMessageId, QMap<quint16, Peer> result_list);
 
 public:
 	BridgeForService(QObject * parent = 0);

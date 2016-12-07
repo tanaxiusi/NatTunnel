@@ -76,6 +76,9 @@ int main(int argc, char *argv[])
 	const int tcpPort = setting.value("Port/Tcp").toInt();
 	const int udp1Port = setting.value("Port/Udp1").toInt();
 	const int udp2Port = setting.value("Port/Udp2").toInt();
+	const bool disableBinaryCheck = setting.value("Other/DisableBinaryCheck").toBool();
+	if(disableBinaryCheck)
+		qWarning() << QString("DisableBinaryCheck");
 
 	const QByteArray globalKey = setting.value("Other/GlobalKey").toByteArray();
 	if (globalKey.isEmpty())
@@ -93,6 +96,7 @@ int main(int argc, char *argv[])
 	
 	clientManager.setGlobalKey(globalKey);
 	clientManager.setDatabase("User.db", "root", "000000");
+	clientManager.setDisableBinaryCheck(disableBinaryCheck);
 	if (!clientManager.start(tcpPort, udp1Port, udp2Port))
 		return 0;
 

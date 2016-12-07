@@ -34,29 +34,39 @@ Client::Client(QObject *parent)
 	m_timer10s.setParent(this);
 	m_kcpManager.setParent(this);
 	m_upnpPortMapper.setParent(this);
+	m_transferManager.setParent(this);
 
 	connect(&m_tcpSocket, SIGNAL(connected()), this, SLOT(onTcpConnected()));
 	connect(&m_tcpSocket, SIGNAL(disconnected()), this, SLOT(onTcpDisconnected()));
 	connect(&m_tcpSocket, SIGNAL(readyRead()), this, SLOT(onTcpReadyRead()));
 	connect(&m_udpSocket1, SIGNAL(readyRead()), this, SLOT(onUdp1ReadyRead()));
 	connect(&m_udpSocket2, SIGNAL(readyRead()), this, SLOT(onUdp2ReadyRead()));
-	connect(&m_kcpManager, SIGNAL(wannaLowLevelOutput(int, QHostAddress, quint16, QByteArray)),
-		this, SLOT(onKcpLowLevelOutput(int, QHostAddress, quint16, QByteArray)));
-	connect(&m_kcpManager, SIGNAL(highLevelOutput(int, QByteArray)), this,
-		SLOT(onKcpHighLevelOutput(int, QByteArray)));
-	connect(&m_kcpManager, SIGNAL(handShaked(int)), this, SLOT(onKcpConnectionHandShaked(int)));
-	connect(&m_kcpManager, SIGNAL(disconnected(int, QString)), this, SLOT(onKcpConnectionDisconnected(int, QString)));
+
+	connect(&m_timer300ms, SIGNAL(timeout()), this, SLOT(timerFunction300ms()));
+	connect(&m_timer10s, SIGNAL(timeout()), this, SLOT(timerFunction10s()));
+
 	connect(&m_upnpPortMapper, SIGNAL(discoverFinished(bool)),
 		this, SLOT(onUpnpDiscoverFinished(bool)));
 	connect(&m_upnpPortMapper, SIGNAL(queryExternalAddressFinished(QHostAddress, bool, QString)),
 		this, SLOT(onUpnpQueryExternalAddressFinished(QHostAddress, bool, QString)));
 
+	connect(this, SIGNAL(disconnected()), &m_transferManager, SLOT(clientDisconnected()));
+	connect(this, SIGNAL(tunnelHandShaked(int)), &m_transferManager, SLOT(tunnelHandShaked(int)));
+	connect(this, SIGNAL(tunnelClosed(int, QString, QString)), &m_transferManager, SLOT(tunnelClosed(int)));
+
+	connect(&m_kcpManager, SIGNAL(handShaked(int)), this, SLOT(onKcpConnectionHandShaked(int)));
+	connect(&m_kcpManager, SIGNAL(disconnected(int, QString)), this, SLOT(onKcpConnectionDisconnected(int, QString)));
+
+	connect(&m_kcpManager, SIGNAL(lowLevelOutput(int, QHostAddress, quint16, QByteArray)),
+		this, SLOT(onKcpLowLevelOutput(int, QHostAddress, quint16, QByteArray)));
+
+	connect(&m_kcpManager, SIGNAL(highLevelOutput(int, QByteArray)), &m_transferManager, SLOT(dataInput(int, QByteArray)));
+	connect(&m_transferManager, SIGNAL(dataOutput(int, QByteArray)), &m_kcpManager, SLOT(highLevelInput(int, QByteArray)));
+
 	m_timer300ms.setParent(this);
-	connect(&m_timer300ms, SIGNAL(timeout()), this, SLOT(timerFunction300ms()));
 	m_timer300ms.start(300);
 
 	m_timer10s.setParent(this);
-	connect(&m_timer10s, SIGNAL(timeout()), this, SLOT(timerFunction10s()));
 	m_timer10s.start(10 * 1000);
 }
 
@@ -113,23 +123,6 @@ bool Client::stop()
 	return true;
 }
 
-bool Client::isDiscarded()
-{
-	if (!m_running)
-		return false;
-	return m_discarded;
-}
-
-void Client::reconnect()
-{
-	if (!m_running)
-		return;
-	if (m_discarded)
-		m_discarded = false;
-	startConnect();
-}
-
-
 bool Client::tryLogin()
 {
 	if (!m_running)
@@ -141,28 +134,6 @@ bool Client::tryLogin()
 	else
 		tcpOut_login(m_identifier, m_userName);
 	return true;
-}
-
-QHostAddress Client::getLocalAddress()
-{
-	if (!m_running)
-		return QHostAddress();
-	return tryConvertToIpv4(m_tcpSocket.localAddress());
-}
-
-QHostAddress Client::getLocalPublicAddress()
-{
-	if (!m_running)
-		return QHostAddress();
-	return m_localPublicAddress;
-}
-
-void Client::setUpnpAvailable(bool upnpAvailability)
-{
-	if (!m_running)
-		return;
-	m_upnpAvailability = upnpAvailability;
-	tcpOut_upnpAvailability(upnpAvailability);
 }
 
 void Client::queryOnlineUser()
@@ -209,13 +180,6 @@ int Client::readyTunneling(QString peerUserName, QString peerLocalPassword, bool
 void Client::closeTunneling(int tunnelId)
 {
 	tcpOut_closeTunneling(tunnelId, U16("主动关闭"));
-}
-
-int Client::tunnelWrite(int tunnelId, QByteArray package)
-{
-	if (!m_running)
-		return -2;
-	return m_kcpManager.highLevelInput(tunnelId, package);
 }
 
 void Client::onTcpConnected()
@@ -330,41 +294,6 @@ void Client::timerFunction10s()
 		tcpOut_heartbeat();
 }
 
-void Client::onKcpLowLevelOutput(int tunnelId, QHostAddress hostAddress, quint16 port, QByteArray package)
-{
-	QMap<int, TunnelInfo>::iterator iter = m_mapTunnelInfo.find(tunnelId);
-	if (iter == m_mapTunnelInfo.end())
-		return;
-	TunnelInfo & tunnel = iter.value();
-	QUdpSocket * udpSocket = getUdpSocket(tunnel.localIndex);
-	if (!udpSocket)
-		return;
-
-	udpSocket->writeDatagram(package, hostAddress, port);
-}
-
-void Client::onKcpHighLevelOutput(int tunnelId, QByteArray package)
-{
-	emit tunnelData(tunnelId, package);
-}
-
-void Client::onKcpConnectionHandShaked(int tunnelId)
-{
-	tcpOut_tunnelHandeShaked(tunnelId);
-	emit tunnelHandShaked(tunnelId);
-}
-
-void Client::onKcpConnectionDisconnected(int tunnelId, QString reason)
-{
-	QMap<int, TunnelInfo>::iterator iter = m_mapTunnelInfo.find(tunnelId);
-	if (iter == m_mapTunnelInfo.end())
-		return;
-
-	m_mapTunnelInfo.erase(iter);
-
-	tcpOut_closeTunneling(tunnelId, U16("等待超时"));
-}
-
 void Client::onUpnpDiscoverFinished(bool ok)
 {
 	if (ok)
@@ -391,7 +320,8 @@ void Client::onUpnpQueryExternalAddressFinished(QHostAddress address, bool ok, Q
 		else
 		{
 			m_upnpStatus = UpnpOk;
-			setUpnpAvailable(true);
+			m_upnpAvailability = true;
+			tcpOut_upnpAvailability(m_upnpAvailability);
 			const QHostAddress localPublicAddress = getLocalPublicAddress();
 			if (!localPublicAddress.isNull() && !isSameHostAddress(address, localPublicAddress))
 				emit warning(U16("服务器端返回的IP地址 %1 和upnp返回的地址 %2 不同").arg(getLocalPublicAddress().toString()).arg(address.toString()));
@@ -402,6 +332,36 @@ void Client::onUpnpQueryExternalAddressFinished(QHostAddress address, bool ok, Q
 		m_upnpStatus = UpnpFailed;
 	}
 	emit upnpStatusChanged(m_upnpStatus);
+}
+
+void Client::onKcpLowLevelOutput(int tunnelId, QHostAddress hostAddress, quint16 port, QByteArray package)
+{
+	QMap<int, TunnelInfo>::iterator iter = m_mapTunnelInfo.find(tunnelId);
+	if (iter == m_mapTunnelInfo.end())
+		return;
+	TunnelInfo & tunnel = iter.value();
+	QUdpSocket * udpSocket = getUdpSocket(tunnel.localIndex);
+	if (!udpSocket)
+		return;
+
+	udpSocket->writeDatagram(package, hostAddress, port);
+}
+
+void Client::onKcpConnectionHandShaked(int tunnelId)
+{
+	tcpOut_tunnelHandeShaked(tunnelId);
+	emit tunnelHandShaked(tunnelId);
+}
+
+void Client::onKcpConnectionDisconnected(int tunnelId, QString reason)
+{
+	QMap<int, TunnelInfo>::iterator iter = m_mapTunnelInfo.find(tunnelId);
+	if (iter == m_mapTunnelInfo.end())
+		return;
+
+	m_mapTunnelInfo.erase(iter);
+
+	tcpOut_closeTunneling(tunnelId, reason);
 }
 
 QUdpSocket * Client::getUdpSocket(int index)
@@ -655,6 +615,20 @@ void Client::dealUdpIn_server(int localIndex, int serverIndex, const QByteArray 
 void Client::dealUdpIn_p2p(int localIndex, QHostAddress peerAddress, quint16 peerPort, const QByteArray & package)
 {
 	m_kcpManager.lowLevelInput(peerAddress, peerPort, package);
+}
+
+QHostAddress Client::getLocalAddress()
+{
+	if (!m_running)
+		return QHostAddress();
+	return tryConvertToIpv4(m_tcpSocket.localAddress());
+}
+
+QHostAddress Client::getLocalPublicAddress()
+{
+	if (!m_running)
+		return QHostAddress();
+	return m_localPublicAddress;
 }
 
 void Client::checkFirewall()
@@ -1109,4 +1083,24 @@ void Client::tcpOut_closeTunneling(int tunnelId, QString reason)
 	argument["tunnelId"] = QByteArray::number(tunnelId);
 	argument["reason"] = reason.toUtf8();
 	sendTcp("closeTunneling", argument);
+}
+
+bool Client::addTransfer(int tunnelId, quint16 localPort, quint16 remotePort, QHostAddress remoteAddress)
+{
+	return m_transferManager.addTransfer(tunnelId, localPort, remotePort, remoteAddress);
+}
+
+bool Client::deleteTransfer(int tunnelId, quint16 localPort)
+{
+	return m_transferManager.deleteTransfer(tunnelId, localPort);
+}
+
+QMap<quint16, Peer> Client::getTransferOutList(int tunnelId)
+{
+	return m_transferManager.getTransferOutList(tunnelId);
+}
+
+QMap<quint16, Peer> Client::getTransferInList(int tunnelId)
+{
+	return m_transferManager.getTransferInList(tunnelId);
 }

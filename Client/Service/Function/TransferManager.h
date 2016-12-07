@@ -2,14 +2,16 @@
 
 #include <QObject>
 #include "TcpTransfer.h"
-#include "Client.h"
 
 class TransferManager : public QObject
 {
 	Q_OBJECT
 
+signals:
+	void dataOutput(int tunnelId, QByteArray package);
+
 public:
-	TransferManager(QObject *parent, Client * client);
+	TransferManager(QObject *parent = 0);
 	~TransferManager();
 
 public slots:
@@ -19,16 +21,14 @@ public slots:
 	QMap<quint16, Peer> getTransferOutList(int tunnelId);
 	QMap<quint16, Peer> getTransferInList(int tunnelId);
 
+	void dataInput(int tunnelId, QByteArray package);
+	void clientDisconnected();
+	void tunnelHandShaked(int tunnelId);
+	void tunnelClosed(int tunnelId);
+
 private slots:
-	void onClientDisconnected();
-
-	void onTunnelHandShaked(int tunnelId);
-	void onTunnelData(int tunnelId, QByteArray package);
-	void onTunnelClosed(int tunnelId);
-
 	void onTcpTransferOutput(QByteArray package);
 
 private:
 	QMap<int, TcpTransfer*> m_mapTcpTransfer;
-	Client * m_client;
 };

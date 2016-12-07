@@ -10,8 +10,8 @@ class TransferManageDlg : public QDialog
 	Q_OBJECT
 
 signals:
-	int wannaQueryTransferIn(int tunnelId);
-	int wannaQueryTransferOut(int tunnelId);
+	int wannaGetTransferInList(int tunnelId);
+	int wannaGetTransferOutList(int tunnelId);
 	int wannaAddTransfer(int tunnelId, quint16 localPort, quint16 remotePort, QHostAddress remoteAddress);
 	int wannaDeleteTransfer(int tunnelId, quint16 localPort);
 
@@ -26,10 +26,12 @@ private slots:
 	void onBtnAddOut();
 	void onBtnDeleteTransfer();
 
-	void onQueryTransferIn(int bridgeMessageId, QMap<quint16, Peer> transferList);
-	void onQueryTransferOut(int bridgeMessageId, QMap<quint16, Peer> transferList);
+	void onGetTransferInList(int bridgeMessageId, QMap<quint16, Peer> transferList);
+	void onGetTransferOutList(int bridgeMessageId, QMap<quint16, Peer> transferList);
 	
 private:
+	void refreshIn();
+	void refreshOut();
 
 
 private:
@@ -38,4 +40,6 @@ private:
 	QStandardItemModel * m_modelOut;
 
 	int m_tunnelId;
+
+	QSet<int> m_lstMyMessageId;
 };

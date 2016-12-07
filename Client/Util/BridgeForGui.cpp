@@ -3,6 +3,7 @@
 #include <QCoreApplication>
 #include <QProcess>
 #include <QTimer>
+#include <QDataStream>
 
 #if defined(Q_OS_WIN)
 #include <Windows.h>
@@ -91,6 +92,49 @@ void BridgeForGui::slot_closeTunneling(int tunnelId)
 	send("closeTunneling", argument);
 }
 
+int BridgeForGui::slot_addTransfer(int tunnelId, quint16 localPort, quint16 remotePort, QHostAddress remoteAddress)
+{
+	const int messageId = getNextMessageId();
+	QByteArrayMap argument;
+	argument["bridgeMessageId"] = QByteArray::number(messageId);
+	argument["tunnelId"] = QByteArray::number(tunnelId);
+	argument["localPort"] = QByteArray::number(localPort);
+	argument["remotePort"] = QByteArray::number(remotePort);
+	argument["remoteAddress"] = remoteAddress.toString().toUtf8();
+	send("addTransfer", argument);
+	return messageId;
+}
+
+int BridgeForGui::slot_deleteTransfer(int tunnelId, quint16 localPort)
+{
+	const int messageId = getNextMessageId();
+	QByteArrayMap argument;
+	argument["bridgeMessageId"] = QByteArray::number(messageId);
+	argument["tunnelId"] = QByteArray::number(tunnelId);
+	argument["localPort"] = QByteArray::number(localPort);
+	send("deleteTransfer", argument);
+	return messageId;
+}
+
+int BridgeForGui::slot_getTransferOutList(int tunnelId)
+{
+	const int messageId = getNextMessageId();
+	QByteArrayMap argument;
+	argument["bridgeMessageId"] = QByteArray::number(messageId);
+	argument["tunnelId"] = QByteArray::number(tunnelId);
+	send("getTransferOutList", argument);
+	return messageId;
+}
+
+int BridgeForGui::slot_getTransferInList(int tunnelId)
+{
+	const int messageId = getNextMessageId();
+	QByteArrayMap argument;
+	argument["bridgeMessageId"] = QByteArray::number(messageId);
+	argument["tunnelId"] = QByteArray::number(tunnelId);
+	send("getTransferInList", argument);
+	return messageId;
+}
 
 
 
@@ -102,6 +146,8 @@ BridgeForGui::BridgeForGui(QObject * parent)
 	m_binPath = QCoreApplication::applicationFilePath();
 	m_messageConverter.setKey((const quint8*)QCryptographicHash::hash(m_binPath.toUtf8(), QCryptographicHash::Md5).constData());
 	m_socket.setParent(this);
+	m_timerTryConnect.setParent(this);
+	m_timerTryConnect.setInterval(25);
 	m_servicePid = 0;
 
 	connect(&m_timerTryConnect, SIGNAL(timeout()), this, SLOT(onTimerTryConnect()));
@@ -165,6 +211,10 @@ void BridgeForGui::onTimerTryConnect()
 		else
 			emit lostConnection();
 	}
+	else if (m_socket.state() == QLocalSocket::ConnectedState)
+	{
+		m_timerTryConnect.stop();
+	}
 }
 
 void BridgeForGui::onSocketConnected()
@@ -203,7 +253,6 @@ bool BridgeForGui::tryInstallAndStartWindowsService()
 	const QString serviceStartName = "LocalSystem";
 	const QString serviceBinPath = "\"" + m_binPath + "\" WindowsService";
 	const QString serviceName = "NatTunnelClient_" + QCryptographicHash::hash(m_binPath.toUtf8(), QCryptographicHash::Sha1).toHex();
-	const QString serviceDisplayName = "NatTunnelClient";
 
 	SC_HANDLE hSCM = OpenSCManager(0, 0, SC_MANAGER_CONNECT | SC_MANAGER_CREATE_SERVICE);
 	if (!hSCM)
@@ -275,7 +324,7 @@ bool BridgeForGui::tryInstallAndStartWindowsService()
 
 	if (hMyService == 0)
 	{
-		hMyService = CreateServiceW(hSCM, (LPCWSTR)serviceName.constData(), (LPCWSTR)serviceDisplayName.constData(), SERVICE_ALL_ACCESS,
+		hMyService = CreateServiceW(hSCM, (LPCWSTR)serviceName.constData(), (LPCWSTR)serviceName.constData(), SERVICE_ALL_ACCESS,
 			SERVICE_WIN32_OWN_PROCESS, SERVICE_DEMAND_START, SERVICE_ERROR_NORMAL, (LPCWSTR)serviceBinPath.constData(),
 			NULL, NULL, NULL, (LPCWSTR)serviceStartName.constData(), NULL);
 	}
@@ -359,4 +408,24 @@ void BridgeForGui::dealIn(QByteArray line)
 		emit event_onTryLogin(argument.value("bridgeMessageId").toInt(), QByteArrayToBool(argument.value("result_ok")));
 	else if (type == "onReadyTunneling")
 		emit event_onReadyTunneling(argument.value("bridgeMessageId").toInt(), argument.value("result_requestId").toInt());
+	else if (type == "onAddTransfer")
+		emit event_onAddTransfer(argument.value("bridgeMessageId").toInt(), QByteArrayToBool(argument.value("result_ok")));
+	else if (type == "onDeleteTransfer")
+		emit event_onDeleteTransfer(argument.value("bridgeMessageId").toInt(), QByteArrayToBool(argument.value("result_ok")));
+	else if (type == "onGetTransferOutList")
+	{
+		QMap<quint16, Peer> result_list;
+		QDataStream in(argument.value("result_list"));
+		in.setByteOrder(QDataStream::LittleEndian);
+		in >> result_list;
+		emit event_onGetTransferOutList(argument.value("bridgeMessageId").toInt(), result_list);
+	}
+	else if (type == "onGetTransferInList")
+	{
+		QMap<quint16, Peer> result_list;
+		QDataStream in(argument.value("result_list"));
+		in.setByteOrder(QDataStream::LittleEndian);
+		in >> result_list;
+		emit event_onGetTransferInList(argument.value("bridgeMessageId").toInt(), result_list);
+	}
 }

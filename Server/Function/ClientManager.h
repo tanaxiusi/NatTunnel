@@ -88,6 +88,7 @@ public:
 	void setGlobalKey(QByteArray key);
 	void setDatabase(QString fileName, QString userName, QString password);
 	void setPlatformBinary(QString platform, QByteArray binary);
+	void setDisableBinaryCheck(bool disableBinaryCheck);
 
 	bool start(quint16 tcpPort, quint16 udpPort1, quint16 udpPort2);
 	bool stop();
@@ -186,6 +187,7 @@ private:
 	int m_lastTunnelId;
 	UserContainer m_userContainer;
 	QMap<QString, PlatformBinaryInfo> m_mapPlatformBinaryInfo;
+	bool m_disableBinaryCheck;
 	QMap<QTcpSocket*, ClientInfo> m_mapClientInfo;
 	QMap<QString, QTcpSocket*> m_mapUserTcpSocket;
 	QSet<QString> m_lstLoginedIdentifier;

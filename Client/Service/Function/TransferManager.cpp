@@ -1,14 +1,9 @@
 ﻿#include "TransferManager.h"
 
-TransferManager::TransferManager(QObject *parent, Client * client)
+TransferManager::TransferManager(QObject *parent)
 	: QObject(parent)
 {
-	m_client = client;
 
-	connect(client, SIGNAL(disconnected()), this, SLOT(onClientDisconnected()));
-	connect(client, SIGNAL(tunnelHandShaked(int)), this, SLOT(onTunnelHandShaked(int)));
-	connect(client, SIGNAL(tunnelData(int, QByteArray)), this, SLOT(onTunnelData(int, QByteArray)));
-	connect(client, SIGNAL(tunnelClosed(int,QString,QString)), this, SLOT(onTunnelClosed(int)));
 }
 
 TransferManager::~TransferManager()
@@ -50,14 +45,21 @@ QMap<quint16, Peer> TransferManager::getTransferInList(int tunnelId)
 	return tcpTransfer->getTransferInList();
 }
 
-void TransferManager::onClientDisconnected()
+void TransferManager::dataInput(int tunnelId, QByteArray package)
+{
+	TcpTransfer * tcpTransfer = m_mapTcpTransfer.value(tunnelId);
+	if (tcpTransfer)
+		tcpTransfer->dataInput(package);
+}
+
+void TransferManager::clientDisconnected()
 {
 	foreach (TcpTransfer * tcpTransfer, m_mapTcpTransfer)
 		delete tcpTransfer;
 	m_mapTcpTransfer.clear();
 }
 
-void TransferManager::onTunnelHandShaked(int tunnelId)
+void TransferManager::tunnelHandShaked(int tunnelId)
 {
 	TcpTransfer *& tcpTransfer = m_mapTcpTransfer[tunnelId];
 	Q_ASSERT(!tcpTransfer);
@@ -66,14 +68,7 @@ void TransferManager::onTunnelHandShaked(int tunnelId)
 	connect(tcpTransfer, SIGNAL(dataOutput(QByteArray)), this, SLOT(onTcpTransferOutput(QByteArray)));
 }
 
-void TransferManager::onTunnelData(int tunnelId, QByteArray package)
-{
-	TcpTransfer * tcpTransfer = m_mapTcpTransfer.value(tunnelId);
-	if (tcpTransfer)
-		tcpTransfer->dataInput(package);
-}
-
-void TransferManager::onTunnelClosed(int tunnelId)
+void TransferManager::tunnelClosed(int tunnelId)
 {
 	TcpTransfer * tcpTransfer = m_mapTcpTransfer.value(tunnelId);
 	if (tcpTransfer)
@@ -91,5 +86,5 @@ void TransferManager::onTcpTransferOutput(QByteArray package)
 	const int tunnelId = tcpTransfer->property("tunnelId").toInt();
 	if (tunnelId == 0)
 		return;
-	m_client->tunnelWrite(tunnelId, package);
+	emit dataOutput(tunnelId, package);
 }

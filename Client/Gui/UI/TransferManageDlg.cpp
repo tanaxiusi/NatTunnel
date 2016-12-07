@@ -29,13 +29,13 @@ TransferManageDlg::~TransferManageDlg()
 
 void TransferManageDlg::init()
 {
-	emit wannaQueryTransferIn(m_tunnelId);
-	emit wannaQueryTransferOut(m_tunnelId);
+	refreshIn();
+	refreshOut();
 }
 
 void TransferManageDlg::onBtnRefreshIn()
 {
-	emit wannaQueryTransferIn(m_tunnelId);
+	
 }
 
 void TransferManageDlg::onBtnAddOut()
@@ -45,7 +45,7 @@ void TransferManageDlg::onBtnAddOut()
 		return;
 
 	emit wannaAddTransfer(m_tunnelId, dlg.localPort(), dlg.remotePort(), dlg.remoteAddress());
-	emit wannaQueryTransferOut(m_tunnelId);
+	refreshOut();
 }
 
 void TransferManageDlg::onBtnDeleteTransfer()
@@ -55,11 +55,10 @@ void TransferManageDlg::onBtnDeleteTransfer()
 		return;
 	const quint16 localPort = (quint16)btnDeleteTransfer->property("localPort").toInt();
 	emit wannaDeleteTransfer(m_tunnelId, localPort);
-	emit wannaQueryTransferOut(m_tunnelId);
+	refreshOut();
 }
 
-
-void TransferManageDlg::onQueryTransferIn(int bridgeMessageId, QMap<quint16, Peer> transferList)
+void TransferManageDlg::onGetTransferInList(int bridgeMessageId, QMap<quint16, Peer> transferList)
 {
 	m_modelIn->removeRows(0, m_modelIn->rowCount());
 	foreach(quint16 localPort, transferList.keys())
@@ -72,7 +71,7 @@ void TransferManageDlg::onQueryTransferIn(int bridgeMessageId, QMap<quint16, Pee
 	}
 }
 
-void TransferManageDlg::onQueryTransferOut(int bridgeMessageId, QMap<quint16, Peer> transferList)
+void TransferManageDlg::onGetTransferOutList(int bridgeMessageId, QMap<quint16, Peer> transferList)
 {
 	m_modelOut->removeRows(0, m_modelOut->rowCount());
 	foreach(quint16 localPort, transferList.keys())
@@ -90,4 +89,14 @@ void TransferManageDlg::onQueryTransferOut(int bridgeMessageId, QMap<quint16, Pe
 
 		ui.tableViewOut->setIndexWidget(m_modelOut->index(m_modelOut->rowCount() - 1, m_modelOut->columnCount() - 1), btnDeleteTransfer);
 	}
+}
+
+void TransferManageDlg::refreshIn()
+{
+	m_lstMyMessageId.insert(wannaGetTransferInList(m_tunnelId));
+}
+
+void TransferManageDlg::refreshOut()
+{
+	m_lstMyMessageId.insert(wannaGetTransferOutList(m_tunnelId));
 }

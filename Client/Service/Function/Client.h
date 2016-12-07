@@ -10,6 +10,7 @@
 #include "KcpManager.h"
 #include "QUpnpPortMapper.h"
 #include "MessageConverter.h"
+#include "TransferManager.h"
 
 class Client : public QObject
 {
@@ -33,7 +34,6 @@ signals:
 	void replyReadyTunneling(int requestId, int tunnelId, QString peerUserName);
 	void tunnelStarted(int tunnelId, QString peerUserName, QHostAddress peerAddress);
 	void tunnelHandShaked(int tunnelId);
-	void tunnelData(int tunnelId, QByteArray package);
 	void tunnelClosed(int tunnelId, QString peerUserName, QString reason);
 
 private:
@@ -89,27 +89,18 @@ public slots:
 	void setConfig(QByteArray globalKey, QString randomIdentifierSuffix, QHostAddress serverHostAddress, quint16 serverTcpPort);
 	void setUserName(QString userName);
 	void setLocalPassword(QString localPassword);
-
 	bool start();
 	bool stop();
-
-	bool isDiscarded();
-	void reconnect();
-
 	bool tryLogin();
-
-	QHostAddress getLocalAddress();
-	QHostAddress getLocalPublicAddress();
-
-	void setUpnpAvailable(bool upnpAvailable);
-
 	void queryOnlineUser();
-
 	void tryTunneling(QString peerUserName);
 	int readyTunneling(QString peerUserName, QString peerLocalPassword, bool useUpnp);
 	void closeTunneling(int tunnelId);
 
-	int tunnelWrite(int tunnelId, QByteArray package);
+	bool addTransfer(int tunnelId, quint16 localPort, quint16 remotePort, QHostAddress remoteAddress);
+	bool deleteTransfer(int tunnelId, quint16 localPort);
+	QMap<quint16, Peer> getTransferOutList(int tunnelId);
+	QMap<quint16, Peer> getTransferInList(int tunnelId);
 	
 private slots:
 	void onTcpConnected();
@@ -119,12 +110,11 @@ private slots:
 	void onUdp2ReadyRead();
 	void timerFunction300ms();
 	void timerFunction10s();
-	void onKcpLowLevelOutput(int tunnelId, QHostAddress hostAddress, quint16 port, QByteArray package);
-	void onKcpHighLevelOutput(int tunnelId, QByteArray package);
-	void onKcpConnectionHandShaked(int tunnelId);
-	void onKcpConnectionDisconnected(int tunnelId, QString reason);
 	void onUpnpDiscoverFinished(bool ok);
 	void onUpnpQueryExternalAddressFinished(QHostAddress address, bool ok, QString errorString);
+	void onKcpLowLevelOutput(int tunnelId, QHostAddress hostAddress, quint16 port, QByteArray package);
+	void onKcpConnectionHandShaked(int tunnelId);
+	void onKcpConnectionDisconnected(int tunnelId, QString reason);
 
 private:
 	QUdpSocket * getUdpSocket(int index);
@@ -150,6 +140,8 @@ private:
 	void dealUdpIn_server(int localIndex, int serverIndex, const QByteArray & line);
 	void dealUdpIn_p2p(int localIndex, QHostAddress peerAddress, quint16 peerPort, const QByteArray & package);
 
+	QHostAddress getLocalAddress();
+	QHostAddress getLocalPublicAddress();
 	void checkFirewall();
 	void addUpnpPortMapping();
 	void deleteUpnpPortMapping();
@@ -216,6 +208,7 @@ private:
 	QTimer m_timer10s;
 	KcpManager m_kcpManager;
 	QUpnpPortMapper m_upnpPortMapper;
+	TransferManager m_transferManager;
 
 	QString m_randomIdentifierSuffix;
 	QString m_identifier;

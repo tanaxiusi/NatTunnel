@@ -256,7 +256,7 @@ int KcpManager::kcp_write(const char *buf, int len, ikcpcb *kcp)
 		return -1;
 	KcpConnection & connection = *iter;
 	const QByteArray package = addChecksumInfo(QByteArray::fromRawData(buf, len), m_userName);
-	emit wannaLowLevelOutput(connection.tunnelId, connection.peer.address, connection.peer.port, package);
+	emit lowLevelOutput(connection.tunnelId, connection.peer.address, connection.peer.port, package);
 	return 0;
 }
 

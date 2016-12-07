@@ -6,6 +6,7 @@
 #include <QTimer>
 #include "MessageConverter.h"
 #include "Other.h"
+#include "Peer.h"
 
 class BridgeForGui : public QObject
 {
@@ -34,6 +35,10 @@ signals:
 	void event_onStop(int bridgeMessageId, bool result_ok);
 	void event_onTryLogin(int bridgeMessageId, bool result_ok);
 	void event_onReadyTunneling(int bridgeMessageId, int result_requestId);
+	void event_onAddTransfer(int bridgeMessageId, bool result_ok);
+	void event_onDeleteTransfer(int bridgeMessageId, bool result_ok);
+	void event_onGetTransferOutList(int bridgeMessageId, QMap<quint16, Peer> result_list);
+	void event_onGetTransferInList(int bridgeMessageId, QMap<quint16, Peer> result_list);
 
 public slots:
 	void slot_setConfig(QByteArray globalKey, QString randomIdentifierSuffix, QHostAddress serverHostAddress, quint16 serverTcpPort);
@@ -46,6 +51,11 @@ public slots:
 	void slot_tryTunneling(QString peerUserName);
 	int slot_readyTunneling(QString peerUserName, QString peerLocalPassword, bool useUpnp);
 	void slot_closeTunneling(int tunnelId);
+
+	int slot_addTransfer(int tunnelId, quint16 localPort, quint16 remotePort, QHostAddress remoteAddress);
+	int slot_deleteTransfer(int tunnelId, quint16 localPort);
+	int slot_getTransferOutList(int tunnelId);
+	int slot_getTransferInList(int tunnelId);
 
 public:
 	BridgeForGui(QObject * parent = 0);
