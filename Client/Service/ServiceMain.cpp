@@ -117,6 +117,14 @@ int ServiceMain(int argc, char *argv[])
 #endif
 	QCoreApplication app(argc, argv);
 
+#if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
+	qInstallMessageHandler(MyMessageHandler);
+#else
+	QTextCodec::setCodecForCStrings(QTextCodec::codecForName("utf8"));
+	QTextCodec::setCodecForLocale(QTextCodec::codecForName("utf8"));
+	qInstallMsgHandler(MyMessageHandler);
+#endif
+
 	QDir::setCurrent(app.applicationDirPath());
 
 	g_fileLog.setFileName(app.applicationDirPath() + "/NatTunnelClient.log");
@@ -126,14 +134,6 @@ int ServiceMain(int argc, char *argv[])
 
 	BridgeForService bridge;
 	bridge.start();
-
-#if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
-	qInstallMessageHandler(MyMessageHandler);
-#else
-	QTextCodec::setCodecForCStrings(QTextCodec::codecForName("utf8"));
-	QTextCodec::setCodecForLocale(QTextCodec::codecForName("utf8"));
-	qInstallMsgHandler(MyMessageHandler);
-#endif
 
 	app.exec();
 	stopAndUninstallWindowsService();

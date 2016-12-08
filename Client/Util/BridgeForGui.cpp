@@ -174,8 +174,8 @@ bool BridgeForGui::start()
 	m_running = true;
 	m_servicePid = 0;
 	m_startTime = QTime::currentTime();
-	tryConnect();
 	m_timerTryConnect.start();
+	tryConnect();
 	return true;
 }
 
@@ -229,6 +229,8 @@ void BridgeForGui::onSocketConnected()
 void BridgeForGui::onSocketDisconnected()
 {
 	if (!m_running)
+		return;
+	if(m_timerTryConnect.isActive())		// timer正在运行说明还在尝试连接阶段，不能退
 		return;
 	emit lostConnection();
 }
