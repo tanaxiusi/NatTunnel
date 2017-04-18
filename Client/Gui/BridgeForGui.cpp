@@ -9,13 +9,14 @@
 #include <Windows.h>
 #endif
 
-void BridgeForGui::slot_setConfig(QByteArray globalKey, QString randomIdentifierSuffix, QHostAddress serverHostAddress, quint16 serverTcpPort)
+void BridgeForGui::slot_setConfig(QByteArray globalKey, QString randomIdentifierSuffix, QHostAddress serverHostAddress, quint16 serverTcpPort, bool disableBinaryCheck)
 {
 	QByteArrayMap argument;
 	argument["globalKey"] = globalKey;
 	argument["randomIdentifierSuffix"] = randomIdentifierSuffix.toUtf8();
 	argument["serverHostAddress"] = serverHostAddress.toString().toUtf8();
 	argument["serverTcpPort"] = QByteArray::number(serverTcpPort);
+	argument["disableBinaryCheck"] = boolToQByteArray(disableBinaryCheck);
 	send("setConfig", argument);
 }
 

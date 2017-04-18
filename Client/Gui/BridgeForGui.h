@@ -41,7 +41,7 @@ signals:
 	void event_onGetTransferInList(int bridgeMessageId, QMap<quint16, Peer> result_list);
 
 public slots:
-	void slot_setConfig(QByteArray globalKey, QString randomIdentifierSuffix, QHostAddress serverHostAddress, quint16 serverTcpPort);
+	void slot_setConfig(QByteArray globalKey, QString randomIdentifierSuffix, QHostAddress serverHostAddress, quint16 serverTcpPort, bool disableBinaryCheck);
 	void slot_setUserName(QString userName);
 	void slot_setLocalPassword(QString localPassword);
 	int slot_start();

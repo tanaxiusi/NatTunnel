@@ -75,7 +75,7 @@ Client::~Client()
 	stop();
 }
 
-void Client::setConfig(QByteArray globalKey, QString randomIdentifierSuffix, QHostAddress serverHostAddress, quint16 serverTcpPort)
+void Client::setConfig(QByteArray globalKey, QString randomIdentifierSuffix, QHostAddress serverHostAddress, quint16 serverTcpPort, bool disableBinaryCheck)
 {
 	if (m_running)
 		return;
@@ -85,6 +85,7 @@ void Client::setConfig(QByteArray globalKey, QString randomIdentifierSuffix, QHo
 	m_randomIdentifierSuffix = randomIdentifierSuffix;
 	m_serverHostAddress = tryConvertToIpv4(serverHostAddress);
 	m_serverTcpPort = serverTcpPort;
+	m_disableBinaryCheck = disableBinaryCheck;
 }
 
 void Client::setUserName(QString userName)
@@ -715,14 +716,15 @@ void Client::tcpIn_hello(QString serverName, QHostAddress clientAddress)
 
 	const QByteArray binaryChecksum = QCryptographicHash::hash(readFile(QCoreApplication::applicationFilePath()), QCryptographicHash::Sha1);
 
-	tcpOut_checkBinary(platform, binaryChecksum);
+	tcpOut_checkBinary(platform, binaryChecksum, m_disableBinaryCheck);
 }
 
-void Client::tcpOut_checkBinary(QString platform, QByteArray binaryChecksum)
+void Client::tcpOut_checkBinary(QString platform, QByteArray binaryChecksum, bool disableBinaryCheck)
 {
 	QByteArrayMap argument;
 	argument["platform"] = platform.toUtf8();
 	argument["binaryChecksum"] = binaryChecksum;
+	argument["disableBinaryCheck"] = boolToQByteArray(disableBinaryCheck);
 	sendTcp("checkBinary", argument);
 
 	m_status = BinaryCheckingStatus;

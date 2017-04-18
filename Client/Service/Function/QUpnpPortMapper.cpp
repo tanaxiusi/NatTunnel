@@ -194,7 +194,7 @@ QHostAddress QUpnpPortMapper::queryExternalAddress(bool wait)
 		return QHostAddress();
 	QNetworkRequest request(m_controlUrl);
 	request.setHeader(QNetworkRequest::ContentTypeHeader, "text/xml");
-	request.setRawHeader("SOAPAction", "urn:schemas-upnp-org:service:WANIPConnection:1#GetExternalIPAddress");
+	request.setRawHeader("SOAPAction", "\"urn:schemas-upnp-org:service:WANIPConnection:1#GetExternalIPAddress\"");
 	QNetworkReply * reply = m_networkAccessManager->post(request, data_queryExternalAddress);
 	reply->setProperty("reply-type", "queryExternalAddress");
 
@@ -228,7 +228,7 @@ bool QUpnpPortMapper::addPortMapping(QAbstractSocket::SocketType type, QHostAddr
 
 	QNetworkRequest request(m_controlUrl);
 	request.setHeader(QNetworkRequest::ContentTypeHeader, "text/xml");
-	request.setRawHeader("SOAPAction", "urn:schemas-upnp-org:service:WANIPConnection:1#AddPortMapping");
+	request.setRawHeader("SOAPAction", "\"urn:schemas-upnp-org:service:WANIPConnection:1#AddPortMapping\"");
 	QNetworkReply * reply = m_networkAccessManager->post(request, content);
 	reply->setProperty("reply-type", "addPortMapping");
 
@@ -259,7 +259,7 @@ bool QUpnpPortMapper::deletePortMapping(QAbstractSocket::SocketType type, quint1
 
 	QNetworkRequest request(m_controlUrl);
 	request.setHeader(QNetworkRequest::ContentTypeHeader, "text/xml");
-	request.setRawHeader("SOAPAction", "urn:schemas-upnp-org:service:WANIPConnection:1#DeletePortMapping");
+	request.setRawHeader("SOAPAction", "\"urn:schemas-upnp-org:service:WANIPConnection:1#DeletePortMapping\"");
 	QNetworkReply * reply = m_networkAccessManager->post(request, content);
 	reply->setProperty("reply-type", "deletePortMapping");
 

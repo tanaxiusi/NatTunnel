@@ -141,7 +141,7 @@ private:
 	void discardClient(QTcpSocket & tcpSocket, ClientInfo & client, QString reason);
 	void tcpOut_discard(QTcpSocket & tcpSocket, ClientInfo & client, QString reason);
 
-	void tcpIn_checkBinary(QTcpSocket & tcpSocket, ClientInfo & client, QString platform, QByteArray binaryChecksum);
+	void tcpIn_checkBinary(QTcpSocket & tcpSocket, ClientInfo & client, QString platform, QByteArray binaryChecksum, bool disableBinaryCheck);
 	void tcpOut_checkBinary(QTcpSocket & tcpSocket, ClientInfo & client, bool correct, QString platform);
 
 	void tcpIn_login(QTcpSocket & tcpSocket, ClientInfo & client, QString identifier, QString userName);

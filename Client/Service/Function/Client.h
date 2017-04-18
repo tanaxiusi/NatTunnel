@@ -86,7 +86,7 @@ public:
 	~Client();
 
 public slots:
-	void setConfig(QByteArray globalKey, QString randomIdentifierSuffix, QHostAddress serverHostAddress, quint16 serverTcpPort);
+	void setConfig(QByteArray globalKey, QString randomIdentifierSuffix, QHostAddress serverHostAddress, quint16 serverTcpPort, bool disableBinaryCheck);
 	void setUserName(QString userName);
 	void setLocalPassword(QString localPassword);
 	bool start();
@@ -156,7 +156,7 @@ private:
 
 	void tcpIn_hello(QString serverName, QHostAddress clientAddress);
 
-	void tcpOut_checkBinary(QString platform, QByteArray binaryChecksum);
+	void tcpOut_checkBinary(QString platform, QByteArray binaryChecksum, bool disableBinaryCheck);
 	void tcpIn_checkBinary(bool correct, QByteArray compressedBinary);
 
 	void tcpOut_login(QString identifier, QString userName);
@@ -220,6 +220,7 @@ private:
 	quint16 m_serverTcpPort;
 	quint16 m_serverUdpPort1;
 	quint16 m_serverUdpPort2;
+	bool m_disableBinaryCheck;
 
 	ClientStatus m_status;
 	NatCheckStatus m_natStatus;

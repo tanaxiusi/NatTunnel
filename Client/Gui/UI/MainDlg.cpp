@@ -84,9 +84,10 @@ void MainDlg::start()
 
 	QSettings setting("NatTunnelClient.ini", QSettings::IniFormat);
 
+	const QByteArray serverKey = setting.value("Server/Key").toByteArray();
 	const QHostAddress serverAddress = QHostAddress(setting.value("Server/Address").toString());
 	const int serverPort = setting.value("Server/Port").toInt();
-	const QByteArray serverKey = setting.value("Server/Key").toByteArray();
+	const bool disableBinaryCheck = setting.value("Other/DisableBinaryCheck").toBool();
 
 	const QString userName = setting.value("Client/UserName").toString();
 	const QString localPassword = setting.value("Client/LocalPassword", QString::number(rand_u32())).toString();
@@ -106,7 +107,10 @@ void MainDlg::start()
 	ui.editUserName->setText(userName);
 	ui.editLocalPassword->setText(localPassword);
 
-	m_bridge->slot_setConfig(serverKey, randomIdentifierSuffix, serverAddress, serverPort);
+	if (disableBinaryCheck)
+		QMessageBox::warning(NULL, U16("警告"), U16("DisableBinaryCheck选项已开启，该功能仅用作测试"));
+
+	m_bridge->slot_setConfig(serverKey, randomIdentifierSuffix, serverAddress, serverPort, disableBinaryCheck);
 	m_bridge->slot_setUserName(userName);
 	m_bridge->slot_start();
 }

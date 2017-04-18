@@ -352,38 +352,58 @@ void BridgeForService::dealIn(QLocalSocket * socket, Client * client, QByteArray
 
 	if (type == "setConfig")
 		client->setConfig(argument.value("globalKey"), argument.value("randomIdentifierSuffix"),
-			QHostAddress((QString)argument.value("serverHostAddress")), argument.value("serverTcpPort").toInt());
+			QHostAddress((QString)argument.value("serverHostAddress")), argument.value("serverTcpPort").toInt(),
+			QByteArrayToBool(argument.value("disableBinaryCheck")));
 	else if (type == "setUserName")
+	{
 		client->setUserName(argument.value("userName"));
+	}
 	else if (type == "setLocalPassword")
+	{
 		client->setLocalPassword(argument.value("localPassword"));
+	}
 	else if (type == "start")
-		sendEvent_onStart(argument.value("bridgeMessageId"), client->start());
+	{
+		bool result = client->start();
+		sendEvent_onStart(argument.value("bridgeMessageId"), result);
+	}
 	else if (type == "stop")
-		sendEvent_onStop(argument.value("bridgeMessageId"), client->stop());
+	{
+		bool result = client->stop();
+		sendEvent_onStop(argument.value("bridgeMessageId"), result);
+	}
 	else if (type == "tryLogin")
-		sendEvent_onTryLogin(argument.value("bridgeMessageId"), client->tryLogin());
+	{
+		bool result = client->tryLogin();
+		sendEvent_onTryLogin(argument.value("bridgeMessageId"), result);
+	}
 	else if (type == "queryOnlineUser")
+	{
 		client->queryOnlineUser();
+	}
 	else if (type == "tryTunneling")
+	{
 		client->tryTunneling(argument.value("peerUserName"));
+	}
 	else if (type == "readyTunneling")
 	{
 		int result_requestId = client->readyTunneling(argument.value("peerUserName"), argument.value("peerLocalPassword"), QByteArrayToBool(argument.value("useUpnp")));
 		sendEvent_onReadyTunneling(argument.value("bridgeMessageId"), result_requestId);
 	}
 	else if (type == "closeTunneling")
+	{
 		client->closeTunneling(argument.value("tunnelId").toInt());
+	}
 	else if (type == "addTransfer")
 	{
-		bool result_ok = client->addTransfer(argument.value("tunnelId").toInt(), argument.value("localPort").toInt(),
+		bool result = client->addTransfer(argument.value("tunnelId").toInt(), argument.value("localPort").toInt(),
 			argument.value("remotePort").toInt(), QHostAddress((QString)argument.value("remoteAddress")));
-		sendEvent_onAddTransfer(argument.value("bridgeMessageId"), result_ok);
+		sendEvent_onAddTransfer(argument.value("bridgeMessageId"), result);
 	}
 	else if (type == "deleteTransfer")
 	{
-		bool result_ok = client->deleteTransfer(argument.value("tunnelId").toInt(), argument.value("localPort").toInt());
-		sendEvent_onDeleteTransfer(argument.value("bridgeMessageId"), result_ok);
+		bool result = client->deleteTransfer(argument.value("tunnelId").toInt(), argument.value("localPort").toInt());
+		sendEvent_onDeleteTransfer(argument.value("bridgeMessageId"), result);
 	}
 	else if (type == "getTransferOutList")
 	{

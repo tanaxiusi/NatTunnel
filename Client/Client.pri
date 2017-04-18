@@ -15,8 +15,8 @@ HEADERS += ../Shared/MessageConverter.h \
     ./Gui/UI/TransferManageDlg.h \
     ./Util/Other.h \
     ./Util/Peer.h \
-    ./Util/BridgeForGui.h \
-    ./Util/BridgeForService.h
+    ./Gui/BridgeForGui.h \
+    ./Service/BridgeForService.h
 SOURCES += ./main.cpp \
     ../Shared/MessageConverter.cpp \
     ../Shared/aes/aes.c \
@@ -33,8 +33,8 @@ SOURCES += ./main.cpp \
     ./Gui/UI/GuideDlg.cpp \
     ./Gui/UI/MainDlg.cpp \
     ./Gui/UI/TransferManageDlg.cpp \
-    ./Util/BridgeForGui.cpp \
-    ./Util/BridgeForService.cpp \
+    ./Gui/BridgeForGui.cpp \
+    ./Service/BridgeForService.cpp \
     ./Util/Other.cpp \
     ./Util/Peer.cpp
 FORMS += ./Gui/FormFiles/AddTransferDlg.ui \

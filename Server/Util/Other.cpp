@@ -9,6 +9,16 @@ quint32 rand_u32()
 	return randValueList[0] | (randValueList[1] << 15) | (randValueList[2] << 30);
 }
 
+QByteArray boolToQByteArray(bool value)
+{
+	return value ? "1" : "0";
+}
+
+bool QByteArrayToBool(const QByteArray & value)
+{
+	return value.toInt() == 1;
+}
+
 QByteArray checksumThenUnpackPackage(QByteArray package)
 {
 	if (package.size() < 4)

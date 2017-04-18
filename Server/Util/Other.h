@@ -22,6 +22,9 @@ enum NatType
 
 quint32 rand_u32();
 
+QByteArray boolToQByteArray(bool value);
+bool QByteArrayToBool(const QByteArray & value);
+
 QByteArray checksumThenUnpackPackage(QByteArray package);
 
 QHostAddress tryConvertToIpv4(const QHostAddress & hostAddress);

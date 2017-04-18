@@ -547,7 +547,7 @@ void ClientManager::dealTcpIn(QByteArray line, QTcpSocket & tcpSocket, ClientInf
 	if (type == "heartbeat")
 		tcpIn_heartbeat(tcpSocket, client);
 	else if (type == "checkBinary")
-		tcpIn_checkBinary(tcpSocket, client, argument.value("platform"), argument.value("binaryChecksum"));
+		tcpIn_checkBinary(tcpSocket, client, argument.value("platform"), argument.value("binaryChecksum"), QByteArrayToBool(argument.value("disableBinaryCheck")));
 	else if (type == "login")
 		tcpIn_login(tcpSocket, client, argument.value("identifier"), argument.value("userName"));
 	else if (type == "localNetwork")
@@ -567,7 +567,7 @@ void ClientManager::dealTcpIn(QByteArray line, QTcpSocket & tcpSocket, ClientInf
 		tcpIn_readyTunneling(tcpSocket, client, argument.value("peerUserName"), argument.value("peerLocalPassword"),
 			argument.value("udp2UpnpPort").toInt(), argument.value("requestId").toInt());
 	else if (type == "startTunneling")
-		tcpIn_startTunneling(tcpSocket, client, argument.value("tunnelId").toInt(), argument.value("canTunnel").toInt() == 1,
+		tcpIn_startTunneling(tcpSocket, client, argument.value("tunnelId").toInt(), QByteArrayToBool(argument.value("canTunnel")),
 			argument.value("udp2UpnpPort").toInt(), argument.value("errorString"));
 	else if (type == "closeTunneling")
 		tcpIn_closeTunneling(tcpSocket, client, argument.value("tunnelId").toInt(), argument.value("reason"));
@@ -676,13 +676,13 @@ void ClientManager::tcpOut_login(QTcpSocket & tcpSocket, ClientInfo & client, bo
 	sendTcp(tcpSocket, client, "login", argument);
 }
 
-void ClientManager::tcpIn_checkBinary(QTcpSocket & tcpSocket, ClientInfo & client, QString platform, QByteArray binaryChecksum)
+void ClientManager::tcpIn_checkBinary(QTcpSocket & tcpSocket, ClientInfo & client, QString platform, QByteArray binaryChecksum, bool disableBinaryCheck)
 {
 	if (!checkStatusAndDiscard(tcpSocket, client, "tcpIn_checkBinary", ConnectedStatus))
 		return;
 	client.status = BinaryCheckedStatus;
 	
-	if (m_disableBinaryCheck)
+	if (m_disableBinaryCheck || disableBinaryCheck)
 	{
 		tcpOut_checkBinary(tcpSocket, client, true, QString());
 	}else if (m_mapPlatformBinaryInfo.contains(platform.toLower()))

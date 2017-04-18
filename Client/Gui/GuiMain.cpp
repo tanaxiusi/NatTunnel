@@ -28,6 +28,7 @@ bool showGuideReturnCanContinue()
 
 int GuiMain(int argc, char *argv[])
 {
+	QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 	QApplication app(argc, argv);
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
