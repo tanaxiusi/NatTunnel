@@ -6,7 +6,7 @@
 #include <QTcpServer>
 #include <QCryptographicHash>
 #include <QTextCodec>
-#include "Util/BridgeForService.h"
+#include "BridgeForService.h"
 
 static QFile g_fileLog;
 static QMutex g_mutexFileLog;

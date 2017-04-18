@@ -5,7 +5,7 @@
 #include <QStandardItemModel>
 #include <QHostAddress>
 #include "ui_MainDlg.h"
-#include "Util/BridgeForGui.h"
+#include "../BridgeForGui.h"
 
 class MainDlg : public QMainWindow
 {

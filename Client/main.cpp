@@ -18,11 +18,12 @@ int main(int argc, char *argv[])
 #if defined(Q_OS_WIN)
 			g_isWindowsService = true;
 			SERVICE_TABLE_ENTRYW entrytable[2];
-			entrytable[0].lpServiceName = L"NatTunnelClient";
+			std::wstring strServiceName = L"NatTunnelClient";
+			entrytable[0].lpServiceName = (LPWSTR)strServiceName.c_str();
 			entrytable[0].lpServiceProc = (LPSERVICE_MAIN_FUNCTION)ServiceMain;
 			entrytable[1].lpServiceName = NULL;
 			entrytable[1].lpServiceProc = NULL;
-			StartServiceCtrlDispatcher(entrytable);
+			StartServiceCtrlDispatcherW(entrytable);
 #endif
 		}
 		else if (isCommandService)

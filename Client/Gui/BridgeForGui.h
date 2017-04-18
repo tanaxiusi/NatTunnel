@@ -5,8 +5,8 @@
 #include <QTime>
 #include <QTimer>
 #include "MessageConverter.h"
-#include "Other.h"
-#include "Peer.h"
+#include "Util/Other.h"
+#include "Util/Peer.h"
 
 class BridgeForGui : public QObject
 {
