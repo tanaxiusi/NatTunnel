@@ -647,6 +647,7 @@ void Client::addUpnpPortMapping()
 		m_udp2UpnpPort = (rand() & 0x7FFF) + 25000;
 	const quint16 internalPort = m_udpSocket2.localPort();
 	const quint16 externalPort = m_udp2UpnpPort;
+	m_upnpPortMapper.deletePortMapping(QAbstractSocket::UdpSocket, externalPort);
 	m_upnpPortMapper.addPortMapping(QAbstractSocket::UdpSocket, m_upnpPortMapper.localAddress(), internalPort, externalPort, "NatTunnelClient");
 }
 

@@ -1,0 +1,294 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Generated Files">
+      <UniqueIdentifier>{71ED8ED8-ACB9-4CE9-BBE1-E00B30144E11}</UniqueIdentifier>
+      <Extensions>moc;h;cpp</Extensions>
+      <SourceControlFiles>False</SourceControlFiles>
+    </Filter>
+    <Filter Include="Generated Files\Debug">
+      <UniqueIdentifier>{feb43179-68a7-4579-8f8f-69d1b2b8c820}</UniqueIdentifier>
+      <Extensions>cpp;moc</Extensions>
+      <SourceControlFiles>False</SourceControlFiles>
+    </Filter>
+    <Filter Include="Generated Files\Release">
+      <UniqueIdentifier>{f1e2fe0f-1dfb-4314-a5ef-91b85cf13342}</UniqueIdentifier>
+      <Extensions>cpp;moc</Extensions>
+      <SourceControlFiles>False</SourceControlFiles>
+    </Filter>
+    <Filter Include="Shared">
+      <UniqueIdentifier>{b9b34588-2f69-4a60-8fb1-1cd5261c3419}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shared\aes">
+      <UniqueIdentifier>{e53624dc-af47-4a3f-955a-5cd2a1934fe0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shared\crc32">
+      <UniqueIdentifier>{d463c194-a5d6-412d-8e6b-08ec794f5a6d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shared\kcp">
+      <UniqueIdentifier>{f6930ef4-e8cc-4d10-bfcb-3915bc8599eb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Service">
+      <UniqueIdentifier>{a1b06583-ea0a-470f-872f-436fe38f12d1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Gui">
+      <UniqueIdentifier>{8102a7f6-7775-45ae-8eca-4ad298fcfab6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Gui\FormFiles">
+      <UniqueIdentifier>{3fc4de7e-4bd0-4668-b54b-60ea481b7994}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Gui\UI">
+      <UniqueIdentifier>{68673ade-bc46-4167-b274-78577248e9b0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Service\Function">
+      <UniqueIdentifier>{0f4caac6-9d36-49d3-afad-9ed39500cd26}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Gui\Resources">
+      <UniqueIdentifier>{ee2658d0-c873-47c4-a881-21ef72636bb4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="WindowsResources">
+      <UniqueIdentifier>{cec61706-4da1-43cf-824f-795f3b194809}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Util">
+      <UniqueIdentifier>{fdfd00c2-335d-48a6-bb8c-3648d9a0acdc}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\Shared\MessageConverter.cpp">
+      <Filter>Shared</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Shared\aes\aes.c">
+      <Filter>Shared\aes</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Shared\crc32\crc32.cpp">
+      <Filter>Shared\crc32</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Shared\kcp\ikcp.c">
+      <Filter>Shared\kcp</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="Gui\GuiMain.cpp">
+      <Filter>Gui</Filter>
+    </ClCompile>
+    <ClCompile Include="Service\ServiceMain.cpp">
+      <Filter>Service</Filter>
+    </ClCompile>
+    <ClCompile Include="Gui\UI\AddTransferDlg.cpp">
+      <Filter>Gui\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_AddTransferDlg.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_AddTransferDlg.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="Gui\UI\GuideDlg.cpp">
+      <Filter>Gui\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_GuideDlg.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_GuideDlg.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="Gui\UI\MainDlg.cpp">
+      <Filter>Gui\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_MainDlg.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_MainDlg.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="Gui\UI\TransferManageDlg.cpp">
+      <Filter>Gui\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_TransferManageDlg.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_TransferManageDlg.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="Service\Function\Client.cpp">
+      <Filter>Service\Function</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_Client.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_Client.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="Service\Function\KcpManager.cpp">
+      <Filter>Service\Function</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_KcpManager.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_KcpManager.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="Service\Function\QUpnpPortMapper.cpp">
+      <Filter>Service\Function</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_QUpnpPortMapper.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_QUpnpPortMapper.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="Service\Function\TcpTransfer.cpp">
+      <Filter>Service\Function</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_TcpTransfer.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_TcpTransfer.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="Service\Function\TransferManager.cpp">
+      <Filter>Service\Function</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_TransferManager.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_TransferManager.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\qrc_MainDlg.cpp">
+      <Filter>Generated Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Util\Other.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="Util\Peer.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_BridgeForGui.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_BridgeForGui.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="Gui\BridgeForGui.cpp">
+      <Filter>Gui</Filter>
+    </ClCompile>
+    <ClCompile Include="Service\BridgeForService.cpp">
+      <Filter>Service</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_BridgeForService.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_BridgeForService.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="Gui\FormFiles\AddTransferDlg.ui">
+      <Filter>Gui\FormFiles</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Gui\FormFiles\GuideDlg.ui">
+      <Filter>Gui\FormFiles</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Gui\FormFiles\MainDlg.ui">
+      <Filter>Gui\FormFiles</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Gui\FormFiles\TransferManageDlg.ui">
+      <Filter>Gui\FormFiles</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Gui\UI\AddTransferDlg.h">
+      <Filter>Gui\UI</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Gui\UI\GuideDlg.h">
+      <Filter>Gui\UI</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Gui\UI\MainDlg.h">
+      <Filter>Gui\UI</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Gui\UI\TransferManageDlg.h">
+      <Filter>Gui\UI</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Service\Function\Client.h">
+      <Filter>Service\Function</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Service\Function\KcpManager.h">
+      <Filter>Service\Function</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Service\Function\QUpnpPortMapper.h">
+      <Filter>Service\Function</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Service\Function\TcpTransfer.h">
+      <Filter>Service\Function</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Service\Function\TransferManager.h">
+      <Filter>Service\Function</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Gui\Resources\MainDlg.qrc">
+      <Filter>Gui\Resources</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Gui\BridgeForGui.h">
+      <Filter>Gui</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Service\BridgeForService.h">
+      <Filter>Service</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\Shared\MessageConverter.h">
+      <Filter>Shared</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Shared\aes\aes.h">
+      <Filter>Shared\aes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Shared\crc32\crc32.h">
+      <Filter>Shared\crc32</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Shared\kcp\ikcp.h">
+      <Filter>Shared\kcp</Filter>
+    </ClInclude>
+    <ClInclude Include="GuiMain.h">
+      <Filter>Generated Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Gui\GuiMain.h">
+      <Filter>Gui</Filter>
+    </ClInclude>
+    <ClInclude Include="Service\ServiceMain.h">
+      <Filter>Service</Filter>
+    </ClInclude>
+    <ClInclude Include="GeneratedFiles\ui_AddTransferDlg.h">
+      <Filter>Generated Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GeneratedFiles\ui_GuideDlg.h">
+      <Filter>Generated Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GeneratedFiles\ui_MainDlg.h">
+      <Filter>Generated Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GeneratedFiles\ui_TransferManageDlg.h">
+      <Filter>Generated Files</Filter>
+    </ClInclude>
+    <ClInclude Include="WindowsResources\resource.h">
+      <Filter>WindowsResources</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\Other.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\Peer.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="WindowsResources\Client.rc">
+      <Filter>WindowsResources</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Gui\Resources\WindowsUpdate.txt">
+      <Filter>Gui\Resources</Filter>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="Gui\Resources\refresh.png">
+      <Filter>Gui\Resources</Filter>
+    </Image>
+  </ItemGroup>
+</Project>

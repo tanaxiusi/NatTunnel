@@ -1,7 +1,6 @@
 #include "GuiMain.h"
 #include <QSettings>
 #include <QTextCodec>
-#include <time.h>
 #include "Gui/UI/GuideDlg.h"
 #include "Gui/UI/MainDlg.h"
 
@@ -39,8 +38,6 @@ int GuiMain(int argc, char *argv[])
 	QTextCodec::setCodecForCStrings(QTextCodec::codecForName("utf8"));
 	QTextCodec::setCodecForLocale(QTextCodec::codecForName("utf8"));
 #endif
-
-	srand(time(0));
 
 	if (!showGuideReturnCanContinue())
 		return 0;

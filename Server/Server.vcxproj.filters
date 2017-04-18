@@ -1,0 +1,103 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Generated Files">
+      <UniqueIdentifier>{71ED8ED8-ACB9-4CE9-BBE1-E00B30144E11}</UniqueIdentifier>
+      <Extensions>moc;h;cpp</Extensions>
+      <SourceControlFiles>False</SourceControlFiles>
+    </Filter>
+    <Filter Include="Generated Files\Debug">
+      <UniqueIdentifier>{858a2053-0559-4310-a4e6-18ad581033a1}</UniqueIdentifier>
+      <Extensions>cpp;moc</Extensions>
+      <SourceControlFiles>False</SourceControlFiles>
+    </Filter>
+    <Filter Include="Generated Files\Release">
+      <UniqueIdentifier>{6289e876-a3cb-411f-975e-e120fdfd442b}</UniqueIdentifier>
+      <Extensions>cpp;moc</Extensions>
+      <SourceControlFiles>False</SourceControlFiles>
+    </Filter>
+    <Filter Include="Function">
+      <UniqueIdentifier>{0788aba5-bfe3-4e23-a848-05696f2a750a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Util">
+      <UniqueIdentifier>{f6d396e9-7bbb-4b89-a409-a0973f07258a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shared">
+      <UniqueIdentifier>{27b757d9-5eb0-4042-a49f-b0a3331c8517}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shared\aes">
+      <UniqueIdentifier>{e92e1796-9e1e-4508-a307-65ac99f62dfa}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shared\crc32">
+      <UniqueIdentifier>{80030e7d-7984-4600-9090-814d6e367df8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="WindowsResources">
+      <UniqueIdentifier>{373535ee-a99a-4985-bdc5-98cdfbf29ceb}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Util\Other.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="Util\QStringMap.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="Function\ClientManager.cpp">
+      <Filter>Function</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_ClientManager.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_ClientManager.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="Function\main.cpp">
+      <Filter>Function</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Shared\MessageConverter.cpp">
+      <Filter>Shared</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Shared\aes\aes.c">
+      <Filter>Shared\aes</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Shared\crc32\crc32.cpp">
+      <Filter>Shared\crc32</Filter>
+    </ClCompile>
+    <ClCompile Include="Function\UserContainer.cpp">
+      <Filter>Function</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Util\Other.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\QStringMap.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Shared\MessageConverter.h">
+      <Filter>Shared</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Shared\aes\aes.h">
+      <Filter>Shared\aes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Shared\crc32\crc32.h">
+      <Filter>Shared\crc32</Filter>
+    </ClInclude>
+    <ClInclude Include="Function\UserContainer.h">
+      <Filter>Function</Filter>
+    </ClInclude>
+    <ClInclude Include="WindowsResources\resource.h">
+      <Filter>WindowsResources</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="Function\ClientManager.h">
+      <Filter>Function</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="WindowsResources\Server.rc">
+      <Filter>WindowsResources</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+</Project>

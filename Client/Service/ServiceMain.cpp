@@ -6,6 +6,7 @@
 #include <QTcpServer>
 #include <QCryptographicHash>
 #include <QTextCodec>
+#include <time.h>
 #include "BridgeForService.h"
 
 static QFile g_fileLog;
@@ -124,6 +125,8 @@ int ServiceMain(int argc, char *argv[])
 	QTextCodec::setCodecForLocale(QTextCodec::codecForName("utf8"));
 	qInstallMsgHandler(MyMessageHandler);
 #endif
+
+	srand(time(0));
 
 	QDir::setCurrent(app.applicationDirPath());
 
