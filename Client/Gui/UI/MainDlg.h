@@ -62,4 +62,6 @@ private:
 	QStandardItemModel * m_tableModel;
 
 	BridgeForGui * m_bridge;
+
+	bool m_alwaysUseUpnp;
 };

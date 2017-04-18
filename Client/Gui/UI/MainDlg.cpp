@@ -19,6 +19,7 @@ MainDlg::MainDlg(QWidget *parent)
 	m_labelUpnp = NULL;
 	m_tableModel = NULL;
 	m_bridge = NULL;
+	m_alwaysUseUpnp = false;
 
 	m_labelStatus = new QLabel(U16("未连接"));
 	m_labelNatType = new QLabel(U16(" "));
@@ -87,7 +88,6 @@ void MainDlg::start()
 	const QByteArray serverKey = setting.value("Server/Key").toByteArray();
 	const QHostAddress serverAddress = QHostAddress(setting.value("Server/Address").toString());
 	const int serverPort = setting.value("Server/Port").toInt();
-	const bool disableBinaryCheck = setting.value("Other/DisableBinaryCheck").toBool();
 
 	const QString userName = setting.value("Client/UserName").toString();
 	const QString localPassword = setting.value("Client/LocalPassword", QString::number(rand_u32())).toString();
@@ -99,10 +99,13 @@ void MainDlg::start()
 	}
 
 
-	if(setting.value("Other/ShowTunnelId").toInt() == 1)
+	if(setting.value("Other/ShowTunnelId").toBool())
 		ui.tableView->setColumnHidden(0, false);
-	if (setting.value("Other/ShowAddress").toInt() == 1)
+	if (setting.value("Other/ShowAddress").toBool())
 		ui.tableView->setColumnHidden(2, false);
+
+	const bool disableBinaryCheck = setting.value("Other/DisableBinaryCheck").toBool();
+	m_alwaysUseUpnp = setting.value("Other/AlwaysUseUpnp").toBool();
 
 	ui.editUserName->setText(userName);
 	ui.editLocalPassword->setText(localPassword);
@@ -274,7 +277,9 @@ void MainDlg::onReplyTryTunneling(QString peerUserName, bool canTunnel, bool nee
 		return;
 	}
 
-	m_bridge->slot_readyTunneling(peerUserName, peerLocalPassword, needUpnp);
+	const bool useUpnp = needUpnp || m_alwaysUseUpnp;
+
+	m_bridge->slot_readyTunneling(peerUserName, peerLocalPassword, useUpnp);
 }
 
 void MainDlg::onReplyReadyTunneling(int requestId, int tunnelId, QString peerUserName)

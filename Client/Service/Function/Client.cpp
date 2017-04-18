@@ -19,6 +19,7 @@ Client::Client(QObject *parent)
 	m_serverTcpPort = 0;
 	m_serverUdpPort1 = 0;
 	m_serverUdpPort2 = 0;
+	m_disableBinaryCheck = false;
 	m_status = UnknownClientStatus;
 	m_natStatus = UnknownNatCheckStatus;
 	m_natType = UnknownNatType;
@@ -167,6 +168,7 @@ int Client::readyTunneling(QString peerUserName, QString peerLocalPassword, bool
 	if (!m_running || !checkStatus(LoginedStatus, NatCheckFinished))
 		return 0;
 	int requestId = qrand() * 2;
+	useUpnp &= m_upnpAvailability;
 	// 使用upnp时，requestId为奇数，在返回的时候可以作区分
 	if (useUpnp)
 		requestId++;
@@ -642,12 +644,10 @@ void Client::checkFirewall()
 void Client::addUpnpPortMapping()
 {
 	if (m_udp2UpnpPort == 0)
-	{
-		const quint16 internalPort = m_udpSocket2.localPort();
-		const quint16 externalPort = (rand() & 0x7FFF) + 25000;
-		m_upnpPortMapper.addPortMapping(QAbstractSocket::UdpSocket, m_upnpPortMapper.localAddress(), internalPort, externalPort, "NatTunnelClient");
-		m_udp2UpnpPort = externalPort;
-	}
+		m_udp2UpnpPort = (rand() & 0x7FFF) + 25000;
+	const quint16 internalPort = m_udpSocket2.localPort();
+	const quint16 externalPort = m_udp2UpnpPort;
+	m_upnpPortMapper.addPortMapping(QAbstractSocket::UdpSocket, m_upnpPortMapper.localAddress(), internalPort, externalPort, "NatTunnelClient");
 }
 
 void Client::deleteUpnpPortMapping()
