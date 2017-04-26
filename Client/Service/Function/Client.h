@@ -110,6 +110,7 @@ private slots:
 	void onUdp2ReadyRead();
 	void timerFunction300ms();
 	void timerFunction10s();
+	void timerFunction5m();
 	void onUpnpDiscoverFinished(bool ok);
 	void onUpnpQueryExternalAddressFinished(QHostAddress address, bool ok, QString errorString);
 	void onKcpLowLevelOutput(int tunnelId, QHostAddress hostAddress, quint16 port, QByteArray package);
@@ -143,8 +144,8 @@ private:
 	QHostAddress getLocalAddress();
 	QHostAddress getLocalPublicAddress();
 	void checkFirewall();
-	void addUpnpPortMapping();
-	void deleteUpnpPortMapping();
+	void addUpnpPortMapping(bool deleteOriginal);
+	void deleteUpnpPortMapping(bool clearPort);
 	quint32 getKcpMagicNumber(QString peerUserName);
 	void createKcpConnection(int tunnelId, TunnelInfo & tunnel);
 
@@ -206,6 +207,7 @@ private:
 	QUdpSocket m_udpSocket2;
 	QTimer m_timer300ms;
 	QTimer m_timer10s;
+	QTimer m_timer5m;
 	KcpManager m_kcpManager;
 	QUpnpPortMapper m_upnpPortMapper;
 	TransferManager m_transferManager;

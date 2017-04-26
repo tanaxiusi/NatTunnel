@@ -33,6 +33,7 @@ Client::Client(QObject *parent)
 	m_udpSocket2.setParent(this);
 	m_timer300ms.setParent(this);
 	m_timer10s.setParent(this);
+	m_timer5m.setParent(this);
 	m_kcpManager.setParent(this);
 	m_upnpPortMapper.setParent(this);
 	m_transferManager.setParent(this);
@@ -45,6 +46,7 @@ Client::Client(QObject *parent)
 
 	connect(&m_timer300ms, SIGNAL(timeout()), this, SLOT(timerFunction300ms()));
 	connect(&m_timer10s, SIGNAL(timeout()), this, SLOT(timerFunction10s()));
+	connect(&m_timer5m, SIGNAL(timeout()), this, SLOT(timerFunction5m()));
 
 	connect(&m_upnpPortMapper, SIGNAL(discoverFinished(bool)),
 		this, SLOT(onUpnpDiscoverFinished(bool)));
@@ -64,11 +66,9 @@ Client::Client(QObject *parent)
 	connect(&m_kcpManager, SIGNAL(highLevelOutput(int, QByteArray)), &m_transferManager, SLOT(dataInput(int, QByteArray)));
 	connect(&m_transferManager, SIGNAL(dataOutput(int, QByteArray)), &m_kcpManager, SLOT(highLevelInput(int, QByteArray)));
 
-	m_timer300ms.setParent(this);
 	m_timer300ms.start(300);
-
-	m_timer10s.setParent(this);
 	m_timer10s.start(10 * 1000);
+	m_timer5m.start(5 * 60 * 1000);
 }
 
 Client::~Client()
@@ -172,8 +172,6 @@ int Client::readyTunneling(QString peerUserName, QString peerLocalPassword, bool
 	// 使用upnp时，requestId为奇数，在返回的时候可以作区分
 	if (useUpnp)
 		requestId++;
-	if(useUpnp)
-		addUpnpPortMapping();
 	udpOut_updateAddress();
 	tcpOut_readyTunneling(peerUserName, peerLocalPassword, useUpnp ? m_udp2UpnpPort : 0, requestId);
 	m_waitingRequestId.insert(requestId);
@@ -297,6 +295,17 @@ void Client::timerFunction10s()
 		tcpOut_heartbeat();
 }
 
+void Client::timerFunction5m()
+{
+	if (!m_running)
+		return;
+	if (m_discarded)
+		return;
+	if (m_upnpStatus != UpnpOk)
+		return;
+	addUpnpPortMapping(false);
+}
+
 void Client::onUpnpDiscoverFinished(bool ok)
 {
 	if (ok)
@@ -324,6 +333,9 @@ void Client::onUpnpQueryExternalAddressFinished(QHostAddress address, bool ok, Q
 		{
 			m_upnpStatus = UpnpOk;
 			m_upnpAvailability = true;
+
+			addUpnpPortMapping(true);
+
 			tcpOut_upnpAvailability(m_upnpAvailability);
 			const QHostAddress localPublicAddress = getLocalPublicAddress();
 			if (!localPublicAddress.isNull() && !isSameHostAddress(address, localPublicAddress))
@@ -405,7 +417,7 @@ void Client::clear()
 	m_udpSocket1.close();
 	m_udpSocket2.close();
 
-	deleteUpnpPortMapping();
+	deleteUpnpPortMapping(true);
 
 	m_serverUdpPort1 = 0;
 	m_serverUdpPort2 = 0;
@@ -641,22 +653,25 @@ void Client::checkFirewall()
 		emit warning(U16("当前处于公网环境，但是防火墙可能拦截了本程序"));
 }
 
-void Client::addUpnpPortMapping()
+void Client::addUpnpPortMapping(bool deleteOriginal)
 {
 	if (m_udp2UpnpPort == 0)
 		m_udp2UpnpPort = (rand() & 0x7FFF) + 25000;
 	const quint16 internalPort = m_udpSocket2.localPort();
 	const quint16 externalPort = m_udp2UpnpPort;
-	m_upnpPortMapper.deletePortMapping(QAbstractSocket::UdpSocket, externalPort);
+	if(deleteOriginal)
+		m_upnpPortMapper.deletePortMapping(QAbstractSocket::UdpSocket, externalPort);
 	m_upnpPortMapper.addPortMapping(QAbstractSocket::UdpSocket, m_upnpPortMapper.localAddress(), internalPort, externalPort, "NatTunnelClient");
 }
 
-void Client::deleteUpnpPortMapping()
+void Client::deleteUpnpPortMapping(bool clearPort)
 {
 	if (m_udp2UpnpPort != 0)
 	{
 		const quint16 externalPort = m_udp2UpnpPort;
 		m_upnpPortMapper.deletePortMapping(QAbstractSocket::UdpSocket, externalPort);
+		if (clearPort)
+			m_udp2UpnpPort = 0;
 	}
 }
 
@@ -1000,9 +1015,6 @@ void Client::tcpIn_startTunneling(int tunnelId, QString localPassword, QString p
 		tunnel.localIndex = needUpnp ? 2 : 1;
 
 		createKcpConnection(tunnelId, tunnel);
-
-		if(needUpnp)
-			addUpnpPortMapping();
 
 		udpOut_updateAddress();
 		tcpOut_startTunneling(tunnelId, true, needUpnp ? m_udp2UpnpPort : 0, QString());
