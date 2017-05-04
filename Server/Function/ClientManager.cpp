@@ -380,6 +380,9 @@ bool ClientManager::checkCanTunnel(ClientInfo & localClient, QString peerUserNam
 		*outFailReason = U16("对方还在初始化");
 		return false;
 	}
+
+	const bool isSamePrivateNetwork = (localClient.natType != PublicNetwork && peerClient.natType != PublicNetwork) &&
+		(localClient.gatewayInfo.length() > 0 && localClient.gatewayInfo == peerClient.gatewayInfo);
 	
 	const bool localNatPartlyTypeIs1 = (localClient.natType == PublicNetwork || localClient.natType == FullOrRestrictedConeNat);
 	const bool peerNatPartlyTypeIs1 = (peerClient.natType == PublicNetwork || peerClient.natType == FullOrRestrictedConeNat);
@@ -387,7 +390,10 @@ bool ClientManager::checkCanTunnel(ClientInfo & localClient, QString peerUserNam
 	const bool unneedUpnp = (localNatPartlyTypeIs1 || peerNatPartlyTypeIs1 || (localClient.natType == PortRestrictedConeNat && peerClient.natType == PortRestrictedConeNat));
 	const bool needUpnp = !unneedUpnp;
 
-	if (needUpnp)
+	if (isSamePrivateNetwork)
+	{
+		// 两台机处于同一内网
+	}else if (needUpnp)
 	{
 		if (!localClient.upnpAvailable && !peerClient.upnpAvailable)
 		{
