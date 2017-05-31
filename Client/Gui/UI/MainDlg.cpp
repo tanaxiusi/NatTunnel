@@ -107,13 +107,15 @@ void MainDlg::start()
 	const bool disableBinaryCheck = setting.value("Other/DisableBinaryCheck").toBool();
 	m_alwaysUseUpnp = setting.value("Other/AlwaysUseUpnp").toBool();
 
+	const bool disableUpnpPublicNetworkCheck = setting.value("Other/DisableUpnpPublicNetworkCheck").toBool();
+
 	ui.editUserName->setText(userName);
 	ui.editLocalPassword->setText(localPassword);
 
 	if (disableBinaryCheck)
 		QMessageBox::warning(NULL, U16("警告"), U16("DisableBinaryCheck选项已开启，该功能仅用作测试"));
 
-	m_bridge->slot_setConfig(serverKey, randomIdentifierSuffix, serverAddress, serverPort, disableBinaryCheck);
+	m_bridge->slot_setConfig(serverKey, randomIdentifierSuffix, serverAddress, serverPort, disableBinaryCheck, disableUpnpPublicNetworkCheck);
 	m_bridge->slot_setUserName(userName);
 	m_bridge->slot_start();
 }

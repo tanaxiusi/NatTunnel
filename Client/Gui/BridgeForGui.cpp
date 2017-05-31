@@ -9,7 +9,7 @@
 #include <Windows.h>
 #endif
 
-void BridgeForGui::slot_setConfig(QByteArray globalKey, QString randomIdentifierSuffix, QHostAddress serverHostAddress, quint16 serverTcpPort, bool disableBinaryCheck)
+void BridgeForGui::slot_setConfig(QByteArray globalKey, QString randomIdentifierSuffix, QHostAddress serverHostAddress, quint16 serverTcpPort, bool disableBinaryCheck, bool disableUpnpPublicNetworkCheck)
 {
 	QByteArrayMap argument;
 	argument["globalKey"] = globalKey;
@@ -17,6 +17,7 @@ void BridgeForGui::slot_setConfig(QByteArray globalKey, QString randomIdentifier
 	argument["serverHostAddress"] = serverHostAddress.toString().toUtf8();
 	argument["serverTcpPort"] = QByteArray::number(serverTcpPort);
 	argument["disableBinaryCheck"] = boolToQByteArray(disableBinaryCheck);
+	argument["disableUpnpPublicNetworkCheck"] = boolToQByteArray(disableUpnpPublicNetworkCheck);
 	send("setConfig", argument);
 }
 

@@ -285,6 +285,7 @@ void BridgeForService::onSocketDisconnected()
 	if (iter == m_map.end())
 		return;
 	Client * client = iter.value();
+	client->stop();
 	delete client;
 	m_map.erase(iter);
 
@@ -353,7 +354,7 @@ void BridgeForService::dealIn(QLocalSocket * socket, Client * client, QByteArray
 	if (type == "setConfig")
 		client->setConfig(argument.value("globalKey"), argument.value("randomIdentifierSuffix"),
 			QHostAddress((QString)argument.value("serverHostAddress")), argument.value("serverTcpPort").toInt(),
-			QByteArrayToBool(argument.value("disableBinaryCheck")));
+			QByteArrayToBool(argument.value("disableBinaryCheck")), QByteArrayToBool(argument.value("disableUpnpPublicNetworkCheck")));
 	else if (type == "setUserName")
 	{
 		client->setUserName(argument.value("userName"));

@@ -86,7 +86,7 @@ public:
 	~Client();
 
 public slots:
-	void setConfig(QByteArray globalKey, QString randomIdentifierSuffix, QHostAddress serverHostAddress, quint16 serverTcpPort, bool disableBinaryCheck);
+	void setConfig(QByteArray globalKey, QString randomIdentifierSuffix, QHostAddress serverHostAddress, quint16 serverTcpPort, bool disableBinaryCheck, bool disableUpnpPublicNetworkCheck);
 	void setUserName(QString userName);
 	void setLocalPassword(QString localPassword);
 	bool start();
@@ -223,6 +223,7 @@ private:
 	quint16 m_serverUdpPort1;
 	quint16 m_serverUdpPort2;
 	bool m_disableBinaryCheck;
+	bool m_disableUpnpPublicNetworkCheck;
 
 	ClientStatus m_status;
 	NatCheckStatus m_natStatus;

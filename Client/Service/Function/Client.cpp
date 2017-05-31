@@ -20,6 +20,7 @@ Client::Client(QObject *parent)
 	m_serverUdpPort1 = 0;
 	m_serverUdpPort2 = 0;
 	m_disableBinaryCheck = false;
+	m_disableUpnpPublicNetworkCheck = false;
 	m_status = UnknownClientStatus;
 	m_natStatus = UnknownNatCheckStatus;
 	m_natType = UnknownNatType;
@@ -76,7 +77,7 @@ Client::~Client()
 	stop();
 }
 
-void Client::setConfig(QByteArray globalKey, QString randomIdentifierSuffix, QHostAddress serverHostAddress, quint16 serverTcpPort, bool disableBinaryCheck)
+void Client::setConfig(QByteArray globalKey, QString randomIdentifierSuffix, QHostAddress serverHostAddress, quint16 serverTcpPort, bool disableBinaryCheck, bool disableUpnpPublicNetworkCheck)
 {
 	if (m_running)
 		return;
@@ -87,6 +88,7 @@ void Client::setConfig(QByteArray globalKey, QString randomIdentifierSuffix, QHo
 	m_serverHostAddress = tryConvertToIpv4(serverHostAddress);
 	m_serverTcpPort = serverTcpPort;
 	m_disableBinaryCheck = disableBinaryCheck;
+	m_disableUpnpPublicNetworkCheck = disableUpnpPublicNetworkCheck;
 }
 
 void Client::setUserName(QString userName)
@@ -324,10 +326,13 @@ void Client::onUpnpQueryExternalAddressFinished(QHostAddress address, bool ok, Q
 {
 	if (ok)
 	{
-		if (isNatAddress(address))
+		const bool isPrivateAddress = isNatAddress(address);
+		if(isPrivateAddress)
+			emit warning(U16("Upnp返回的地址 %2 仍然是内网地址").arg(address.toString()));
+		
+		if (isPrivateAddress && !m_disableUpnpPublicNetworkCheck)
 		{
 			m_upnpStatus = UpnpFailed;
-			emit warning(U16("Upnp返回的地址 %2 仍然是内网地址").arg(address.toString()));
 		}
 		else
 		{
@@ -338,7 +343,7 @@ void Client::onUpnpQueryExternalAddressFinished(QHostAddress address, bool ok, Q
 
 			tcpOut_upnpAvailability(m_upnpAvailability);
 			const QHostAddress localPublicAddress = getLocalPublicAddress();
-			if (!localPublicAddress.isNull() && !isSameHostAddress(address, localPublicAddress))
+			if (!isPrivateAddress && !localPublicAddress.isNull() && !isSameHostAddress(address, localPublicAddress))
 				emit warning(U16("服务器端返回的IP地址 %1 和upnp返回的地址 %2 不同").arg(getLocalPublicAddress().toString()).arg(address.toString()));
 		}
 	}
@@ -669,7 +674,7 @@ void Client::deleteUpnpPortMapping(bool clearPort)
 	if (m_udp2UpnpPort != 0)
 	{
 		const quint16 externalPort = m_udp2UpnpPort;
-		m_upnpPortMapper.deletePortMapping(QAbstractSocket::UdpSocket, externalPort);
+		m_upnpPortMapper.deletePortMapping(QAbstractSocket::UdpSocket, externalPort, true);
 		if (clearPort)
 			m_udp2UpnpPort = 0;
 	}
