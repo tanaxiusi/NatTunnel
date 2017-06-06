@@ -14,6 +14,7 @@ MainDlg::MainDlg(QWidget *parent)
 {
 	ui.setupUi(this);
 
+	m_isTrayIconValid = false;
 	m_labelStatus = NULL;
 	m_labelNatType = NULL;
 	m_labelUpnp = NULL;
@@ -48,6 +49,7 @@ MainDlg::MainDlg(QWidget *parent)
 	connect(ui.editLocalPassword, SIGNAL(textChanged(const QString &)), this, SLOT(onEditLocalPasswordChanged()));
 	connect(ui.btnQueryOnlineUser, SIGNAL(clicked()), this, SLOT(onBtnQueryOnlineUser()));
 	connect(ui.btnTunnel, SIGNAL(clicked()), this, SLOT(onBtnTunnel()));
+	connect(&m_trayIcon, SIGNAL(activated(QSystemTrayIcon::ActivationReason)), this, SLOT(onTrayIconActivated(QSystemTrayIcon::ActivationReason)));
 
 	start();
 }
@@ -115,6 +117,11 @@ void MainDlg::start()
 	if (disableBinaryCheck)
 		QMessageBox::warning(NULL, U16("警告"), U16("DisableBinaryCheck选项已开启，该功能仅用作测试"));
 
+	m_trayIcon.setIcon(QIcon(setting.value("Other/TrayIcon", "TrayIcon.png").toString()));
+	m_isTrayIconValid = m_trayIcon.icon().availableSizes().size() > 0;
+	m_trayIcon.setToolTip("NatTunnelClient");
+	m_trayIcon.show();
+
 	m_bridge->slot_setConfig(serverKey, randomIdentifierSuffix, serverAddress, serverPort, disableBinaryCheck, disableUpnpPublicNetworkCheck);
 	m_bridge->slot_setUserName(userName);
 	m_bridge->slot_start();
@@ -133,7 +140,20 @@ void MainDlg::closeEvent(QCloseEvent *event)
 {
 	QSettings setting("NatTunnelClient.ini", QSettings::IniFormat);
 	setting.setValue("Client/LocalPassword", ui.editLocalPassword->text());
+
+	return QMainWindow::closeEvent(event);
 }
+
+void MainDlg::changeEvent(QEvent * event)
+{
+	if (event->type() == QEvent::WindowStateChange && this->isMinimized())
+	{
+		if(m_isTrayIconValid)
+			this->hide();
+	}
+	return QMainWindow::changeEvent(event);
+}
+
 void MainDlg::onConnected()
 {
 	m_labelStatus->setText(U16("正在登录"));
@@ -250,6 +270,25 @@ void MainDlg::onReplyQueryOnlineUser(QStringList onlineUserList)
 
 	ui.comboBoxPeerUserName->setEditText(currentText);
 	ui.btnQueryOnlineUser->setEnabled(true);
+}
+
+void MainDlg::onTrayIconActivated(QSystemTrayIcon::ActivationReason reason)
+{
+	if (reason == QSystemTrayIcon::Trigger)
+	{
+		if (this->isHidden())
+		{
+			this->show();
+			if (this->isMinimized())
+				this->showNormal();
+			this->activateWindow();
+		}
+		else
+		{
+			this->hide();
+		}
+	}
+
 }
 
 void MainDlg::onBtnTunnel()

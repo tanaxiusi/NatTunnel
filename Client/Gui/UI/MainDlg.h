@@ -4,6 +4,7 @@
 #include <QCloseEvent>
 #include <QStandardItemModel>
 #include <QHostAddress>
+#include <QSystemTrayIcon>
 #include "ui_MainDlg.h"
 #include "../BridgeForGui.h"
 
@@ -20,6 +21,7 @@ public:
 
 protected:
 	virtual void closeEvent(QCloseEvent *event);
+	virtual void changeEvent(QEvent * event);
 
 private slots:
 	void onConnected();
@@ -36,6 +38,8 @@ private slots:
 
 	void onBtnQueryOnlineUser();
 	void onReplyQueryOnlineUser(QStringList onlineUserList);
+
+	void onTrayIconActivated(QSystemTrayIcon::ActivationReason reason);
 
 	void onBtnTunnel();
 	void onReplyTryTunneling(QString peerUserName, bool canTunnel, bool needUpnp, QString failReason);
@@ -56,6 +60,11 @@ private:
 
 private:
 	Ui::MainDlgClass ui;
+
+	QSystemTrayIcon m_trayIcon;
+
+	bool m_isTrayIconValid;
+
 	QLabel * m_labelStatus;
 	QLabel * m_labelNatType;
 	QLabel * m_labelUpnp;
