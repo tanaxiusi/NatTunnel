@@ -695,19 +695,13 @@ void ClientManager::tcpIn_checkBinary(QTcpSocket & tcpSocket, ClientInfo & clien
 	{
 		const PlatformBinaryInfo & binaryInfo = m_mapPlatformBinaryInfo[platform];
 		if (binaryChecksum == binaryInfo.checksum)
-		{
 			tcpOut_checkBinary(tcpSocket, client, true, QString());
-		}
 		else
-		{
 			tcpOut_checkBinary(tcpSocket, client, false, platform);
-			discardClient(tcpSocket, client, "binary error");
-		}
 	}
 	else
 	{
 		tcpOut_checkBinary(tcpSocket, client, false, QString());
-		discardClient(tcpSocket, client, "binary error");
 	}
 }
 

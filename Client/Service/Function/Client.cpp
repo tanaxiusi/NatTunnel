@@ -759,7 +759,11 @@ void Client::tcpIn_checkBinary(bool correct, QByteArray compressedBinary)
 	if (correct)
 		tryLogin();
 	else
+	{
+		m_discarded = true;
+		disconnectServer("binary error");
 		emit binaryError(qUncompress(compressedBinary));
+	}
 }
 
 void Client::tcpOut_login(QString identifier, QString userName)
