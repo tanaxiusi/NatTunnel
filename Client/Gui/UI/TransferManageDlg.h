@@ -16,7 +16,7 @@ signals:
 	int wannaDeleteTransfer(int tunnelId, quint16 localPort);
 
 public:
-	TransferManageDlg(QWidget *parent, int tunnelId);
+	TransferManageDlg(QWidget *parent, int tunnelId, QString peerUserName);
 	~TransferManageDlg();
 
 	void init();
@@ -24,6 +24,7 @@ public:
 private slots:
 	void onBtnRefreshIn();
 	void onBtnAddOut();
+	void onBtnSavePreset();
 	void onBtnDeleteTransfer();
 
 	void onGetTransferInList(int bridgeMessageId, QMap<quint16, Peer> transferList);
@@ -36,8 +37,14 @@ private:
 
 private:
 	Ui::TransferManageDlg ui;
+
+	QString m_peerUserName;
+
 	QStandardItemModel * m_modelIn;
 	QStandardItemModel * m_modelOut;
+
+	QMap<quint16, Peer> m_lastTransferInList;
+	QMap<quint16, Peer> m_lastTransferOutList;
 
 	int m_tunnelId;
 

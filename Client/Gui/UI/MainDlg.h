@@ -56,14 +56,14 @@ private:
 	void updateTableRow(int tunnelId, QString peerUserName, QString peerAddress, QString status);
 	void deleteTableRow(int tunnelId);
 
-	void insertTopUserName(QString userName);
+	QString getPeerUserName(int tunnelId);
 
 private:
 	Ui::MainDlgClass ui;
 
 	QSystemTrayIcon m_trayIcon;
 
-	bool m_isTrayIconValid;
+	bool m_trayIconIsValid;
 
 	QLabel * m_labelStatus;
 	QLabel * m_labelNatType;

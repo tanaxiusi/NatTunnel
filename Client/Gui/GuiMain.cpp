@@ -43,6 +43,6 @@ int GuiMain(int argc, char *argv[])
 		return 0;
 
 	MainDlg wnd;
-	wnd.show();
+	//wnd.show();
 	return app.exec();
 }

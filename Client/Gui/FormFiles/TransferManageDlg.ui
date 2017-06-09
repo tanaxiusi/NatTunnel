@@ -105,6 +105,13 @@
           </widget>
          </item>
          <item>
+          <widget class="QPushButton" name="btnSavePreset">
+           <property name="text">
+            <string>保存预设</string>
+           </property>
+          </widget>
+         </item>
+         <item>
           <spacer name="horizontalSpacer_4">
            <property name="orientation">
             <enum>Qt::Horizontal</enum>

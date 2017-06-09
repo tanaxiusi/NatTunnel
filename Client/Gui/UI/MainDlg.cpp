@@ -9,12 +9,17 @@
 #include "GuideDlg.h"
 #include "TransferManageDlg.h"
 
+static const int Column_TunnelId = 0;
+static const int Column_PeerUserName = 1;
+static const int Column_PeerAddress = 2;
+static const int Column_Status = 3;
+
 MainDlg::MainDlg(QWidget *parent)
 	: QMainWindow(parent)
 {
 	ui.setupUi(this);
 
-	m_isTrayIconValid = false;
+	m_trayIconIsValid = false;
 	m_labelStatus = NULL;
 	m_labelNatType = NULL;
 	m_labelUpnp = NULL;
@@ -118,13 +123,18 @@ void MainDlg::start()
 		QMessageBox::warning(NULL, U16("警告"), U16("DisableBinaryCheck选项已开启，该功能仅用作测试"));
 
 	m_trayIcon.setIcon(QIcon(setting.value("Other/TrayIcon", "TrayIcon.png").toString()));
-	m_isTrayIconValid = m_trayIcon.icon().availableSizes().size() > 0;
+	m_trayIconIsValid = m_trayIcon.icon().availableSizes().size() > 0;
 	m_trayIcon.setToolTip("NatTunnelClient");
 	m_trayIcon.show();
 
 	m_bridge->slot_setConfig(serverKey, randomIdentifierSuffix, serverAddress, serverPort, disableBinaryCheck, disableUpnpPublicNetworkCheck);
 	m_bridge->slot_setUserName(userName);
 	m_bridge->slot_start();
+
+	const bool hideAfterStart = setting.value("Other/HideAfterStart").toBool();
+	const bool shouldHide = hideAfterStart && m_trayIconIsValid;
+	if (!shouldHide)
+		this->show();
 }
 
 void MainDlg::stop()
@@ -148,7 +158,7 @@ void MainDlg::changeEvent(QEvent * event)
 {
 	if (event->type() == QEvent::WindowStateChange && this->isMinimized())
 	{
-		if(m_isTrayIconValid)
+		if(m_trayIconIsValid)
 			this->hide();
 	}
 	return QMainWindow::changeEvent(event);
@@ -310,7 +320,6 @@ void MainDlg::onReplyTryTunneling(QString peerUserName, bool canTunnel, bool nee
 		return;
 	}
 
-	insertTopUserName(peerUserName);
 	const QString peerLocalPassword = QInputDialog::getText(this, U16("连接"), U16("输入 %1 的本地密码").arg(peerUserName), QLineEdit::Password);
 	if (peerLocalPassword.isNull())
 	{
@@ -344,6 +353,21 @@ void MainDlg::onTunnelStarted(int tunnelId, QString peerUserName, QHostAddress p
 void MainDlg::onTunnelHandShaked(int tunnelId)
 {
 	updateTableRow(tunnelId, QString(), QString(), U16("连接成功"));
+
+	const QString peerUserName = getPeerUserName(tunnelId);
+	if (peerUserName.isEmpty())
+		return;
+
+	QSettings preset("Preset.ini", QSettings::IniFormat);
+	preset.beginGroup(peerUserName);
+	foreach(QString key, preset.childKeys())
+	{
+		const quint16 localPort = key.toInt();
+		const Peer peer = Peer::fromString(preset.value(key).toString());
+
+		m_bridge->slot_addTransfer(tunnelId, localPort, peer.port, peer.address);
+	}
+	preset.endGroup();
 }
 
 void MainDlg::onTunnelClosed(int tunnelId, QString peerUserName, QString reason)
@@ -374,7 +398,7 @@ void MainDlg::onBtnManageTransfer()
 	if (tunnelId == 0 || peerUserName.isEmpty())
 		return;
 
-	TransferManageDlg dlg(this, tunnelId);
+	TransferManageDlg dlg(this, tunnelId, peerUserName);
 	connect(&dlg, SIGNAL(wannaGetTransferInList(int)), m_bridge, SLOT(slot_getTransferInList(int)));
 	connect(&dlg, SIGNAL(wannaGetTransferOutList(int)), m_bridge, SLOT(slot_getTransferOutList(int)));
 	connect(&dlg, SIGNAL(wannaAddTransfer(int, quint16, quint16, QHostAddress)),
@@ -423,11 +447,11 @@ void MainDlg::updateTableRow(int tunnelId, QString peerUserName, QString peerAdd
 	{
 		const int row = lstItem.at(0)->row();
 		if (!peerUserName.isNull())
-			m_tableModel->item(row, 1)->setText(peerUserName);
+			m_tableModel->item(row, Column_PeerUserName)->setText(peerUserName);
 		if (!peerAddress.isNull())
-			m_tableModel->item(row, 2)->setText(peerAddress);
+			m_tableModel->item(row, Column_PeerAddress)->setText(peerAddress);
 		if (!status.isNull())
-			m_tableModel->item(row, 3)->setText(status);
+			m_tableModel->item(row, Column_Status)->setText(status);
 	}
 }
 
@@ -440,24 +464,12 @@ void MainDlg::deleteTableRow(int tunnelId)
 	m_tableModel->removeRow(lstItem.at(0)->row());
 }
 
-void MainDlg::insertTopUserName(QString userName)
+QString MainDlg::getPeerUserName(int tunnelId)
 {
-	bool noChange = false;
-	for (int i = 0; i < ui.comboBoxPeerUserName->count(); ++i)
-	{
-		if (ui.comboBoxPeerUserName->itemText(i) == userName)
-		{
-			if (i > 0)
-				ui.comboBoxPeerUserName->removeItem(i);
-			else
-				noChange = true;
-			break;
-		}
-	}
-	if (noChange)
-		return;
-	if (ui.comboBoxPeerUserName->count() >= 10)
-		ui.comboBoxPeerUserName->removeItem(ui.comboBoxPeerUserName->count() - 1);
-	ui.comboBoxPeerUserName->insertItem(0, userName);
-	ui.comboBoxPeerUserName->setCurrentIndex(0);
+	const QString key = QString::number(tunnelId);
+	QList<QStandardItem*> lstItem = m_tableModel->findItems(key);
+	if (lstItem.isEmpty())
+		return QString();
+	const int row = lstItem.at(0)->row();
+	return m_tableModel->item(row, Column_PeerUserName)->text();
 }

@@ -1,16 +1,19 @@
 #include "TransferManageDlg.h"
+#include <QSettings>
 #include "Util/Other.h"
 #include "AddTransferDlg.h"
 
-TransferManageDlg::TransferManageDlg(QWidget *parent, int tunnelId)
+TransferManageDlg::TransferManageDlg(QWidget *parent, int tunnelId, QString peerUserName)
 	: QDialog(parent)
 {
 	ui.setupUi(this);
 
 	m_tunnelId = tunnelId;
+	m_peerUserName = peerUserName;
 
 	connect(ui.btnRefreshIn, SIGNAL(clicked()), this, SLOT(onBtnRefreshIn()));
 	connect(ui.btnAddOut, SIGNAL(clicked()), this, SLOT(onBtnAddOut()));
+	connect(ui.btnSavePreset, SIGNAL(clicked()), this, SLOT(onBtnSavePreset()));
 
 	m_modelIn = new QStandardItemModel(ui.tableViewIn);
 	m_modelOut = new QStandardItemModel(ui.tableViewOut);
@@ -48,6 +51,20 @@ void TransferManageDlg::onBtnAddOut()
 	refreshOut();
 }
 
+void TransferManageDlg::onBtnSavePreset()
+{
+	QSettings preset("Preset.ini", QSettings::IniFormat);
+	preset.beginGroup(m_peerUserName);
+
+	foreach(quint16 localPort, m_lastTransferOutList.keys())
+	{
+		const Peer peer = m_lastTransferOutList.value(localPort);
+		preset.setValue(QString::number(localPort), peer.toString());
+	}
+
+	preset.endGroup();
+}
+
 void TransferManageDlg::onBtnDeleteTransfer()
 {
 	QPushButton * btnDeleteTransfer = qobject_cast<QPushButton*>(sender());
@@ -60,6 +77,7 @@ void TransferManageDlg::onBtnDeleteTransfer()
 
 void TransferManageDlg::onGetTransferInList(int bridgeMessageId, QMap<quint16, Peer> transferList)
 {
+	m_lastTransferInList = transferList;
 	m_modelIn->removeRows(0, m_modelIn->rowCount());
 	foreach(quint16 localPort, transferList.keys())
 	{
@@ -73,6 +91,7 @@ void TransferManageDlg::onGetTransferInList(int bridgeMessageId, QMap<quint16, P
 
 void TransferManageDlg::onGetTransferOutList(int bridgeMessageId, QMap<quint16, Peer> transferList)
 {
+	m_lastTransferOutList = transferList;
 	m_modelOut->removeRows(0, m_modelOut->rowCount());
 	foreach(quint16 localPort, transferList.keys())
 	{
