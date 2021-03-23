@@ -1,6 +1,6 @@
 TEMPLATE = app
 TARGET = Client
-VERSION = 2017.6.9.0
+VERSION = 2021.3.24.0
 QT += core network xml gui
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 INCLUDEPATH += . \
